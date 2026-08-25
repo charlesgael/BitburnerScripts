@@ -1,0 +1,392 @@
+import { AppComponentProps, AppDefinition } from "../types";
+import { useQueuedNs } from "../context/ns-queue-context";
+import { useAddChildPid } from "../context/child-pids-context";
+import { theme, wrapText } from "../utils/theme";
+
+/**
+ * Lets the player buy, list, and delete purchased ("cloud") servers.
+ *
+ * This app never references `ns.cloud.*` (or `ns.getServerMoneyAvailable`)
+ * itself — Bitburner charges a script for every ns.* function it merely
+ * *references* anywhere in its reachable code, whether or not that code
+ * path runs, and since this file is always part of ui.app.js's bundle,
+ * writing those here would permanently inflate its footprint (even
+ * getServerMoneyAvailable's mere 0.1GB isn't worth paying for, since the
+ * game's own overview panel already shows current money live). Instead
+ * all of that work happens in three tiny one-shot scripts —
+ * `cloud-list.daemon.ts`, `cloud-buy.daemon.ts`, `cloud-delete.daemon.ts`
+ * — spawned via ns.exec and polled via ns.isRunning, the same pattern
+ * `train.daemon.ts`/`restart.daemon.ts` use. Each daemon writes its result
+ * as JSON to a fixed file, which this app reads back with ns.read (0 GB).
+ * exec/kill/isRunning/getScriptRam/getServerMaxRam/getServerUsedRam are
+ * all already part of ui.app.js's footprint via the Trainer/Programs
+ * apps, so using them here is free.
+ */
+const DAEMON_HOST = "home";
+const LIST_SCRIPT = "cloud-list.daemon.js";
+const LIST_RESULT_FILE = "cloud-list-result.txt";
+const BUY_SCRIPT = "cloud-buy.daemon.js";
+const BUY_RESULT_FILE = "cloud-buy-result.txt";
+const DELETE_SCRIPT = "cloud-delete.daemon.js";
+const DELETE_RESULT_FILE = "cloud-delete-result.txt";
+
+interface ServerRow {
+    hostname: string;
+    ram: number;
+    usedRam: number;
+}
+
+interface ListResult {
+    servers: ServerRow[];
+    moneyAvailable: number;
+    serverLimit: number;
+    ramLimit: number;
+    costByRam: Record<number, number>;
+}
+
+interface ActionResult {
+    ok: boolean;
+    hostname?: string;
+    error?: string;
+}
+
+function formatMoney(n: number): string {
+    return `$${Math.floor(n).toLocaleString()}`;
+}
+
+function CloudServersContent({ React }: AppComponentProps) {
+    const e = React.createElement;
+    const ns = useQueuedNs();
+    const addChildPid = useAddChildPid();
+
+    const [servers, setServers]: [ServerRow[], (v: ServerRow[]) => void] = React.useState([]);
+    const [moneyAvailable, setMoneyAvailable] = React.useState(0);
+    const [serverLimit, setServerLimit] = React.useState(0);
+    const [costByRam, setCostByRam]: [Record<number, number>, (v: Record<number, number>) => void] = React.useState(
+        {}
+    );
+    const [listLoading, setListLoading] = React.useState(true);
+    const [listError, setListError]: [string | null, (v: string | null) => void] = React.useState(null);
+
+    const [buyHostname, setBuyHostname] = React.useState("");
+    const [buyRam, setBuyRam] = React.useState(2);
+    const [buyBusy, setBuyBusy] = React.useState(false);
+    const [buyError, setBuyError]: [string | null, (v: string | null) => void] = React.useState(null);
+
+    const [confirmDeleteHost, setConfirmDeleteHost]: [string | null, (v: string | null) => void] =
+        React.useState(null);
+    const [deleteBusyHost, setDeleteBusyHost]: [string | null, (v: string | null) => void] = React.useState(null);
+    const [deleteError, setDeleteError]: [string | null, (v: string | null) => void] = React.useState(null);
+
+    const [homeRam, setHomeRam] = React.useState({ used: 0, max: 0 });
+    const [daemonRam, setDaemonRam] = React.useState({ list: 0, buy: 0, delete: 0 });
+
+    const busy = listLoading || buyBusy || deleteBusyHost != null;
+    const freeRam = homeRam.max - homeRam.used;
+
+    // Runs one of the three daemons above to completion and returns its
+    // parsed JSON result: exec it, poll isRunning (plain setTimeout, not
+    // ns.sleep — this file's RAM footprint stays at what's listed above),
+    // then read the file it wrote.
+    async function runDaemon(script: string, resultFile: string, args: (string | number)[]) {
+        const pid = await ns.exec(script, DAEMON_HOST, 1, ...args);
+        if (pid === 0) {
+            throw new Error(`Couldn't launch ${script} on ${DAEMON_HOST} — enough free RAM?`);
+        }
+        addChildPid(pid);
+        while (await ns.isRunning(pid)) {
+            await new Promise((resolve) => setTimeout(resolve, 150));
+        }
+        const raw = await ns.read(resultFile);
+        if (!raw) {
+            throw new Error(`${script} produced no output — check its log for errors.`);
+        }
+        return JSON.parse(raw);
+    }
+
+    async function refreshHomeRam() {
+        const [used, max] = await Promise.all([ns.getServerUsedRam(DAEMON_HOST), ns.getServerMaxRam(DAEMON_HOST)]);
+        setHomeRam({ used, max });
+    }
+
+    async function refreshList() {
+        setListLoading(true);
+        setListError(null);
+        try {
+            const result: ListResult = await runDaemon(LIST_SCRIPT, LIST_RESULT_FILE, []);
+            setServers(result.servers);
+            setMoneyAvailable(result.moneyAvailable);
+            setServerLimit(result.serverLimit);
+            setCostByRam(result.costByRam);
+            // Default the RAM picker to the cheapest tier the player can
+            // currently afford, if nothing sensible (or no longer
+            // affordable) is selected.
+            const tiers = Object.keys(result.costByRam)
+                .map(Number)
+                .sort((a, b) => a - b);
+            const affordableTiers = tiers.filter((t) => result.costByRam[t] <= result.moneyAvailable);
+            if (tiers.length > 0 && (!tiers.includes(buyRam) || result.costByRam[buyRam] > result.moneyAvailable)) {
+                setBuyRam(affordableTiers.length > 0 ? affordableTiers[0] : tiers[0]);
+            }
+        } catch (err) {
+            setListError(err instanceof Error ? err.message : String(err));
+        } finally {
+            setListLoading(false);
+        }
+    }
+
+    // This component remounts every time the window is opened — fetch
+    // everything fresh rather than trusting stale state.
+    React.useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            const [listRam, buyRam_, deleteRam] = await Promise.all([
+                ns.getScriptRam(LIST_SCRIPT, DAEMON_HOST),
+                ns.getScriptRam(BUY_SCRIPT, DAEMON_HOST),
+                ns.getScriptRam(DELETE_SCRIPT, DAEMON_HOST),
+            ]);
+            if (cancelled) return;
+            setDaemonRam({ list: listRam, buy: buyRam_, delete: deleteRam });
+        })();
+        void refreshHomeRam();
+        void refreshList();
+        return () => {
+            cancelled = true;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Keep free-RAM current while idle, same reasoning as Trainer/Programs:
+    // another script could eat into it while this window just sits open.
+    React.useEffect(() => {
+        if (busy) return;
+        const interval = setInterval(refreshHomeRam, 3000);
+        return () => clearInterval(interval);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [busy]);
+
+    async function handleBuy() {
+        const hostname = buyHostname.trim();
+        setBuyError(null);
+        if (!hostname) {
+            setBuyError("Enter a hostname.");
+            return;
+        }
+        if (daemonRam.buy > freeRam) {
+            setBuyError(`Not enough free RAM to launch ${BUY_SCRIPT} (needs ${daemonRam.buy.toFixed(2)} GB).`);
+            return;
+        }
+        setBuyBusy(true);
+        try {
+            const result: ActionResult = await runDaemon(BUY_SCRIPT, BUY_RESULT_FILE, [hostname, buyRam]);
+            if (!result.ok) {
+                setBuyError(result.error ?? "Purchase failed.");
+                return;
+            }
+            setBuyHostname("");
+            await refreshList();
+        } catch (err) {
+            setBuyError(err instanceof Error ? err.message : String(err));
+        } finally {
+            setBuyBusy(false);
+            await refreshHomeRam();
+        }
+    }
+
+    function handleDeleteClick(hostname: string) {
+        if (confirmDeleteHost === hostname) {
+            void doDelete(hostname);
+        } else {
+            setConfirmDeleteHost(hostname);
+        }
+    }
+
+    async function doDelete(hostname: string) {
+        setConfirmDeleteHost(null);
+        setDeleteError(null);
+        if (daemonRam.delete > freeRam) {
+            setDeleteError(`Not enough free RAM to launch ${DELETE_SCRIPT} (needs ${daemonRam.delete.toFixed(2)} GB).`);
+            return;
+        }
+        setDeleteBusyHost(hostname);
+        try {
+            const result: ActionResult = await runDaemon(DELETE_SCRIPT, DELETE_RESULT_FILE, [hostname]);
+            if (!result.ok) {
+                setDeleteError(result.error ?? "Delete failed.");
+                return;
+            }
+            await refreshList();
+        } catch (err) {
+            setDeleteError(err instanceof Error ? err.message : String(err));
+        } finally {
+            setDeleteBusyHost(null);
+            await refreshHomeRam();
+        }
+    }
+
+    const ramTiers = Object.keys(costByRam)
+        .map(Number)
+        .sort((a, b) => a - b);
+    const selectedCost = costByRam[buyRam] ?? 0;
+    const atServerLimit = servers.length >= serverLimit && serverLimit > 0;
+    const insufficientMoney = selectedCost > moneyAvailable;
+    const buyDisabled = buyBusy || atServerLimit || insufficientMoney || !buyHostname.trim();
+
+    const fieldStyle = {
+        background: theme.well,
+        color: theme.primary,
+        border: `1px solid ${theme.primary}`,
+        borderRadius: "4px",
+        padding: "4px",
+        fontFamily: "inherit",
+    };
+
+    const buttonStyle = (danger = false) => ({
+        background: danger ? theme.errorDark : theme.button,
+        color: danger ? theme.error : theme.primary,
+        border: `1px solid ${danger ? theme.error : theme.primary}`,
+        borderRadius: "4px",
+        padding: "4px 10px",
+        cursor: "pointer",
+        fontFamily: "inherit",
+        fontSize: "12px",
+    });
+
+    return e(
+        "div",
+        null,
+        e(
+            "div",
+            { style: { display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "10px" } },
+            e("span", null, `Servers: ${servers.length} / ${serverLimit || "?"}`),
+            e(
+                "button",
+                { onClick: () => void refreshList(), disabled: busy, style: buttonStyle() },
+                listLoading ? "..." : "Refresh"
+            )
+        ),
+
+        listError
+            ? e("div", { style: { color: theme.error, fontSize: "11px", marginBottom: "8px", ...wrapText } }, listError)
+            : null,
+
+        // --- Purchased server list ---
+        e(
+            "div",
+            { style: { marginBottom: "14px", maxHeight: "180px", overflowY: "auto" } },
+            servers.length === 0 && !listLoading
+                ? e("div", { style: { fontSize: "12px", opacity: 0.7 } }, "No purchased servers yet.")
+                : servers.map((s: ServerRow) =>
+                      e(
+                          "div",
+                          {
+                              key: s.hostname,
+                              style: {
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  gap: "8px",
+                                  padding: "5px 0",
+                                  borderBottom: `1px solid ${theme.well}`,
+                                  fontSize: "12px",
+                              },
+                          },
+                          e(
+                              "span",
+                              { style: { ...wrapText, flex: 1 } },
+                              `${s.hostname} (${s.usedRam.toFixed(1)} / ${s.ram} GB)`
+                          ),
+                          e(
+                              "button",
+                              {
+                                  onClick: () => handleDeleteClick(s.hostname),
+                                  disabled: busy,
+                                  style: buttonStyle(true),
+                              },
+                              deleteBusyHost === s.hostname
+                                  ? "..."
+                                  : confirmDeleteHost === s.hostname
+                                    ? "Confirm?"
+                                    : "Delete"
+                          )
+                      )
+                  )
+        ),
+
+        deleteError
+            ? e("div", { style: { color: theme.error, fontSize: "11px", marginBottom: "8px", ...wrapText } }, deleteError)
+            : null,
+
+        // --- Buy form ---
+        e(
+            "div",
+            { style: { borderTop: `1px solid ${theme.well}`, paddingTop: "10px" } },
+            e(
+                "label",
+                { style: { display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px", marginBottom: "8px" } },
+                "Hostname",
+                e("input", {
+                    type: "text",
+                    value: buyHostname,
+                    placeholder: "e.g. cloud-1",
+                    disabled: busy || atServerLimit,
+                    onChange: (ev: any) => setBuyHostname(ev.target.value),
+                    style: fieldStyle,
+                })
+            ),
+            e(
+                "label",
+                { style: { display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px", marginBottom: "8px" } },
+                "RAM",
+                e(
+                    "select",
+                    {
+                        value: buyRam,
+                        disabled: busy || atServerLimit || ramTiers.length === 0,
+                        onChange: (ev: any) => setBuyRam(Number(ev.target.value)),
+                        style: fieldStyle,
+                    },
+                    ...ramTiers.map((ram) =>
+                        e(
+                            "option",
+                            { key: ram, value: ram, disabled: costByRam[ram] > moneyAvailable },
+                            `${ram} GB — ${formatMoney(costByRam[ram])}`
+                        )
+                    )
+                )
+            ),
+            atServerLimit
+                ? e(
+                      "div",
+                      { style: { color: theme.error, fontSize: "11px", marginBottom: "8px", ...wrapText } },
+                      `Server limit reached (${serverLimit}). Delete one to buy another.`
+                  )
+                : null,
+            buyError
+                ? e("div", { style: { color: theme.error, fontSize: "11px", marginBottom: "8px", ...wrapText } }, buyError)
+                : null,
+            e(
+                "button",
+                {
+                    onClick: () => void handleBuy(),
+                    disabled: buyDisabled,
+                    title: insufficientMoney ? "Not enough money" : undefined,
+                    style: {
+                        ...buttonStyle(),
+                        width: "100%",
+                        opacity: buyDisabled ? 0.6 : 1,
+                        cursor: buyDisabled ? "default" : "pointer",
+                    },
+                },
+                buyBusy ? "..." : `Buy (${formatMoney(selectedCost)})`
+            )
+        )
+    );
+}
+
+export const CloudServersApp: AppDefinition = {
+    id: "cloud-servers",
+    icon: "🖥️",
+    label: "Cloud Servers",
+    Content: CloudServersContent,
+};
