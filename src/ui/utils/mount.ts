@@ -52,6 +52,27 @@ export async function mountContainer(doc: any, parentId: string, containerId: st
 }
 
 /**
+ * Re-attaches `container` under `parentId` if the game's own React tree
+ * ever tore down and rebuilt the hook it was mounted in — e.g. switching
+ * into/out of Focus on a task can replace `#sidebar-extra-hook-*` with a
+ * fresh element, silently detaching (not destroying) whatever was appended
+ * to the old one. The script keeps running and reserving its RAM either
+ * way — the UI just goes invisible instead of actually stopping — so
+ * without this the only fix is a manual restart.
+ *
+ * Cheap to call every idle tick: `.isConnected` is a plain property read,
+ * not a DOM query, so this only does real work on the rare tick it's
+ * actually needed. Doesn't touch React at all — `container` still holds
+ * its live React tree the whole time it's detached, so simply re-appending
+ * the same node is enough to make it visible again, no re-render needed.
+ */
+export function reattachIfDetached(doc: any, container: any, parentId: string): void {
+    if (!container || container.isConnected) return;
+    const parent = doc.getElementById(parentId);
+    if (parent) parent.appendChild(container);
+}
+
+/**
  * Unmounts the React tree in `container` (if any) and removes it from the
  * DOM. Safe to call multiple times or on an already-detached container.
  */

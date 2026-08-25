@@ -20,7 +20,7 @@
 
 import { NS } from "@ns";
 import { getReactGlobals } from "./ui/utils/react-globals";
-import { mountContainer, unmountContainer } from "./ui/utils/mount";
+import { mountContainer, unmountContainer, reattachIfDetached } from "./ui/utils/mount";
 import { createNsQueue } from "./ui/utils/ns-queue";
 import { createQueuedNs } from "./ui/utils/ns-proxy";
 import { createStatusPanel } from "./ui/components/status-panel";
@@ -99,17 +99,22 @@ export async function main(ns: NS) {
 
     // --- Main loop: drains one queued ns.* call per iteration (see
     // nsQueue above) so only one is ever in flight; when the queue is
-    // empty, it uses the idle time to refresh the overview panel's live
-    // stats (see ui/stats/registry.ts) before falling back to a plain
-    // heartbeat + ns.sleep. overviewStats.refresh takes the real `ns`
-    // directly, not queuedNs — it's called from this same branch, the
-    // sole consumer draining nsQueue, so a *queued* call here would
-    // deadlock waiting on a drain that can't happen until it returns.
+    // empty, it uses the idle time to (1) re-attach the UI if the game's
+    // own React tree tore down and rebuilt the sidebar hooks it lives in
+    // — see reattachIfDetached in ui/utils/mount.ts — and (2) refresh the
+    // overview panel's live stats (see ui/stats/registry.ts), before
+    // falling back to a plain heartbeat + ns.sleep. overviewStats.refresh
+    // takes the real `ns` directly, not queuedNs — it's called from this
+    // same branch, the sole consumer draining nsQueue, so a *queued* call
+    // here would deadlock waiting on a drain that can't happen until it
+    // returns.
     let tick = 0;
     while (state.running) {
         const ranTask = await nsQueue.drain(ns);
         if (!ranTask) {
             tick++;
+            reattachIfDetached(doc, statusContainer, "sidebar-extra-hook-3");
+            reattachIfDetached(doc, gridContainer, "sidebar-extra-hook-0");
             statusPanel.render(`${new Date().toLocaleTimeString()}`);
             await overviewStats.refresh(ns, doc, Date.now());
             await ns.sleep(100);
