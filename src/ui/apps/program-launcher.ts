@@ -122,9 +122,12 @@ export function createProgramLauncherApp(
             }
         }
 
-        // Non-fatal on failure (e.g. not enough free RAM to launch the list
-        // daemon right now) — the compatibility dropdown just won't offer
-        // anything until it succeeds.
+        // Non-fatal on failure (e.g. not enough free RAM on home to launch
+        // the list daemon right now — fetchCloudList itself falls back to a
+        // stale cached list when that happens, see its header comment) —
+        // only goes empty if there's no cached list either, in which case
+        // the compatibility dropdown won't offer anything and the "is this
+        // running on a cloud server" scan below won't find anything either.
         async function refreshCloudServers(): Promise<CloudServerRow[]> {
             try {
                 const result = await fetchCloudList(ns, addChildPid);

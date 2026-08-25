@@ -20,28 +20,37 @@ import { theme, wrapText } from "../utils/theme";
  * Each thread of daemons/share.daemon.js costs a fixed 4GB (1.6GB base + 2.4GB for
  * ns.share()), so "how much RAM to give" and "how many threads to launch
  * with" are really the same picker. Rather than a freeform number input,
- * the amount is chosen from a `<select>` of thread-count tiers (1, 2, 4,
- * 8, ... doubling, plus however many threads currently fit as the last
- * entry) so only amounts that actually fit in free RAM are ever
- * selectable — the same idea as the RAM-tier picker in the Cloud Servers
- * app, but doubling instead of a fixed tier list since thread counts (unlike
- * purchasable server sizes) aren't bounded to a small fixed set. When not
- * even one thread fits, the select and Start button are skipped entirely in
- * favor of a plain explanation of why — there'd be nothing useful to
- * interact with otherwise.
+ * the amount is chosen from a `<select>` of thread-count tiers so only
+ * amounts that actually fit in free RAM are ever selectable — the same idea
+ * as the RAM-tier picker in the Cloud Servers app, but generated instead of
+ * a fixed tier list since thread counts (unlike purchasable server sizes)
+ * aren't bounded to a small fixed set. Pure doubling (1, 2, 4, 8, 16, ...)
+ * was tried first but skips perfectly reasonable in-between amounts — e.g.
+ * 3 threads (12GB, a fine amount to donate to sharing) sits between the 2
+ * and 4 tiers and was never offered — so each doubling is split with its
+ * midpoint (1, 2, 3, 4, 6, 8, 12, 16, 24, 32, ...) instead: still a short
+ * list, but one that lands on "nice" numbers roughly every 50% step rather
+ * than every 100% one. When not even one thread fits, the select and Start
+ * button are skipped entirely in favor of a plain explanation of why —
+ * there'd be nothing useful to interact with otherwise.
  */
 const DAEMON_SCRIPT = "daemons/share.daemon.js";
 const DAEMON_HOST = "home";
 
-/** 1, 2, 4, 8, ... doubling up to (and including) maxThreads itself, so
- * "give everything currently free" is always the last option. Empty if
- * there isn't even enough free RAM for a single thread. */
+/** 1, 2, 3, 4, 6, 8, 12, 16, 24, 32, ... (each doubling split at its
+ * midpoint) up to (and including) maxThreads itself, so "give everything
+ * currently free" is always the last option. Empty if there isn't even
+ * enough free RAM for a single thread. */
 function threadTiers(maxThreads: number): number[] {
     if (maxThreads < 1) return [];
-    const tiers: number[] = [];
-    for (let t = 1; t < maxThreads; t *= 2) tiers.push(t);
+    const tiers: number[] = [1];
+    for (let pow = 2; pow < maxThreads; pow *= 2) {
+        tiers.push(pow);
+        const mid = pow * 1.5;
+        if (mid < maxThreads) tiers.push(mid);
+    }
     tiers.push(maxThreads);
-    return tiers;
+    return Array.from(new Set(tiers)).sort((a, b) => a - b);
 }
 
 function ShareContent({ React }: AppComponentProps) {
