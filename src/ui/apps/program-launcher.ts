@@ -287,8 +287,12 @@ export function createProgramLauncherApp(
         );
 
         const rows = programs.map((program) => {
+            const configuredHost = program.host ?? "home";
             const runningAt = runningHost[program.script];
             const isRunning = runningAt != null;
+            // Running, but not on its configured host — i.e. spawned onto a
+            // cloud server via the "▾" menu below.
+            const isRemote = isRunning && runningAt !== configuredHost;
             const isPending = busy.has(program.script);
             const requiredRam = (scriptRam[program.script] ?? 0) * (program.threads ?? 1);
             const hostRam = ramByHost[program.host ?? "home"] ?? { used: 0, max: 0 };
@@ -442,7 +446,18 @@ export function createProgramLauncherApp(
                         borderBottom: `1px solid ${theme.well}`,
                     },
                 },
-                e("span", null, `${program.label} (${requiredRam.toFixed(2)} GB)`),
+                e(
+                    "span",
+                    { style: { display: "inline-flex", alignItems: "center", gap: "5px" } },
+                    `${program.label} (${requiredRam.toFixed(2)} GB)`,
+                    isRemote
+                        ? e(
+                              "span",
+                              { title: `Running on ${runningAt}`, style: { fontSize: "11px", opacity: 0.85, cursor: "help" } },
+                              "🌐"
+                          )
+                        : null
+                ),
                 e(
                     "div",
                     { style: { display: "flex", gap: "6px" } },
