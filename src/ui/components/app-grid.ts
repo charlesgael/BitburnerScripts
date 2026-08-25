@@ -1,0 +1,240 @@
+import { AppDefinition, ReactGlobals } from "../types";
+import { initNsQueueContext } from "../context/ns-queue-context";
+import { initChildPidsContext } from "../context/child-pids-context";
+import { QueuedNS } from "../utils/ns-proxy";
+import { theme } from "../utils/theme";
+
+interface OpenWindow {
+    id: string;
+    x: number;
+    y: number;
+    z: number;
+}
+
+/**
+ * Small icon launcher grid, meant for a sidebar hook. Clicking an icon opens
+ * that app's content in its own floating window — draggable by its title
+ * bar, closed via its ✕ button or Escape (closes whichever window was last
+ * focused). Multiple windows can be open at once, and none of them block
+ * clicks on the rest of the page — there's no modal backdrop.
+ *
+ * Add more apps by extending `ui/apps/index.ts` — this component doesn't
+ * change.
+ *
+ * Call `destroy()` (e.g. from `ns.atExit`) to remove the listeners this
+ * component registers on `doc` (Escape key, and any in-progress drag).
+ */
+export function createAppGrid(
+    globals: ReactGlobals,
+    container: any,
+    apps: AppDefinition[],
+    queuedNs: QueuedNS,
+    addChildPid: (pid: number) => void
+) {
+    const { React, ReactDOM, doc } = globals;
+
+    // Provides the queued `ns` proxy and the child-pid tracker to every
+    // app's Content component via context, so neither needs to be passed
+    // down as an explicit prop from here.
+    const NsQueueContext = initNsQueueContext(React);
+    const ChildPidsContext = initChildPidsContext(React);
+
+    const state: { windows: OpenWindow[] } = { windows: [] };
+    let focusedId: string | null = null;
+    let nextZ = 0;
+
+    function openApp(id: string) {
+        const existing = state.windows.find((w) => w.id === id);
+        if (existing) {
+            bringToFront(id);
+            return;
+        }
+        // Cascade each new window a bit further down/right than the last,
+        // wrapping so a long session doesn't march windows off-screen.
+        const offset = (state.windows.length % 8) * 28;
+        state.windows.push({ id, x: 80 + offset, y: 80 + offset, z: ++nextZ });
+        focusedId = id;
+        render();
+    }
+
+    function closeApp(id: string) {
+        state.windows = state.windows.filter((w) => w.id !== id);
+        if (focusedId === id) focusedId = null;
+        render();
+    }
+
+    function bringToFront(id: string) {
+        const win = state.windows.find((w) => w.id === id);
+        if (!win) return;
+        win.z = ++nextZ;
+        focusedId = id;
+        render();
+    }
+
+    // --- Dragging: plain mousedown/mousemove/mouseup on `doc`, since a
+    // drag can move the pointer outside the window's own DOM node.
+    let drag: { id: string; startX: number; startY: number; originX: number; originY: number } | null = null;
+
+    function onDragMove(ev: MouseEvent) {
+        if (!drag) return;
+        const win = state.windows.find((w) => w.id === drag!.id);
+        if (!win) return;
+        win.x = Math.max(0, drag.originX + (ev.clientX - drag.startX));
+        win.y = Math.max(0, drag.originY + (ev.clientY - drag.startY));
+        render();
+    }
+
+    function onDragEnd() {
+        drag = null;
+        doc.body.style.userSelect = "";
+        doc.removeEventListener("mousemove", onDragMove);
+        doc.removeEventListener("mouseup", onDragEnd);
+    }
+
+    function startDrag(id: string, ev: any) {
+        bringToFront(id);
+        const win = state.windows.find((w) => w.id === id);
+        if (!win) return;
+        drag = { id, startX: ev.clientX, startY: ev.clientY, originX: win.x, originY: win.y };
+        doc.body.style.userSelect = "none"; // avoid selecting page text while dragging fast
+        doc.addEventListener("mousemove", onDragMove);
+        doc.addEventListener("mouseup", onDragEnd);
+    }
+
+    function onKeyDown(ev: KeyboardEvent) {
+        if (ev.key === "Escape" && focusedId) closeApp(focusedId);
+    }
+    doc.addEventListener("keydown", onKeyDown);
+
+    function render() {
+        const e = React.createElement;
+
+        const icons = apps.map((app) =>
+            e(
+                "button",
+                {
+                    key: app.id,
+                    onClick: () => openApp(app.id),
+                    title: app.label,
+                    style: {
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: "2px",
+                        background: theme.well,
+                        border: `1px solid ${theme.primary}`,
+                        borderRadius: "6px",
+                        color: theme.primary,
+                        fontFamily: "inherit",
+                        cursor: "pointer",
+                        padding: "6px 2px",
+                    },
+                },
+                e("span", { style: { fontSize: "18px", lineHeight: 1 } }, app.icon),
+                e(
+                    "span",
+                    { style: { fontSize: "9px", opacity: 0.85, textAlign: "center" } },
+                    app.label
+                )
+            )
+        );
+
+        const grid = e(
+            "div",
+            {
+                key: "grid",
+                style: {
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(56px, 1fr))",
+                    gap: "8px",
+                    padding: "8px",
+                },
+            },
+            ...icons
+        );
+
+        const windows = state.windows.map((win) => {
+            const app = apps.find((a) => a.id === win.id);
+            if (!app) return null;
+
+            return e(
+                "div",
+                {
+                    key: win.id,
+                    onMouseDown: () => bringToFront(win.id),
+                    style: {
+                        position: "fixed",
+                        left: `${win.x}px`,
+                        top: `${win.y}px`,
+                        zIndex: 20000 + win.z,
+                        background: theme.well,
+                        border: `1px solid ${theme.primary}`,
+                        borderRadius: "8px",
+                        color: theme.primary,
+                        fontFamily: "Consolas, monospace",
+                        minWidth: "280px",
+                        maxWidth: "420px",
+                        boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+                        display: "flex",
+                        flexDirection: "column",
+                    },
+                },
+                e(
+                    "div",
+                    {
+                        // Title bar: drag handle + close button.
+                        onMouseDown: (ev: any) => startDrag(win.id, ev),
+                        style: {
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            padding: "8px 10px",
+                            borderBottom: `1px solid ${theme.primaryDark}`,
+                            cursor: "move",
+                            fontWeight: "bold",
+                            userSelect: "none",
+                        },
+                    },
+                    e("span", null, `${app.icon} ${app.label}`),
+                    e(
+                        "button",
+                        {
+                            // Dragging starts on the title bar's mousedown before
+                            // this click fires — stop it from also being read as
+                            // a drag-start on the ✕ itself.
+                            onMouseDown: (ev: any) => ev.stopPropagation(),
+                            onClick: () => closeApp(win.id),
+                            style: {
+                                background: "transparent",
+                                border: "none",
+                                color: theme.error,
+                                cursor: "pointer",
+                                fontSize: "14px",
+                                fontFamily: "inherit",
+                            },
+                        },
+                        "✕"
+                    )
+                ),
+                e("div", { style: { padding: "12px" } }, e(app.Content, { React }))
+            );
+        });
+
+        ReactDOM.render(
+            e(
+                NsQueueContext.Provider,
+                { value: queuedNs },
+                e(ChildPidsContext.Provider, { value: addChildPid }, grid, ...windows)
+            ),
+            container
+        );
+    }
+
+    function destroy() {
+        doc.removeEventListener("keydown", onKeyDown);
+        doc.removeEventListener("mousemove", onDragMove);
+        doc.removeEventListener("mouseup", onDragEnd);
+    }
+
+    return { render, destroy };
+}
