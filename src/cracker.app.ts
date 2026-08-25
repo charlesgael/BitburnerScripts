@@ -1,4 +1,4 @@
-import { NS } from "@ns";
+import { NS, Server } from "@ns";
 
 class Program {
     constructor(
@@ -19,7 +19,7 @@ export async function main(ns: NS) {
         new Program(`HTTPWorm.exe`, (host) => ns.httpworm(host)),
     ];
     while (true) {
-        const servers = JSON.parse(ns.read(serverFile));
+        const servers: Server[] = JSON.parse(ns.read(serverFile));
         ns.print(`\nReloaded ${serverFile}`);
         const playerSkill = ns.getHackingLevel();
         const ownedPrograms = programs.filter((p) => ns.fileExists(p.filename));
@@ -27,8 +27,16 @@ export async function main(ns: NS) {
         let crackedAny = false;
         for (let server of servers) {
             if (server.hasAdminRights) continue;
-            if (server.requiredHackingSkill > playerSkill) continue;
-            if (server.numOpenPortsRequired > ownedPrograms.length) continue;
+            if (
+                server.requiredHackingSkill &&
+                server.requiredHackingSkill > playerSkill
+            )
+                continue;
+            if (
+                server.numOpenPortsRequired &&
+                server.numOpenPortsRequired > ownedPrograms.length
+            )
+                continue;
 
             ns.print(`\nCracking ${server.hostname}...`);
             ns.print(
