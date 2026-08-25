@@ -11,6 +11,7 @@ import { TrainerApp } from "./trainer";
 const ProgramsApp = createProgramLauncherApp("programs", "Programs", "🚀", [
     { script: "netmapper.app.js", label: "Netmapper" },
     { script: "cracker.app.js", label: "Cracker" },
+    { script: "backdoor.app.js", label: "Backdoor Installer" },
     { script: "flooder.app.js", label: "Flooder" },
     { script: "hacknet.app.js", label: "Hacknet" },
 ]);

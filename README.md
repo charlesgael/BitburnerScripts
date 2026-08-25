@@ -9,6 +9,8 @@ This repository contains scripts I have written while playing the idle hacking g
 
 Application scripts will persistently run in the background and continue operating until terminated.
 
+-   [backdoor.app.ts](src/backdoor.app.ts) - Automatically installs backdoors on servers the player has admin access to, using `known-servers.json.txt`. Requires Source-File 4. Walks the network to each target, connects to it, installs the backdoor, then returns to `home`. Skips `home` and purchased servers, and prints a status table (`free`/`backdoor`) of all rooted servers to the terminal every cycle.
+
 -   [contracts.app.ts](src/contracts.app.ts) - Finds and automatically solves contracts. Uses `known-servers.json.txt`. Update ContractSolvers list in [contracts.lib.ts](#library-scripts) to add new contract solvers.
 
 -   [cracker.app.ts](src/cracker.app.ts) - Automatically cracks servers as cracking requirements are met. Uses `known-servers.json.txt`. Skips servers that cannot be cracked due to low hacking skill, missing port opener programs, or admin access already being available.
