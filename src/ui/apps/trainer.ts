@@ -1,17 +1,20 @@
 import { AppComponentProps, AppDefinition } from "../types";
 import { useQueuedNs } from "../context/ns-queue-context";
 import { useAddChildPid } from "../context/child-pids-context";
+import { useHomeRam } from "../context/home-ram-context";
 import { theme, wrapText } from "../utils/theme";
 
 /**
  * This app is a thin launcher — it never calls ns.singularity.* itself.
- * Training actually happens in `train.daemon.ts`, spawned/killed via
+ * Training actually happens in `daemons/train.daemon.ts`, spawned/killed via
  * ns.exec/ns.kill. See that file for why: universityCourse/gymWorkout/
  * stopAction/isBusy are collectively ~88GB, and Bitburner charges a script
  * for every ns.* function it merely references, reachable or not — calling
  * them directly from here would permanently add that to ui.app.ts's RAM
  * footprint, since it's always running. exec/kill/isRunning/getPlayer/ps
- * cost a few cents on the GB by comparison.
+ * cost a few cents on the GB by comparison. `home`'s used/max RAM comes
+ * from `useHomeRam()` (see `ui/context/home-ram-context.ts`) rather than
+ * this app polling ns.getServerUsedRam/getServerMaxRam on its own timer.
  */
 type StatKey = "hacking" | "charisma" | "strength" | "defense" | "dexterity" | "agility";
 
@@ -24,7 +27,7 @@ const STATS: { key: StatKey; label: string }[] = [
     { key: "agility", label: "Agility" },
 ];
 
-const DAEMON_SCRIPT = "train.daemon.js";
+const DAEMON_SCRIPT = "daemons/train.daemon.js";
 const DAEMON_HOST = "home";
 
 function formatDuration(totalSeconds: number): string {
@@ -52,12 +55,12 @@ function TrainerContent({ React }: AppComponentProps) {
     const [error, setError] = React.useState(null);
     const [sessionStartLevel, setSessionStartLevel] = React.useState(null);
     const [sessionStartTime, setSessionStartTime] = React.useState(null);
-    const [daemonRam, setDaemonRam] = React.useState(0); // GB train.daemon.js needs to run
-    const [homeRam, setHomeRam] = React.useState({ used: 0, max: 0 });
+    const [daemonRam, setDaemonRam] = React.useState(0); // GB daemons/train.daemon.js needs to run
 
+    const homeRam = useHomeRam();
     const training = pid != null;
     const freeRam = homeRam.max - homeRam.used;
-    // train.daemon.js statically references every ns.singularity.* call in
+    // daemons/train.daemon.js statically references every ns.singularity.* call in
     // any of its branches (that's exactly why it's a separate script — see
     // the header comment), so its RAM cost is the same fixed ~88GB no
     // matter which stat/target is picked; this is just "is there enough
@@ -66,7 +69,7 @@ function TrainerContent({ React }: AppComponentProps) {
 
     // This component remounts every time the window is opened. Re-fetch
     // every stat's current level, and check for an already-running
-    // train.daemon.js via ns.ps (cheap) — from a previous open of this
+    // daemons/train.daemon.js via ns.ps (cheap) — from a previous open of this
     // window, or however else it got started — instead of assuming
     // nothing's happening and risking a duplicate launch.
     React.useEffect(() => {
@@ -104,7 +107,7 @@ function TrainerContent({ React }: AppComponentProps) {
         };
     }, []);
 
-    // train.daemon.js's RAM cost is fixed for the life of the file, so this
+    // daemons/train.daemon.js's RAM cost is fixed for the life of the file, so this
     // only needs fetching once.
     React.useEffect(() => {
         let cancelled = false;
@@ -116,25 +119,6 @@ function TrainerContent({ React }: AppComponentProps) {
             cancelled = true;
         };
     }, []);
-
-    // Keep free RAM current while idle, so the Start button (and the
-    // explanation below it) reflect reality even if something else on
-    // `home` starts eating RAM while this window just sits open. No need
-    // once we're training — the daemon is already running by then.
-    React.useEffect(() => {
-        if (training) return;
-        let cancelled = false;
-        async function refresh() {
-            const [used, max] = await Promise.all([ns.getServerUsedRam(DAEMON_HOST), ns.getServerMaxRam(DAEMON_HOST)]);
-            if (!cancelled) setHomeRam({ used, max });
-        }
-        refresh();
-        const interval = setInterval(refresh, 3000);
-        return () => {
-            cancelled = true;
-            clearInterval(interval);
-        };
-    }, [training]);
 
     // While we're tracking a daemon: poll the level, and notice if it
     // exited on its own (target reached, or killed some other way) so the
@@ -331,7 +315,7 @@ function TrainerContent({ React }: AppComponentProps) {
             ? e(
                   "div",
                   { style: { color: theme.error, fontSize: "11px", marginBottom: "6px", ...wrapText } },
-                  `Needs ${daemonRam.toFixed(2)} GB free on ${DAEMON_HOST} to launch train.daemon.js — only ` +
+                  `Needs ${daemonRam.toFixed(2)} GB free on ${DAEMON_HOST} to launch daemons/train.daemon.js — only ` +
                       `${freeRam.toFixed(2)} GB is free. Free up RAM (e.g. stop other scripts) and this ` +
                       `unlocks automatically.`
               )
@@ -341,7 +325,7 @@ function TrainerContent({ React }: AppComponentProps) {
             {
                 onClick: toggleTraining,
                 disabled: busy || insufficientRam,
-                title: insufficientRam ? "Not enough free RAM to launch train.daemon.js" : undefined,
+                title: insufficientRam ? "Not enough free RAM to launch daemons/train.daemon.js" : undefined,
                 style: {
                     width: "100%",
                     background: training ? theme.errorDark : theme.button,

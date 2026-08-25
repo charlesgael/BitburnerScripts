@@ -35,8 +35,8 @@ There are **two separate source trees** — don't confuse them:
 game's NS API moved some functions into namespaces since these files were written. Concretely: `getPurchasedServers`
 /`purchaseServer`/`deleteServer` moved under `ns.cloud.*`; `tail` moved to `ns.ui.openTail`; `CodingContractData` was
 renamed to `CodingContract`. `src.prestige/` has many more instances of this same pattern (old flat Singularity
-calls like `ns.gymWorkout` that now live under `ns.singularity.*`) — see `src/train.daemon.ts` for how one of those
-was actually fixed.
+calls like `ns.gymWorkout` that now live under `ns.singularity.*`) — see `src/daemons/train.daemon.ts` for how one of
+those was actually fixed.
 
 ## The RAM-cost model (read this before adding any `ns.*` call to `ui.app.ts`)
 
@@ -55,7 +55,8 @@ design decisions in this repo:
 - **Consequence**: anything RAM-heavy and only occasionally needed (Singularity actions, `ns.spawn`/`ns.run` for a
   restart button, ...) is split into its own small script, launched on demand via `ns.exec`/`ns.kill` from the
   always-running UI, instead of being referenced directly in `ui.app.ts`'s own reachable code. See
-  `src/train.daemon.ts` and `src/restart.daemon.ts` — both exist purely to keep `ui.app.js`'s own footprint down.
+  `src/daemons/train.daemon.ts` and `src/daemons/restart.daemon.ts` — both exist purely to keep `ui.app.js`'s own
+  footprint down.
 
 ## `ui.app.ts` — the in-game sidebar UI
 
@@ -100,7 +101,12 @@ no "previous sibling" selector to look back at a labeled row from its bar row).
 
 ## Everything else under `src/`
 
-The rest of `src/` — the top-level `*.app.ts` (application scripts), `*.daemon.ts` (hack/grow/weaken loops),
-`*.lib.ts` (shared helpers), `init.ts`/`map.ts`/`servers.ts` (functional scripts), and `src/contracts/` (one file
-per coding-contract solver) — is the original project this repo was built from. See `README.md` for the full script
-list, what each one does, and its CLI arguments; it's accurate for that part of the tree.
+The rest of `src/` — the top-level `*.app.ts` (application scripts), `*.lib.ts` (shared helpers),
+`init.ts`/`map.ts`/`servers.ts` (functional scripts), `src/daemons/` (every `*.daemon.ts` — hack/grow/weaken loops
+plus the one-shot daemons `ui.app.ts`'s apps spawn on demand, e.g. `train.daemon.ts`/`restart.daemon.ts`/
+`cloud-*.daemon.ts`/`share.daemon.ts`/`spawn-remote.daemon.ts`), and `src/contracts/` (one file per coding-contract
+solver) — is the original project this repo was built from. Every daemon deploys to `daemons/<name>.daemon.js` in
+the game (Viteburner mirrors `src/`'s own folder structure minus the `src/` prefix), so any `ns.exec`/`ns.run`/
+`ns.kill`/`ns.isRunning`/`ns.getScriptRam`/`ns.scp` call referencing one by filename must use that
+`daemons/<name>.daemon.js` path, not the bare filename. See `README.md` for the full script list, what each one
+does, and its CLI arguments; it's accurate for that part of the tree.

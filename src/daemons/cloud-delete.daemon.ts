@@ -3,7 +3,7 @@ import { NS } from "@ns";
 /**
  * Deletes one cloud server and writes the outcome as JSON to
  * `cloud-delete-result.txt` on `home`, then exits. Split out of the
- * sidebar app for the same RAM-footprint reason as `cloud-list.daemon.ts`
+ * sidebar app for the same RAM-footprint reason as `daemons/cloud-list.daemon.ts`
  * — see that file's header comment.
  *
  * Args: hostname (string).

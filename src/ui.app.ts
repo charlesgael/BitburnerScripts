@@ -14,6 +14,8 @@
  * `ns.atExit` runs no matter how the script's process ends — falling off
  * the end of main(), a forced `kill`, a script error, or a restart — unlike
  * code placed after the main loop, which only runs on the cooperative path.
+ * `main()` refuses to start at all if another instance is already running
+ * (see the ns.ps check right at its top) — see that check's comment for why.
  *
  * Usage: run with `run ui.app.js`.
  */
@@ -26,9 +28,34 @@ import { createQueuedNs } from "./ui/utils/ns-proxy";
 import { createStatusPanel } from "./ui/components/status-panel";
 import { createAppGrid } from "./ui/components/app-grid";
 import { createOverviewStats } from "./ui/components/overview-stats";
+import { createHomeRamPoller } from "./ui/utils/home-ram-poller";
 import { APPS } from "./ui/apps";
 
+// This file's own deployed name — used below to spot another already-
+// running copy of itself. Hardcoded rather than read via
+// `ns.getScriptName()` since it's a fixed, known value (same reasoning as
+// the hardcoded daemon paths elsewhere in this file).
+const SELF_SCRIPT = "ui.app.js";
+
 export async function main(ns: NS) {
+    // Refuse to start a second instance: this script mounts into the
+    // game's own sidebar hooks and owns the one cleanup path (ns.atExit
+    // below) for tearing them back down. Two instances would double-mount,
+    // race over the same DOM containers, and each try to kill the other's
+    // child scripts. RunOptions.preventDuplicates (see NetscriptDefinitions
+    // .d.ts) can't help here — it only guards a single ns.exec/ns.run call,
+    // not the player running `ui.app.js` again by hand from the terminal —
+    // so this checks ns.ps directly instead. ns.ps is already part of this
+    // file's footprint via the Trainer/Share apps it bundles, so this adds
+    // nothing new on top of that.
+    const others = (ns.ps("home")).filter((p) => p.filename === SELF_SCRIPT && p.pid !== ns.pid);
+    if (others.length > 0) {
+        ns.tprint(
+            `WARNING: ${SELF_SCRIPT} is already running (pid ${others[0].pid}) — not starting a second instance.`
+        );
+        return;
+    }
+
     ns.disableLog("ALL");
 
     const globals = getReactGlobals(ns);
@@ -83,6 +110,9 @@ export async function main(ns: NS) {
     );
     const appGrid = createAppGrid(globals, gridContainer, APPS, queuedNs, addChildPid);
     const overviewStats = createOverviewStats();
+    // Feeds HomeRamContext (see ui/context/home-ram-context.ts) so every
+    // open app window sees home's live RAM without polling for itself.
+    const homeRamPoller = createHomeRamPoller((used, max) => appGrid.setHomeRam(used, max));
 
     // --- The ONE guaranteed cleanup path. ---
     ns.atExit(() => {
@@ -92,6 +122,11 @@ export async function main(ns: NS) {
         appGrid.destroy();
         unmountContainer(ReactDOM, statusContainer);
         unmountContainer(ReactDOM, gridContainer);
+        // overviewStats writes into the game's own #overview-extra-hook-0,
+        // not a container this script created — unmountContainer above
+        // doesn't touch it, so it needs its own explicit clear or the last
+        // stats/bars refresh wrote stay stuck on the overview panel forever.
+        overviewStats.destroy(doc);
     }, "react-ui-template-cleanup");
 
     statusPanel.render("Initializing...");
@@ -101,13 +136,14 @@ export async function main(ns: NS) {
     // nsQueue above) so only one is ever in flight; when the queue is
     // empty, it uses the idle time to (1) re-attach the UI if the game's
     // own React tree tore down and rebuilt the sidebar hooks it lives in
-    // — see reattachIfDetached in ui/utils/mount.ts — and (2) refresh the
-    // overview panel's live stats (see ui/stats/registry.ts), before
-    // falling back to a plain heartbeat + ns.sleep. overviewStats.refresh
-    // takes the real `ns` directly, not queuedNs — it's called from this
-    // same branch, the sole consumer draining nsQueue, so a *queued* call
-    // here would deadlock waiting on a drain that can't happen until it
-    // returns.
+    // — see reattachIfDetached in ui/utils/mount.ts — (2) refresh the
+    // overview panel's live stats (see ui/stats/registry.ts), and (3) poll
+    // home's RAM into HomeRamContext (see ui/utils/home-ram-poller.ts),
+    // before falling back to a plain heartbeat + ns.sleep. Both
+    // overviewStats.refresh and homeRamPoller.refresh take the real `ns`
+    // directly, not queuedNs — they're called from this same branch, the
+    // sole consumer draining nsQueue, so a *queued* call here would
+    // deadlock waiting on a drain that can't happen until it returns.
     let tick = 0;
     while (state.running) {
         const ranTask = await nsQueue.drain(ns);
@@ -117,20 +153,21 @@ export async function main(ns: NS) {
             reattachIfDetached(doc, gridContainer, "sidebar-extra-hook-0");
             statusPanel.render(`${new Date().toLocaleTimeString()}`);
             await overviewStats.refresh(ns, doc, Date.now());
+            await homeRamPoller.refresh(ns, Date.now());
             await ns.sleep(100);
         }
     }
 
-    // Restart: hands off to restart.daemon.ts (waits a couple seconds, then
+    // Restart: hands off to daemons/restart.daemon.ts (waits a couple seconds, then
     // starts a fresh ui.app.js) rather than calling ns.spawn/ns.run here —
     // see that file for why. Called directly on the real `ns`, not through
     // nsQueue, since the loop above — the queue's only consumer — has
     // already stopped. Deliberately not tracked via addChildPid: it needs
     // to outlive this script, which is about to exit right below.
     if (state.restarting) {
-        const pid = ns.exec("restart.daemon.js", "home", 1);
+        const pid = ns.exec("daemons/restart.daemon.js", "home", 1);
         if (pid === 0) {
-            ns.tprint("WARNING: couldn't launch restart.daemon.js (not enough RAM?) — run ui.app.js manually.");
+            ns.tprint("WARNING: couldn't launch daemons/restart.daemon.js (not enough RAM?) — run ui.app.js manually.");
         }
     }
 

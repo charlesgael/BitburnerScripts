@@ -8,7 +8,7 @@ import { QueuedNS } from "./ns-proxy";
  * JSON.parses it.
  *
  * Shared by anything that offloads ns.* calls too RAM-heavy to reference
- * directly from ui.app.ts's own reachable code — see `cloud-list.daemon.ts`
+ * directly from ui.app.ts's own reachable code — see `daemons/cloud-list.daemon.ts`
  * and friends, and the RAM-cost model section in CLAUDE.md, for why. Throws
  * if the script can't be launched, or exits without writing a result.
  */

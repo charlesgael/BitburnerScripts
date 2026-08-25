@@ -3,12 +3,12 @@ import { runDaemon } from "./run-daemon";
 
 /**
  * Shared constants/types/helper for reading purchased-server inventory via
- * `cloud-list.daemon.ts` — used by both the Cloud Servers app (its own
+ * `daemons/cloud-list.daemon.ts` — used by both the Cloud Servers app (its own
  * list) and the Programs app (to offer spawning on a compatible cloud
  * server). Neither references `ns.cloud.*` directly — see
  * `ui/apps/cloud-servers.ts`'s header comment for why.
  */
-export const CLOUD_LIST_SCRIPT = "cloud-list.daemon.js";
+export const CLOUD_LIST_SCRIPT = "daemons/cloud-list.daemon.js";
 export const CLOUD_LIST_RESULT_FILE = "cloud-list-result.txt";
 
 export interface CloudServerRow {
@@ -25,7 +25,7 @@ export interface CloudListResult {
     costByRam: Record<number, number>;
 }
 
-/** Runs `cloud-list.daemon.js` on `host` (default "home") and returns its result. */
+/** Runs `daemons/cloud-list.daemon.js` on `host` (default "home") and returns its result. */
 export async function fetchCloudList(
     ns: QueuedNS,
     addChildPid: (pid: number) => void,

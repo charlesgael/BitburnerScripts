@@ -1,6 +1,7 @@
 import { AppDefinition, ReactGlobals } from "../types";
 import { initNsQueueContext } from "../context/ns-queue-context";
 import { initChildPidsContext } from "../context/child-pids-context";
+import { initHomeRamContext, HomeRam } from "../context/home-ram-context";
 import { QueuedNS } from "../utils/ns-proxy";
 import { theme } from "../utils/theme";
 
@@ -34,13 +35,18 @@ export function createAppGrid(
 ) {
     const { React, ReactDOM, doc } = globals;
 
-    // Provides the queued `ns` proxy and the child-pid tracker to every
-    // app's Content component via context, so neither needs to be passed
-    // down as an explicit prop from here.
+    // Provides the queued `ns` proxy, the child-pid tracker, and `home`'s
+    // live RAM to every app's Content component via context, so none of
+    // them need to be passed down as an explicit prop from here.
     const NsQueueContext = initNsQueueContext(React);
     const ChildPidsContext = initChildPidsContext(React);
+    const HomeRamContext = initHomeRamContext(React);
 
     const state: { windows: OpenWindow[] } = { windows: [] };
+    // Updated by ui.app.ts's main loop via setHomeRam (see
+    // ui/utils/home-ram-poller.ts) — a fresh object each time so
+    // HomeRamContext's consumers see the change.
+    let homeRam: HomeRam = { used: 0, max: 0 };
     let focusedId: string | null = null;
     let nextZ = 0;
 
@@ -74,6 +80,15 @@ export function createAppGrid(
         const win = state.windows.find((w) => w.id === id);
         if (!win) return;
         win.refreshCount++;
+        render();
+    }
+
+    // Called from ui.app.ts's main loop (via ui/utils/home-ram-poller.ts)
+    // whenever `home`'s used/max RAM changes — re-renders with a new
+    // HomeRamContext value, so every open app window reading useHomeRam()
+    // picks it up without polling for itself.
+    function setHomeRam(used: number, max: number) {
+        homeRam = { used, max };
         render();
     }
 
@@ -273,9 +288,13 @@ export function createAppGrid(
                 e(
                     ChildPidsContext.Provider,
                     { value: addChildPid },
-                    e("hr", { className: "MuiDivider-root MuiDivider-fullWidth css-8dakje", style: { margin: "0 -16px" } }),
-                    grid,
-                    ...windows
+                    e(
+                        HomeRamContext.Provider,
+                        { value: homeRam },
+                        e("hr", { className: "MuiDivider-root MuiDivider-fullWidth css-8dakje", style: { margin: "0 -16px" } }),
+                        grid,
+                        ...windows
+                    )
                 )
             ),
             container
@@ -288,5 +307,5 @@ export function createAppGrid(
         doc.removeEventListener("mouseup", onDragEnd);
     }
 
-    return { render, destroy };
+    return { render, destroy, setHomeRam };
 }

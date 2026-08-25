@@ -24,7 +24,12 @@ const REFRESH_INTERVAL_MS = 2000;
  * every ~100ms and most of these stats don't change nearly that often.
  *
  * This builds plain DOM (not React) — it's a single cell it's filling in,
- * not worth a whole extra ReactDOM.render root for.
+ * not worth a whole extra ReactDOM.render root for. Unlike the containers
+ * in `ui/utils/mount.ts`, `#overview-extra-hook-0` isn't a node this
+ * component created — it's the game's own, just borrowed — so on exit call
+ * `destroy(doc)` (from `ns.atExit`, alongside `unmountContainer`) to clear
+ * the lines and inline style back out instead of leaving them behind for
+ * whatever mounts into that hook next (or forever, if nothing does).
  */
 export function createOverviewStats() {
     let lastRefresh = 0;
@@ -86,5 +91,16 @@ export function createOverviewStats() {
         el.replaceChildren(...lines);
     }
 
-    return { refresh };
+    /** Clears the hook back to empty and drops the inline style `refresh`
+     * set on it. Safe to call even if `refresh` never ran (e.g. the
+     * overview panel was collapsed the whole session) or the hook is
+     * currently missing. */
+    function destroy(doc: any) {
+        const el = doc.getElementById(HOOK_ID);
+        if (!el) return;
+        el.replaceChildren();
+        el.style.cssText = "";
+    }
+
+    return { refresh, destroy };
 }

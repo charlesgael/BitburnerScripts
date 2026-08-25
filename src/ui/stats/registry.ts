@@ -11,7 +11,7 @@ import { NS } from "@ns";
  * Bitburner charges a script for every ns.* function its reachable code
  * merely *references*, whether or not that code path ever executes — the
  * same rule that sent Trainer's `ns.singularity.*` calls into their own
- * script (see `train.daemon.ts`). This file is always imported into
+ * script (see `daemons/train.daemon.ts`). This file is always imported into
  * `ui.app.ts`, so every cost documented below is already baked into
  * ui.app.js's fixed footprint the instant a provider is added here,
  * `enabled` or not. To actually not pay for one, delete it from this file

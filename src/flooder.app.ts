@@ -1,9 +1,9 @@
 import { NS, Server } from "@ns";
 
 const threadRam = 1.75; // mem of daemon script
-const hackScript = `hack.daemon.js`;
-const growScript = `grow.daemon.js`;
-const weakenScript = `weaken.daemon.js`;
+const hackScript = `daemons/hack.daemon.js`;
+const growScript = `daemons/grow.daemon.js`;
+const weakenScript = `daemons/weaken.daemon.js`;
 
 class Script {
     constructor(

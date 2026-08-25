@@ -4,7 +4,7 @@ import { NS } from "@ns";
  * Restarts the sidebar UI: waits briefly, then starts a fresh ui.app.js.
  *
  * Split into its own script rather than having ui.app.ts call ns.spawn/
- * ns.run itself — same reasoning as train.daemon.ts: Bitburner charges a
+ * ns.run itself — same reasoning as daemons/train.daemon.ts: Bitburner charges a
  * script for every ns.* function it merely references, whether that code
  * path runs or not, so putting a rarely-used restart call directly in
  * ui.app.ts would permanently add to its RAM footprint since it's always

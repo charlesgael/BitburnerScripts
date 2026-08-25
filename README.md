@@ -26,21 +26,21 @@ Application scripts will persistently run in the background and continue operati
 
 Daemon scripts are application scripts that execute continuous hack, grow, or weaken calls against a hostname, waiting for a delay period between each call. If the delay is -1, the call will be executed once and the script will terminate.
 
--   [hack.daemon.ts](src/hack.daemon.ts) - Executes hack against `HOST` waiting `DELAY` milliseconds between calls.
+-   [hack.daemon.ts](src/daemons/hack.daemon.ts) - Executes hack against `HOST` waiting `DELAY` milliseconds between calls.
 
     -   ```sh
-        $ run hack.daemon.js HOST DELAY
+        $ run daemons/hack.daemon.js HOST DELAY
         ```
 
--   [grow.daemon.ts](src/grow.daemon.ts) - Executes grow against `HOST` waiting `DELAY` milliseconds between calls.
+-   [grow.daemon.ts](src/daemons/grow.daemon.ts) - Executes grow against `HOST` waiting `DELAY` milliseconds between calls.
 
     -   ```sh
-        $ run grow.daemon.js HOST DELAY
+        $ run daemons/grow.daemon.js HOST DELAY
         ```
 
--   [weaken.daemon.ts](src/weaken.daemon.ts) - Executes weaken against `HOST` waiting `DELAY` milliseconds between calls.
+-   [weaken.daemon.ts](src/daemons/weaken.daemon.ts) - Executes weaken against `HOST` waiting `DELAY` milliseconds between calls.
     -   ```sh
-        $ run weaken.daemon.js HOST DELAY
+        $ run daemons/weaken.daemon.js HOST DELAY
         ```
 
 ## Functional Scripts

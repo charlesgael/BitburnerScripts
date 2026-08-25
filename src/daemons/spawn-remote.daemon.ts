@@ -12,7 +12,7 @@ import { NS } from "@ns";
  * which Viteburner deploys scripts to directly — a purchased ("cloud")
  * server never has them until something `ns.scp`'s them over. Split out
  * of the sidebar app for the same RAM-footprint reason as
- * `cloud-list.daemon.ts`: ns.scp (0.6GB) and this script's own copy of
+ * `daemons/cloud-list.daemon.ts`: ns.scp (0.6GB) and this script's own copy of
  * ns.exec (1.3GB) would otherwise permanently inflate ui.app.js.
  *
  * Args: script (string), host (string), threads (number), ...args to pass

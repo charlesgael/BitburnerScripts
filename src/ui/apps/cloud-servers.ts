@@ -1,6 +1,7 @@
 import { AppComponentProps, AppDefinition } from "../types";
 import { useQueuedNs } from "../context/ns-queue-context";
 import { useAddChildPid } from "../context/child-pids-context";
+import { useHomeRam } from "../context/home-ram-context";
 import { theme, wrapText } from "../utils/theme";
 import { runDaemon } from "../utils/run-daemon";
 import { CLOUD_LIST_SCRIPT, CLOUD_LIST_RESULT_FILE, CloudListResult, CloudServerRow } from "../utils/cloud-list";
@@ -16,18 +17,21 @@ import { CLOUD_LIST_SCRIPT, CLOUD_LIST_RESULT_FILE, CloudListResult, CloudServer
  * getServerMoneyAvailable's mere 0.1GB isn't worth paying for, since the
  * game's own overview panel already shows current money live). Instead
  * all of that work happens in three tiny one-shot scripts —
- * `cloud-list.daemon.ts`, `cloud-buy.daemon.ts`, `cloud-delete.daemon.ts`
+ * `daemons/cloud-list.daemon.ts`, `daemons/cloud-buy.daemon.ts`, `daemons/cloud-delete.daemon.ts`
  * — spawned via ns.exec and polled via ns.isRunning, the same pattern
- * `train.daemon.ts`/`restart.daemon.ts` use. Each daemon writes its result
+ * `daemons/train.daemon.ts`/`daemons/restart.daemon.ts` use. Each daemon writes its result
  * as JSON to a fixed file, which this app reads back with ns.read (0 GB).
- * exec/kill/isRunning/getScriptRam/getServerMaxRam/getServerUsedRam are
- * all already part of ui.app.js's footprint via the Trainer/Programs
- * apps, so using them here is free.
+ * exec/kill/isRunning/getScriptRam are all already part of ui.app.js's
+ * footprint via the Trainer/Programs apps, so using them here is free.
+ * `home`'s used/max RAM (used below to gate launching the buy/delete
+ * daemons) comes from `useHomeRam()` (see `ui/context/home-ram-context.ts`)
+ * instead of this app polling ns.getServerUsedRam/getServerMaxRam on its
+ * own timer.
  */
 const DAEMON_HOST = "home";
-const BUY_SCRIPT = "cloud-buy.daemon.js";
+const BUY_SCRIPT = "daemons/cloud-buy.daemon.js";
 const BUY_RESULT_FILE = "cloud-buy-result.txt";
-const DELETE_SCRIPT = "cloud-delete.daemon.js";
+const DELETE_SCRIPT = "daemons/cloud-delete.daemon.js";
 const DELETE_RESULT_FILE = "cloud-delete-result.txt";
 
 interface ActionResult {
@@ -64,16 +68,11 @@ function CloudServersContent({ React }: AppComponentProps) {
     const [deleteBusyHost, setDeleteBusyHost]: [string | null, (v: string | null) => void] = React.useState(null);
     const [deleteError, setDeleteError]: [string | null, (v: string | null) => void] = React.useState(null);
 
-    const [homeRam, setHomeRam] = React.useState({ used: 0, max: 0 });
     const [daemonRam, setDaemonRam] = React.useState({ list: 0, buy: 0, delete: 0 });
 
+    const homeRam = useHomeRam();
     const busy = listLoading || buyBusy || deleteBusyHost != null;
     const freeRam = homeRam.max - homeRam.used;
-
-    async function refreshHomeRam() {
-        const [used, max] = await Promise.all([ns.getServerUsedRam(DAEMON_HOST), ns.getServerMaxRam(DAEMON_HOST)]);
-        setHomeRam({ used, max });
-    }
 
     async function refreshList() {
         setListLoading(true);
@@ -120,22 +119,12 @@ function CloudServersContent({ React }: AppComponentProps) {
             if (cancelled) return;
             setDaemonRam({ list: listRam, buy: buyRam_, delete: deleteRam });
         })();
-        void refreshHomeRam();
         void refreshList();
         return () => {
             cancelled = true;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-
-    // Keep free-RAM current while idle, same reasoning as Trainer/Programs:
-    // another script could eat into it while this window just sits open.
-    React.useEffect(() => {
-        if (busy) return;
-        const interval = setInterval(refreshHomeRam, 3000);
-        return () => clearInterval(interval);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [busy]);
 
     async function handleBuy() {
         const hostname = buyHostname.trim();
@@ -163,8 +152,10 @@ function CloudServersContent({ React }: AppComponentProps) {
         } catch (err) {
             setBuyError(err instanceof Error ? err.message : String(err));
         } finally {
+            // No manual RAM refresh needed: HomeRamContext updates on its
+            // own schedule (see ui/utils/home-ram-poller.ts) regardless of
+            // what this app does.
             setBuyBusy(false);
-            await refreshHomeRam();
         }
     }
 
@@ -196,8 +187,10 @@ function CloudServersContent({ React }: AppComponentProps) {
         } catch (err) {
             setDeleteError(err instanceof Error ? err.message : String(err));
         } finally {
+            // No manual RAM refresh needed: HomeRamContext updates on its
+            // own schedule (see ui/utils/home-ram-poller.ts) regardless of
+            // what this app does.
             setDeleteBusyHost(null);
-            await refreshHomeRam();
         }
     }
 

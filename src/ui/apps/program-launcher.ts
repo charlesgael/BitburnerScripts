@@ -1,6 +1,7 @@
 import { AppComponentProps, AppDefinition } from "../types";
 import { useQueuedNs } from "../context/ns-queue-context";
 import { useAddChildPid } from "../context/child-pids-context";
+import { useHomeRam } from "../context/home-ram-context";
 import { theme, wrapText } from "../utils/theme";
 import { fetchCloudList, CloudServerRow } from "../utils/cloud-list";
 import { spawnRemote } from "../utils/spawn-remote";
@@ -47,16 +48,20 @@ type RamUsage = { used: number; max: number };
  * program's host to cover it. A RAM bar for the primary host (the first
  * program's `host`, or "home") sits above the list as a general "how much
  * room do I have" indicator; the per-program spawn check always uses that
- * specific program's own host, not just the bar's host.
+ * specific program's own host, not just the bar's host. `home`'s entry in
+ * that per-host RAM tracking comes from `useHomeRam()` (see
+ * `ui/context/home-ram-context.ts`) instead of this app polling it on its
+ * own timer — only non-`home` configured hosts (none, as of writing; every
+ * program below defaults to `home`) are still fetched directly.
  *
  * Whenever at least one purchased ("cloud") server has enough free RAM to
  * run a program, its button grows a small "▾" that opens a popup menu
  * listing only those compatible servers — picking one spawns there instead
- * of the program's configured host, via `spawn-remote.daemon.ts` (which
+ * of the program's configured host, via `daemons/spawn-remote.daemon.ts` (which
  * ns.scp's the script over first — unlike `home`, a cloud server never has
  * it already — then execs it there; see that daemon's header comment). If
  * no cloud server qualifies, the button is unchanged. Cloud-server
- * capacity comes from `cloud-list.daemon.js` (via `ui/utils/cloud-list.ts`),
+ * capacity comes from `daemons/cloud-list.daemon.js` (via `ui/utils/cloud-list.ts`),
  * the same mechanism the Cloud Servers app uses, so this file never
  * references `ns.cloud.*` (or `ns.scp`) directly — see those utils' header
  * comments for why. Since a program can now be running on a cloud server
@@ -93,8 +98,10 @@ export function createProgramLauncherApp(
         const [scriptRam, setScriptRam] = React.useState(() =>
             Object.fromEntries(programs.map((p) => [p.script, 0]))
         );
+        // Only non-"home" hosts are tracked here — home's own entry comes
+        // from HomeRamContext (merged into `ramByHost` below) instead.
         const [ramByHost, setRamByHost] = React.useState(() =>
-            Object.fromEntries(hosts.map((h) => [h, { used: 0, max: 0 } as RamUsage]))
+            Object.fromEntries(hosts.filter((h) => h !== "home").map((h) => [h, { used: 0, max: 0 } as RamUsage]))
         );
         const [cloudServers, setCloudServers]: [CloudServerRow[], (v: CloudServerRow[]) => void] = React.useState([]);
         // Which program's cloud-host menu is open, if any — at most one at
@@ -102,8 +109,14 @@ export function createProgramLauncherApp(
         const [openMenuFor, setOpenMenuFor] = React.useState(null as string | null);
         const [error, setError] = React.useState(null as string | null);
 
+        const homeRam = useHomeRam();
+        // What every read below actually uses: `ramByHost` plus home's
+        // live entry from context, so "home" never needs its own poll.
+        const effectiveRamByHost: Record<string, RamUsage> = { ...ramByHost, home: homeRam };
+
         async function refreshRam() {
             for (const host of hosts) {
+                if (host === "home") continue; // covered by HomeRamContext already
                 const [used, max] = await Promise.all([ns.getServerUsedRam(host), ns.getServerMaxRam(host)]);
                 setRamByHost((prev: Record<string, RamUsage>) => ({ ...prev, [host]: { used, max } }));
             }
@@ -191,7 +204,7 @@ export function createProgramLauncherApp(
                     }));
                 } else {
                     const requiredRam = (scriptRam[program.script] ?? 0) * (program.threads ?? 1);
-                    const hostRam = ramByHost[configuredHost] ?? { used: 0, max: 0 };
+                    const hostRam = effectiveRamByHost[configuredHost] ?? { used: 0, max: 0 };
                     const freeRam = hostRam.max - hostRam.used;
                     // Defensive: the button is already disabled in this case,
                     // but don't call exec if RAM ran out between renders.
@@ -243,7 +256,7 @@ export function createProgramLauncherApp(
                 // Unlike `home` (which Viteburner deploys scripts to
                 // directly), a cloud server never has the script on it
                 // already — spawnRemote copies it over (ns.scp) before
-                // exec'ing, both inside spawn-remote.daemon.ts so neither
+                // exec'ing, both inside daemons/spawn-remote.daemon.ts so neither
                 // call's RAM cost lands on ui.app.js. See that daemon's
                 // header comment.
                 const result = await spawnRemote(ns, addChildPid, program.script, host, program.threads ?? 1, args);
@@ -277,7 +290,7 @@ export function createProgramLauncherApp(
             await ns.ui.openTail(program.script, host, ...args);
         }
 
-        const primaryRam = ramByHost[primaryHost] ?? { used: 0, max: 0 };
+        const primaryRam = effectiveRamByHost[primaryHost] ?? { used: 0, max: 0 };
         const primaryPct = primaryRam.max > 0 ? Math.min(100, (primaryRam.used / primaryRam.max) * 100) : 0;
 
         const ramBar = e(
@@ -321,7 +334,7 @@ export function createProgramLauncherApp(
             const isRemote = isRunning && runningAt !== configuredHost;
             const isPending = busy.has(program.script);
             const requiredRam = (scriptRam[program.script] ?? 0) * (program.threads ?? 1);
-            const hostRam = ramByHost[program.host ?? "home"] ?? { used: 0, max: 0 };
+            const hostRam = effectiveRamByHost[program.host ?? "home"] ?? { used: 0, max: 0 };
             const freeRam = hostRam.max - hostRam.used;
             const insufficientRam = !isRunning && requiredRam > freeRam;
             const disabled = isPending || insufficientRam;

@@ -3,7 +3,7 @@ import { NS } from "@ns";
 /**
  * Purchases one cloud server and writes the outcome as JSON to
  * `cloud-buy-result.txt` on `home`, then exits. Split out of the sidebar
- * app for the same RAM-footprint reason as `cloud-list.daemon.ts` — see
+ * app for the same RAM-footprint reason as `daemons/cloud-list.daemon.ts` — see
  * that file's header comment.
  *
  * Args: hostname (string), ram (number, must be a power of 2).

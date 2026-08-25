@@ -39,7 +39,7 @@ export async function main(ns: NS) {
 
     const start = STARTERS[stat];
     if (!start) {
-        ns.tprint(`ERROR: train.daemon.js — unknown stat "${ns.args[0]}"`);
+        ns.tprint(`ERROR: daemons/train.daemon.js — unknown stat "${ns.args[0]}"`);
         return;
     }
 
@@ -53,7 +53,7 @@ export async function main(ns: NS) {
 
     while (ns.getPlayer().skills[stat] < targetLevel) {
         if (!ns.singularity.isBusy() && !start(ns, focus)) {
-            ns.tprint(`ERROR: train.daemon.js — couldn't start training ${stat} (wrong city? need Sector-12).`);
+            ns.tprint(`ERROR: daemons/train.daemon.js — couldn't start training ${stat} (wrong city? need Sector-12).`);
             return;
         }
         await ns.sleep(1000);
