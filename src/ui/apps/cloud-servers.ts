@@ -395,6 +395,6 @@ function CloudServersContent({ React }: AppComponentProps) {
 export const CloudServersApp: AppDefinition = {
     id: "cloud-servers",
     icon: "🖥️",
-    label: "Cloud Servers",
+    label: "Cloud S.",
     Content: CloudServersContent,
 };

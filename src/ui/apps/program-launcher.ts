@@ -22,6 +22,16 @@ export interface ProgramDefinition {
     args?: (string | number | boolean)[];
     /** Thread count to spawn with. Defaults to 1. */
     threads?: number;
+    /** True for a script that runs once and exits on its own (e.g. a report
+     * that just prints to the terminal and returns) rather than looping
+     * forever. Skips the "is it running" detection/polling for this program
+     * entirely, and spawning it never flips its button to "Kill" — it stays
+     * "Spawn" the whole time, since there's nothing worth tracking as
+     * running: by the time a re-render could show "Kill", the script has
+     * likely already exited, and without this flag that stale "Kill" state
+     * would otherwise persist until the window is closed and reopened
+     * (which re-runs the detection effect below). Defaults to false. */
+    oneShot?: boolean;
 }
 
 type RamUsage = { used: number; max: number };
@@ -53,6 +63,11 @@ type RamUsage = { used: number; max: number };
  * instead of its configured host, the "is it running" check also scans
  * every cloud server (not just the configured host) so Kill still works
  * after reopening this window.
+ *
+ * A program marked `oneShot: true` (e.g. a script that just prints a report
+ * and exits) skips all of that "is it running" tracking — see the field's
+ * doc comment on `ProgramDefinition` — so its button always reads "Spawn",
+ * never gets stuck on "Kill" for a process that's actually already gone.
  */
 export function createProgramLauncherApp(
     id: string,
@@ -132,7 +147,10 @@ export function createProgramLauncherApp(
                     }));
 
                     let foundHost: string | null = null;
-                    if (await ns.isRunning(program.script, host, ...args)) {
+                    if (program.oneShot) {
+                        // Never tracked as "running" — see the field's doc
+                        // comment on ProgramDefinition.
+                    } else if (await ns.isRunning(program.script, host, ...args)) {
                         foundHost = host;
                     } else {
                         for (const cs of cloudList) {
@@ -181,10 +199,14 @@ export function createProgramLauncherApp(
 
                     const pid = await ns.exec(program.script, configuredHost, program.threads ?? 1, ...args);
                     if (pid !== 0) {
-                        setRunningHost((prev: Record<string, string | null>) => ({
-                            ...prev,
-                            [program.script]: configuredHost,
-                        }));
+                        // Left null for a one-shot program — see the field's
+                        // doc comment on ProgramDefinition.
+                        if (!program.oneShot) {
+                            setRunningHost((prev: Record<string, string | null>) => ({
+                                ...prev,
+                                [program.script]: configuredHost,
+                            }));
+                        }
                     } else {
                         setError(
                             `Couldn't start ${program.script} on ${configuredHost} — enough free RAM? Already running with different args?`
@@ -226,10 +248,14 @@ export function createProgramLauncherApp(
                 // header comment.
                 const result = await spawnRemote(ns, addChildPid, program.script, host, program.threads ?? 1, args);
                 if (result.ok && result.pid) {
-                    setRunningHost((prev: Record<string, string | null>) => ({
-                        ...prev,
-                        [program.script]: host,
-                    }));
+                    // Left null for a one-shot program — see the field's
+                    // doc comment on ProgramDefinition.
+                    if (!program.oneShot) {
+                        setRunningHost((prev: Record<string, string | null>) => ({
+                            ...prev,
+                            [program.script]: host,
+                        }));
+                    }
                 } else {
                     setError(result.error ?? `Couldn't start ${program.script} on ${host}.`);
                 }
@@ -335,7 +361,15 @@ export function createProgramLauncherApp(
                         fontFamily: "inherit",
                     },
                 },
-                isPending ? "..." : isRunning ? "Kill" : insufficientRam ? "No RAM" : "Spawn"
+                isPending
+                    ? "..."
+                    : isRunning
+                    ? "Kill"
+                    : insufficientRam
+                    ? "No RAM"
+                    : program.oneShot
+                    ? "Run"
+                    : "Spawn"
             );
 
             const menuOpen = openMenuFor === program.script;

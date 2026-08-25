@@ -13,6 +13,7 @@ const ProgramsApp = createProgramLauncherApp("programs", "Programs", "🚀", [
     { script: "netmapper.app.js", label: "Netmapper" },
     { script: "cracker.app.js", label: "Cracker" },
     { script: "backdoor.app.js", label: "Backdoor Installer" },
+    { script: "backdoor.lite.app.js", label: "List Backdoors", oneShot: true },
     { script: "flooder.app.js", label: "Flooder" },
     { script: "hacknet.app.js", label: "Hacknet" },
 ]);
