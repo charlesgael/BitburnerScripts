@@ -52,7 +52,7 @@ export function createAppGrid(
         // Cascade each new window a bit further down/right than the last,
         // wrapping so a long session doesn't march windows off-screen.
         const offset = (state.windows.length % 8) * 28;
-        state.windows.push({ id, x: 80 + offset, y: 80 + offset, z: ++nextZ });
+        state.windows.push({ id, x: 280 + offset, y: 80 + offset, z: ++nextZ });
         focusedId = id;
         render();
     }

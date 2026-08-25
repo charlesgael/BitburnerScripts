@@ -93,10 +93,30 @@ export async function main(ns: NS) {
     let nextBankIndex = 0;
 
     while (true) {
+        // Ground truth for which hosts are cloud servers, straight from the
+        // Cloud API rather than relying on known-servers.json.txt's cached
+        // `purchasedByPlayer` flag (which could be stale, or wrong for a
+        // server bought/deleted since netmapper.app.ts last wrote the
+        // file) — re-fetched every cycle since the player can buy/delete
+        // cloud servers at any time. Purged from `bots`/`flooded`/
+        // `weakeningHosts` too, so a cloud server that slipped in before
+        // this check existed (or got reclassified) stops being touched
+        // instead of only blocking *new* additions.
+        const cloudHostnames = new Set(ns.cloud.getServerNames());
+        for (const list of [flooded, bots]) {
+            for (let i = list.length - 1; i >= 0; i--) {
+                if (cloudHostnames.has(list[i].hostname)) list.splice(i, 1);
+            }
+        }
+        for (let i = weakeningHosts.length - 1; i >= 0; i--) {
+            if (cloudHostnames.has(weakeningHosts[i])) weakeningHosts.splice(i, 1);
+        }
+
         const servers: Server[] = JSON.parse(ns.read(serverFile)).filter(
             (s: Server) =>
                 s.hasAdminRights &&
                 s.hostname !== `home` &&
+                !cloudHostnames.has(s.hostname) && // never bot/target the player's own purchased ("cloud") servers
                 flooded.findIndex((s2) => s2.hostname === s.hostname) < 0 &&
                 bots.findIndex((s2) => s2.hostname === s.hostname) < 0
         );

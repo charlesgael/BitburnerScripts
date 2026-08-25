@@ -2,6 +2,8 @@ import { AppComponentProps, AppDefinition } from "../types";
 import { useQueuedNs } from "../context/ns-queue-context";
 import { useAddChildPid } from "../context/child-pids-context";
 import { theme, wrapText } from "../utils/theme";
+import { runDaemon } from "../utils/run-daemon";
+import { CLOUD_LIST_SCRIPT, CLOUD_LIST_RESULT_FILE, CloudListResult, CloudServerRow } from "../utils/cloud-list";
 
 /**
  * Lets the player buy, list, and delete purchased ("cloud") servers.
@@ -23,26 +25,10 @@ import { theme, wrapText } from "../utils/theme";
  * apps, so using them here is free.
  */
 const DAEMON_HOST = "home";
-const LIST_SCRIPT = "cloud-list.daemon.js";
-const LIST_RESULT_FILE = "cloud-list-result.txt";
 const BUY_SCRIPT = "cloud-buy.daemon.js";
 const BUY_RESULT_FILE = "cloud-buy-result.txt";
 const DELETE_SCRIPT = "cloud-delete.daemon.js";
 const DELETE_RESULT_FILE = "cloud-delete-result.txt";
-
-interface ServerRow {
-    hostname: string;
-    ram: number;
-    usedRam: number;
-}
-
-interface ListResult {
-    servers: ServerRow[];
-    moneyAvailable: number;
-    serverLimit: number;
-    ramLimit: number;
-    costByRam: Record<number, number>;
-}
 
 interface ActionResult {
     ok: boolean;
@@ -59,7 +45,7 @@ function CloudServersContent({ React }: AppComponentProps) {
     const ns = useQueuedNs();
     const addChildPid = useAddChildPid();
 
-    const [servers, setServers]: [ServerRow[], (v: ServerRow[]) => void] = React.useState([]);
+    const [servers, setServers]: [CloudServerRow[], (v: CloudServerRow[]) => void] = React.useState([]);
     const [moneyAvailable, setMoneyAvailable] = React.useState(0);
     const [serverLimit, setServerLimit] = React.useState(0);
     const [costByRam, setCostByRam]: [Record<number, number>, (v: Record<number, number>) => void] = React.useState(
@@ -84,26 +70,6 @@ function CloudServersContent({ React }: AppComponentProps) {
     const busy = listLoading || buyBusy || deleteBusyHost != null;
     const freeRam = homeRam.max - homeRam.used;
 
-    // Runs one of the three daemons above to completion and returns its
-    // parsed JSON result: exec it, poll isRunning (plain setTimeout, not
-    // ns.sleep — this file's RAM footprint stays at what's listed above),
-    // then read the file it wrote.
-    async function runDaemon(script: string, resultFile: string, args: (string | number)[]) {
-        const pid = await ns.exec(script, DAEMON_HOST, 1, ...args);
-        if (pid === 0) {
-            throw new Error(`Couldn't launch ${script} on ${DAEMON_HOST} — enough free RAM?`);
-        }
-        addChildPid(pid);
-        while (await ns.isRunning(pid)) {
-            await new Promise((resolve) => setTimeout(resolve, 150));
-        }
-        const raw = await ns.read(resultFile);
-        if (!raw) {
-            throw new Error(`${script} produced no output — check its log for errors.`);
-        }
-        return JSON.parse(raw);
-    }
-
     async function refreshHomeRam() {
         const [used, max] = await Promise.all([ns.getServerUsedRam(DAEMON_HOST), ns.getServerMaxRam(DAEMON_HOST)]);
         setHomeRam({ used, max });
@@ -113,7 +79,13 @@ function CloudServersContent({ React }: AppComponentProps) {
         setListLoading(true);
         setListError(null);
         try {
-            const result: ListResult = await runDaemon(LIST_SCRIPT, LIST_RESULT_FILE, []);
+            const result: CloudListResult = await runDaemon(
+                ns,
+                addChildPid,
+                CLOUD_LIST_SCRIPT,
+                DAEMON_HOST,
+                CLOUD_LIST_RESULT_FILE
+            );
             setServers(result.servers);
             setMoneyAvailable(result.moneyAvailable);
             setServerLimit(result.serverLimit);
@@ -141,7 +113,7 @@ function CloudServersContent({ React }: AppComponentProps) {
         let cancelled = false;
         (async () => {
             const [listRam, buyRam_, deleteRam] = await Promise.all([
-                ns.getScriptRam(LIST_SCRIPT, DAEMON_HOST),
+                ns.getScriptRam(CLOUD_LIST_SCRIPT, DAEMON_HOST),
                 ns.getScriptRam(BUY_SCRIPT, DAEMON_HOST),
                 ns.getScriptRam(DELETE_SCRIPT, DAEMON_HOST),
             ]);
@@ -178,7 +150,10 @@ function CloudServersContent({ React }: AppComponentProps) {
         }
         setBuyBusy(true);
         try {
-            const result: ActionResult = await runDaemon(BUY_SCRIPT, BUY_RESULT_FILE, [hostname, buyRam]);
+            const result: ActionResult = await runDaemon(ns, addChildPid, BUY_SCRIPT, DAEMON_HOST, BUY_RESULT_FILE, [
+                hostname,
+                buyRam,
+            ]);
             if (!result.ok) {
                 setBuyError(result.error ?? "Purchase failed.");
                 return;
@@ -210,7 +185,9 @@ function CloudServersContent({ React }: AppComponentProps) {
         }
         setDeleteBusyHost(hostname);
         try {
-            const result: ActionResult = await runDaemon(DELETE_SCRIPT, DELETE_RESULT_FILE, [hostname]);
+            const result: ActionResult = await runDaemon(ns, addChildPid, DELETE_SCRIPT, DAEMON_HOST, DELETE_RESULT_FILE, [
+                hostname,
+            ]);
             if (!result.ok) {
                 setDeleteError(result.error ?? "Delete failed.");
                 return;
@@ -276,41 +253,72 @@ function CloudServersContent({ React }: AppComponentProps) {
             { style: { marginBottom: "14px", maxHeight: "180px", overflowY: "auto" } },
             servers.length === 0 && !listLoading
                 ? e("div", { style: { fontSize: "12px", opacity: 0.7 } }, "No purchased servers yet.")
-                : servers.map((s: ServerRow) =>
-                      e(
+                : servers.map((s: CloudServerRow) => {
+                      const usedPct = s.ram > 0 ? Math.min(100, (s.usedRam / s.ram) * 100) : 0;
+                      return e(
                           "div",
                           {
                               key: s.hostname,
                               style: {
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                  alignItems: "center",
-                                  gap: "8px",
                                   padding: "5px 0",
                                   borderBottom: `1px solid ${theme.well}`,
                                   fontSize: "12px",
                               },
                           },
                           e(
-                              "span",
-                              { style: { ...wrapText, flex: 1 } },
-                              `${s.hostname} (${s.usedRam.toFixed(1)} / ${s.ram} GB)`
-                          ),
-                          e(
-                              "button",
+                              "div",
                               {
-                                  onClick: () => handleDeleteClick(s.hostname),
-                                  disabled: busy,
-                                  style: buttonStyle(true),
+                                  style: {
+                                      display: "flex",
+                                      justifyContent: "space-between",
+                                      alignItems: "center",
+                                      gap: "8px",
+                                      marginBottom: "4px",
+                                  },
                               },
-                              deleteBusyHost === s.hostname
-                                  ? "..."
-                                  : confirmDeleteHost === s.hostname
-                                    ? "Confirm?"
-                                    : "Delete"
+                              e(
+                                  "span",
+                                  { style: { ...wrapText, flex: 1 } },
+                                  `${s.hostname} (${s.usedRam.toFixed(1)} / ${s.ram} GB)`
+                              ),
+                              e(
+                                  "button",
+                                  {
+                                      onClick: () => handleDeleteClick(s.hostname),
+                                      disabled: busy,
+                                      style: buttonStyle(true),
+                                  },
+                                  deleteBusyHost === s.hostname
+                                      ? "..."
+                                      : confirmDeleteHost === s.hostname
+                                        ? "Confirm?"
+                                        : "Delete"
+                              )
+                          ),
+                          // Thin per-server RAM usage bar.
+                          e(
+                              "div",
+                              {
+                                  style: {
+                                      position: "relative",
+                                      height: "3px",
+                                      borderRadius: "2px",
+                                      background: theme.well,
+                                      overflow: "hidden",
+                                  },
+                              },
+                              e("div", {
+                                  style: {
+                                      position: "absolute",
+                                      inset: 0,
+                                      width: `${usedPct}%`,
+                                      background: usedPct > 90 ? theme.error : theme.primary,
+                                      transition: "width 0.2s ease",
+                                  },
+                              })
                           )
-                      )
-                  )
+                      );
+                  })
         ),
 
         deleteError
