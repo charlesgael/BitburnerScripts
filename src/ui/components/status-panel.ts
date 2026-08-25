@@ -27,6 +27,7 @@ export function createStatusPanel(
             e(
                 "div",
                 { style: { padding: "0 16px" } },
+                e("hr", { className: "MuiDivider-root MuiDivider-fullWidth css-8dakje", style: { margin: "0 -16px 8px" } }),
                 e("div", { style: { marginBottom: "8px", fontWeight: "bold" } }, "Bitburner UI"),
                 e("div", { style: { marginBottom: "10px", opacity: 0.85 } }, statusText ?? "Running..."),
                 e(

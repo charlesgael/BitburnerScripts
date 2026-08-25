@@ -226,7 +226,13 @@ export function createAppGrid(
             e(
                 NsQueueContext.Provider,
                 { value: queuedNs },
-                e(ChildPidsContext.Provider, { value: addChildPid }, grid, ...windows)
+                e(
+                    ChildPidsContext.Provider,
+                    { value: addChildPid },
+                    e("hr", { className: "MuiDivider-root MuiDivider-fullWidth css-8dakje", style: { margin: "0 -16px" } }),
+                    grid,
+                    ...windows
+                )
             ),
             container
         );
