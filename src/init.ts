@@ -10,11 +10,7 @@ class Script {
 
 export async function main(ns: NS) {
     const scripts = [
-        new Script(`hacknet.app.js`),
-        new Script(`netmapper.app.js`, [], true),
-        new Script(`cracker.app.js`, [], true),
-        new Script(`flooder.app.js`),
-        new Script(`contracts.app.js`, [], true),
+        new Script(`style.app.js`),
     ];
 
     const host = ns.getHostname();

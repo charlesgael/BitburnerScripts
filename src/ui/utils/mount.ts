@@ -1,10 +1,42 @@
 /**
- * Creates a fresh container div with a fixed `containerId`, appended to
- * `parentId`. Fixed (not tied to pid) so that if a previous run of this
- * exact script was force-killed and left its node behind, this finds and
- * removes it first instead of accumulating orphans on every restart.
+ * Resolves once `doc.getElementById(id)` finds something, polling instead
+ * of assuming it's already there. The sidebar/overview hooks this UI mounts
+ * into are painted by the game's own React tree, which isn't guaranteed to
+ * have rendered them yet the instant this script starts running — without
+ * this, `mountContainer` could try to `appendChild` onto `null` on a slow
+ * load and crash on startup.
+ *
+ * Plain `setTimeout` polling, not `ns.sleep` — this isn't an ns.* call, so
+ * it doesn't need to go through the queue (see `ns-queue.ts`) and costs no
+ * RAM either way.
  */
-export function mountContainer(doc: any, parentId: string, containerId: string): any {
+export function waitForElement(doc: any, id: string, timeoutMs = 10000, intervalMs = 50): Promise<any> {
+    return new Promise((resolve, reject) => {
+        const start = Date.now();
+        function check() {
+            const el = doc.getElementById(id);
+            if (el) {
+                resolve(el);
+                return;
+            }
+            if (Date.now() - start >= timeoutMs) {
+                reject(new Error(`waitForElement: #${id} never appeared within ${timeoutMs}ms`));
+                return;
+            }
+            setTimeout(check, intervalMs);
+        }
+        check();
+    });
+}
+
+/**
+ * Creates a fresh container div with a fixed `containerId`, appended to
+ * `parentId` (waiting for it to exist first — see `waitForElement`). Fixed
+ * (not tied to pid) so that if a previous run of this exact script was
+ * force-killed and left its node behind, this finds and removes it first
+ * instead of accumulating orphans on every restart.
+ */
+export async function mountContainer(doc: any, parentId: string, containerId: string): Promise<any> {
     const orphan = doc.getElementById(containerId);
     if (orphan && orphan.parentNode) {
         orphan.parentNode.removeChild(orphan);
@@ -13,7 +45,7 @@ export function mountContainer(doc: any, parentId: string, containerId: string):
     const container = doc.createElement("div");
     container.id = containerId;
 
-    const parent = doc.getElementById(parentId);
+    const parent = await waitForElement(doc, parentId);
     parent.appendChild(container);
 
     return container;

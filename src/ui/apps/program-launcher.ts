@@ -142,6 +142,12 @@ export function createProgramLauncherApp(
             }
         }
 
+        async function openLog(program: ProgramDefinition) {
+            const host = program.host ?? "home";
+            const args = program.args ?? [];
+            await ns.ui.openTail(program.script, host, ...args);
+        }
+
         const primaryRam = ramByHost[primaryHost] ?? { used: 0, max: 0 };
         const primaryPct = primaryRam.max > 0 ? Math.min(100, (primaryRam.used / primaryRam.max) * 100) : 0;
 
@@ -201,24 +207,47 @@ export function createProgramLauncherApp(
                 },
                 e("span", null, `${program.label} (${requiredRam.toFixed(2)} GB)`),
                 e(
-                    "button",
-                    {
-                        onClick: () => toggle(program),
-                        disabled,
-                        title: insufficientRam ? "Not enough free RAM" : undefined,
-                        style: {
-                            minWidth: "60px",
-                            background: isRunning ? theme.errorDark : theme.button,
-                            color: isRunning ? theme.error : theme.primary,
-                            border: `1px solid ${isRunning ? theme.error : theme.primary}`,
-                            borderRadius: "4px",
-                            padding: "4px 10px",
-                            cursor: disabled ? "default" : "pointer",
-                            opacity: disabled ? 0.6 : 1,
-                            fontFamily: "inherit",
+                    "div",
+                    { style: { display: "flex", gap: "6px" } },
+                    isRunning
+                        ? e(
+                              "button",
+                              {
+                                  onClick: () => openLog(program),
+                                  title: "Open this program's log window",
+                                  style: {
+                                      background: theme.button,
+                                      color: theme.primary,
+                                      border: `1px solid ${theme.primary}`,
+                                      borderRadius: "4px",
+                                      padding: "4px 10px",
+                                      cursor: "pointer",
+                                      fontFamily: "inherit",
+                                  },
+                              },
+                              "📃"
+                          )
+                        : null,
+                    e(
+                        "button",
+                        {
+                            onClick: () => toggle(program),
+                            disabled,
+                            title: insufficientRam ? "Not enough free RAM" : undefined,
+                            style: {
+                                minWidth: "60px",
+                                background: isRunning ? theme.errorDark : theme.button,
+                                color: isRunning ? theme.error : theme.primary,
+                                border: `1px solid ${isRunning ? theme.error : theme.primary}`,
+                                borderRadius: "4px",
+                                padding: "4px 10px",
+                                cursor: disabled ? "default" : "pointer",
+                                opacity: disabled ? 0.6 : 1,
+                                fontFamily: "inherit",
+                            },
                         },
-                    },
-                    isPending ? "..." : isRunning ? "Kill" : insufficientRam ? "No RAM" : "Spawn"
+                        isPending ? "..." : isRunning ? "Kill" : insufficientRam ? "No RAM" : "Spawn"
+                    )
                 )
             );
         });

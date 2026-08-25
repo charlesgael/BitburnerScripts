@@ -148,6 +148,7 @@ export function createAppGrid(
                     gridTemplateColumns: "repeat(auto-fill, minmax(56px, 1fr))",
                     gap: "8px",
                     padding: "8px",
+                    zoom: 1.25,
                 },
             },
             ...icons
@@ -177,6 +178,7 @@ export function createAppGrid(
                         boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
                         display: "flex",
                         flexDirection: "column",
+                        zoom: 1.25,
                     },
                 },
                 e(

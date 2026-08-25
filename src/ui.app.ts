@@ -25,6 +25,7 @@ import { createNsQueue } from "./ui/utils/ns-queue";
 import { createQueuedNs } from "./ui/utils/ns-proxy";
 import { createStatusPanel } from "./ui/components/status-panel";
 import { createAppGrid } from "./ui/components/app-grid";
+import { createOverviewStats } from "./ui/components/overview-stats";
 import { APPS } from "./ui/apps";
 
 export async function main(ns: NS) {
@@ -37,6 +38,7 @@ export async function main(ns: NS) {
     // --- Track anything we need to clean up on exit ---
     const state = {
         running: true,
+        restarting: false, // set by the Restart button; checked once the loop below stops
         childPids: [] as number[], // e.g. push here if this script ns.exec's other scripts
     };
 
@@ -48,8 +50,11 @@ export async function main(ns: NS) {
         state.childPids.push(pid);
     }
 
-    const statusContainer = mountContainer(doc, "sidebar-extra-hook-3", "ui-app");
-    const gridContainer = mountContainer(doc, "sidebar-extra-hook-0", "ui-app-grid");
+    // Waits for the game's own sidebar to have rendered these hooks first
+    // — see waitForElement in ui/utils/mount.ts — instead of assuming
+    // they're already there the instant this script starts.
+    const statusContainer = await mountContainer(doc, "sidebar-extra-hook-3", "ui-app");
+    const gridContainer = await mountContainer(doc, "sidebar-extra-hook-0", "ui-app-grid");
 
     // --- Serializes ns.* calls made from React event handlers (e.g. an
     // app's onClick) against this script's own main loop below, so they
@@ -65,10 +70,19 @@ export async function main(ns: NS) {
     // (No DOM/React teardown and no ns.exit() directly in this handler —
     // doing that from inside a React event handler races with React's own
     // reconciliation and throws a concurrency error.)
-    const statusPanel = createStatusPanel(globals, statusContainer, () => {
-        state.running = false;
-    });
+    const statusPanel = createStatusPanel(
+        globals,
+        statusContainer,
+        () => {
+            state.running = false;
+        },
+        () => {
+            state.restarting = true;
+            state.running = false;
+        }
+    );
     const appGrid = createAppGrid(globals, gridContainer, APPS, queuedNs, addChildPid);
+    const overviewStats = createOverviewStats();
 
     // --- The ONE guaranteed cleanup path. ---
     ns.atExit(() => {
@@ -85,15 +99,33 @@ export async function main(ns: NS) {
 
     // --- Main loop: drains one queued ns.* call per iteration (see
     // nsQueue above) so only one is ever in flight; when the queue is
-    // empty, it falls back to a plain heartbeat + ns.sleep. Replace the
-    // "no work" branch with your script's actual work as needed.
+    // empty, it uses the idle time to refresh the overview panel's live
+    // stats (see ui/stats/registry.ts) before falling back to a plain
+    // heartbeat + ns.sleep. overviewStats.refresh takes the real `ns`
+    // directly, not queuedNs — it's called from this same branch, the
+    // sole consumer draining nsQueue, so a *queued* call here would
+    // deadlock waiting on a drain that can't happen until it returns.
     let tick = 0;
     while (state.running) {
         const ranTask = await nsQueue.drain(ns);
         if (!ranTask) {
             tick++;
             statusPanel.render(`${new Date().toLocaleTimeString()}`);
+            await overviewStats.refresh(ns, doc, Date.now());
             await ns.sleep(100);
+        }
+    }
+
+    // Restart: hands off to restart.daemon.ts (waits a couple seconds, then
+    // starts a fresh ui.app.js) rather than calling ns.spawn/ns.run here —
+    // see that file for why. Called directly on the real `ns`, not through
+    // nsQueue, since the loop above — the queue's only consumer — has
+    // already stopped. Deliberately not tracked via addChildPid: it needs
+    // to outlive this script, which is about to exit right below.
+    if (state.restarting) {
+        const pid = ns.exec("restart.daemon.js", "home", 1);
+        if (pid === 0) {
+            ns.tprint("WARNING: couldn't launch restart.daemon.js (not enough RAM?) — run ui.app.js manually.");
         }
     }
 
