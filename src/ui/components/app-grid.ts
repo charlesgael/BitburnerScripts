@@ -9,6 +9,7 @@ interface OpenWindow {
     x: number;
     y: number;
     z: number;
+    refreshCount: number;
 }
 
 /**
@@ -52,7 +53,7 @@ export function createAppGrid(
         // Cascade each new window a bit further down/right than the last,
         // wrapping so a long session doesn't march windows off-screen.
         const offset = (state.windows.length % 8) * 28;
-        state.windows.push({ id, x: 280 + offset, y: 80 + offset, z: ++nextZ });
+        state.windows.push({ id, x: 280 + offset, y: 80 + offset, z: ++nextZ, refreshCount: 0 });
         focusedId = id;
         render();
     }
@@ -60,6 +61,19 @@ export function createAppGrid(
     function closeApp(id: string) {
         state.windows = state.windows.filter((w) => w.id !== id);
         if (focusedId === id) focusedId = null;
+        render();
+    }
+
+    // Forces the app's Content component to remount (see the `key` used
+    // below) rather than trying to poke each app into refetching itself —
+    // every app already fetches fresh data in a mount-time `useEffect`
+    // (see e.g. `cloud-servers.ts`'s "remounts every time the window is
+    // opened" comment), so remounting is a generic recompute that works
+    // for any app without each one needing its own refresh plumbing.
+    function refreshApp(id: string) {
+        const win = state.windows.find((w) => w.id === id);
+        if (!win) return;
+        win.refreshCount++;
         render();
     }
 
@@ -199,26 +213,56 @@ export function createAppGrid(
                     },
                     e("span", null, `${app.icon} ${app.label}`),
                     e(
-                        "button",
-                        {
-                            // Dragging starts on the title bar's mousedown before
-                            // this click fires — stop it from also being read as
-                            // a drag-start on the ✕ itself.
-                            onMouseDown: (ev: any) => ev.stopPropagation(),
-                            onClick: () => closeApp(win.id),
-                            style: {
-                                background: "transparent",
-                                border: "none",
-                                color: theme.error,
-                                cursor: "pointer",
-                                fontSize: "14px",
-                                fontFamily: "inherit",
+                        "div",
+                        { style: { display: "flex", alignItems: "center", gap: "6px" } },
+                        e(
+                            "button",
+                            {
+                                // Dragging starts on the title bar's mousedown before
+                                // this click fires — stop it from also being read as
+                                // a drag-start on the button itself.
+                                onMouseDown: (ev: any) => ev.stopPropagation(),
+                                onClick: () => refreshApp(win.id),
+                                title: "Refresh",
+                                style: {
+                                    background: "transparent",
+                                    border: "none",
+                                    color: theme.primary,
+                                    cursor: "pointer",
+                                    fontSize: "14px",
+                                    fontFamily: "inherit",
+                                },
                             },
-                        },
-                        "✕"
+                            "🗘"
+                        ),
+                        e(
+                            "button",
+                            {
+                                onMouseDown: (ev: any) => ev.stopPropagation(),
+                                onClick: () => closeApp(win.id),
+                                title: "Close",
+                                style: {
+                                    background: "transparent",
+                                    border: "none",
+                                    color: theme.error,
+                                    cursor: "pointer",
+                                    fontSize: "14px",
+                                    fontFamily: "inherit",
+                                },
+                            },
+                            "✕"
+                        )
                     )
                 ),
-                e("div", { style: { padding: "12px" } }, e(app.Content, { React }))
+                e(
+                    "div",
+                    { style: { padding: "12px" } },
+                    // Keying on refreshCount forces React to unmount and
+                    // remount the app's Content on refresh, re-running its
+                    // mount-time effects instead of leaving stale state in
+                    // place.
+                    e(app.Content, { key: `${win.id}-${win.refreshCount}`, React })
+                )
             );
         });
 

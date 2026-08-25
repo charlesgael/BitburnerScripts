@@ -181,7 +181,6 @@ export function createProgramLauncherApp(
 
                     const pid = await ns.exec(program.script, configuredHost, program.threads ?? 1, ...args);
                     if (pid !== 0) {
-                        addChildPid(pid);
                         setRunningHost((prev: Record<string, string | null>) => ({
                             ...prev,
                             [program.script]: configuredHost,
@@ -227,7 +226,6 @@ export function createProgramLauncherApp(
                 // header comment.
                 const result = await spawnRemote(ns, addChildPid, program.script, host, program.threads ?? 1, args);
                 if (result.ok && result.pid) {
-                    addChildPid(result.pid);
                     setRunningHost((prev: Record<string, string | null>) => ({
                         ...prev,
                         [program.script]: host,
