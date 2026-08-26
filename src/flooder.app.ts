@@ -45,7 +45,18 @@ function getHGW(ns: NS, server: Server, target: Server) {
 }
 
 async function execGrowth(ns: NS, server: Server) {
-    await ns.scp(weakenScript, server.hostname);
+    // Explicit source: the daemon scripts are only ever deployed to `home`
+    // by Viteburner. Without this, scp() defaults to copying from whatever
+    // host flooder.app.ts itself happens to be running on, which silently
+    // fails every time when that's not home (it never had these files).
+    const copied = await ns.scp(weakenScript, server.hostname, `home`);
+    if (!copied) {
+        await logError(
+            ns,
+            `scp of ${weakenScript} to ${server.hostname} failed.`
+        );
+        return;
+    }
 
     const maxThreads = Math.floor(server.maxRam / threadRam);
     const runOptions = {
@@ -53,17 +64,42 @@ async function execGrowth(ns: NS, server: Server) {
         preventDuplicates: true,
     };
     if (maxThreads === 0) return;
-    ns.exec(weakenScript, server.hostname, runOptions, server.hostname, 0);
+    const pid = ns.exec(
+        weakenScript,
+        server.hostname,
+        runOptions,
+        server.hostname,
+        0
+    );
+    if (pid === 0) {
+        await logError(
+            ns,
+            `exec of ${weakenScript} on ${server.hostname} (${maxThreads} threads) failed - ` +
+                `likely not enough free RAM (${ns.getServerMaxRam(
+                    server.hostname
+                )}GB max, ${ns.getServerUsedRam(
+                    server.hostname
+                )}GB used) or a duplicate is already running.`
+        );
+    }
 }
 
 async function execHGW(ns: NS, server: Server, target: Server = server) {
     const hgw = getHGW(ns, server, target);
     const execDelay = 500;
 
-    await ns.scp(
+    const copied = await ns.scp(
         hgw.map((h) => h.script),
-        server.hostname
+        server.hostname,
+        `home` // see execGrowth's comment on why this must be explicit
     );
+    if (!copied) {
+        await logError(
+            ns,
+            `scp of hack/grow/weaken scripts to ${server.hostname} failed.`
+        );
+        return;
+    }
 
     for (let h of hgw) {
         if (h.threads === 0) continue;
@@ -71,15 +107,34 @@ async function execHGW(ns: NS, server: Server, target: Server = server) {
             threads: h.threads,
             preventDuplicates: true,
         };
-        ns.exec(
+        const pid = ns.exec(
             h.script,
             server.hostname,
             runOptions,
             target.hostname,
             h.delay
         );
+        if (pid === 0) {
+            await logError(
+                ns,
+                `exec of ${h.script} on ${server.hostname} (${h.threads} threads -> ${target.hostname}) failed - ` +
+                    `likely not enough free RAM (${ns.getServerMaxRam(
+                        server.hostname
+                    )}GB max, ${ns.getServerUsedRam(
+                        server.hostname
+                    )}GB used) or a duplicate is already running.`
+            );
+        }
         await ns.sleep(execDelay);
     }
+}
+
+async function logError(ns: NS, message: string) {
+    const line = `[${new Date().toLocaleTimeString(undefined, {
+        hour12: false,
+    })}] ${message}`;
+    ns.print(`ERROR: ${line}`);
+    await ns.write(`flooder-errors.log.txt`, `${line}\n`, `a`);
 }
 
 export async function main(ns: NS) {
@@ -112,14 +167,30 @@ export async function main(ns: NS) {
             if (cloudHostnames.has(weakeningHosts[i])) weakeningHosts.splice(i, 1);
         }
 
-        const servers: Server[] = JSON.parse(ns.read(serverFile)).filter(
-            (s: Server) =>
-                s.hasAdminRights &&
-                s.hostname !== `home` &&
-                !cloudHostnames.has(s.hostname) && // never bot/target the player's own purchased ("cloud") servers
-                flooded.findIndex((s2) => s2.hostname === s.hostname) < 0 &&
-                bots.findIndex((s2) => s2.hostname === s.hostname) < 0
-        );
+        const servers: Server[] = [];
+        for (const s of JSON.parse(ns.read(serverFile)) as Server[]) {
+            if (
+                !s.hasAdminRights ||
+                s.hostname === `home` ||
+                cloudHostnames.has(s.hostname) || // never bot/target the player's own purchased ("cloud") servers
+                flooded.findIndex((s2) => s2.hostname === s.hostname) >= 0 ||
+                bots.findIndex((s2) => s2.hostname === s.hostname) >= 0
+            ) {
+                continue;
+            }
+            // known-servers.json.txt is only a cache: it can list a host that
+            // no longer exists (e.g. netmapper.app.ts hasn't refreshed it
+            // since the host was deleted/reset). Skip and log rather than
+            // let killall() below throw and crash the whole daemon.
+            if (!ns.serverExists(s.hostname)) {
+                await logError(
+                    ns,
+                    `${s.hostname} is in ${serverFile} but no longer exists - skipping.`
+                );
+                continue;
+            }
+            servers.push(s);
+        }
         ns.print(`\nReloaded ${serverFile}`);
 
         let foundServer = false;
@@ -130,26 +201,35 @@ export async function main(ns: NS) {
                 continue;
             }
 
-            if ((server.hackDifficulty || -1) > (server.minDifficulty || -1)) {
-                if (weakeningHosts.indexOf(server.hostname) < 0) {
-                    ns.killall(server.hostname);
-                    await execGrowth(ns, server);
-                    weakeningHosts.push(server.hostname);
+            try {
+                if (
+                    (server.hackDifficulty || -1) > (server.minDifficulty || -1)
+                ) {
+                    if (weakeningHosts.indexOf(server.hostname) < 0) {
+                        ns.killall(server.hostname);
+                        await execGrowth(ns, server);
+                        weakeningHosts.push(server.hostname);
+                    }
+                    ns.print(`${server.hostname} (Bank) - Weakening`);
+                    continue;
                 }
-                ns.print(`${server.hostname} (Bank) - Weakening`);
-                continue;
+
+                ns.print(`${server.hostname} (Bank) - Flooding`);
+                ns.killall(server.hostname);
+
+                const growingIndex = weakeningHosts.indexOf(server.hostname);
+                if (growingIndex > -1) {
+                    weakeningHosts.splice(growingIndex, 1);
+                }
+
+                await execHGW(ns, server);
+                flooded.push(server);
+            } catch (e) {
+                await logError(
+                    ns,
+                    `Failed to process bank ${server.hostname}: ${e}`
+                );
             }
-
-            ns.print(`${server.hostname} (Bank) - Flooding`);
-            ns.killall(server.hostname);
-
-            const growingIndex = weakeningHosts.indexOf(server.hostname);
-            if (growingIndex > -1) {
-                weakeningHosts.splice(growingIndex, 1);
-            }
-
-            await execHGW(ns, server);
-            flooded.push(server);
         }
 
         const banks = flooded.filter(bankFilter);
@@ -158,11 +238,18 @@ export async function main(ns: NS) {
                 const target = banks[nextBankIndex];
                 nextBankIndex = (nextBankIndex + 1) % banks.length;
 
-                ns.print(
-                    `${server.hostname} (Bot) - Flooding (${target.hostname})`
-                );
-                ns.killall(server.hostname);
-                await execHGW(ns, server, target);
+                try {
+                    ns.print(
+                        `${server.hostname} (Bot) - Flooding (${target.hostname})`
+                    );
+                    ns.killall(server.hostname);
+                    await execHGW(ns, server, target);
+                } catch (e) {
+                    await logError(
+                        ns,
+                        `Failed to flood bot ${server.hostname} -> ${target.hostname}: ${e}`
+                    );
+                }
             }
         }
 
