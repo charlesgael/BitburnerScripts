@@ -29,10 +29,10 @@ const ProgramsApp = createTaskManagerApp("programs", "Programs", "🚀", [
  */
 export const APPS: AppDefinition[] = [
     /*HelloWorldApp, */
-    /*TrainerApp, */
     FileExplorerApp,
     ProgramsApp,
     CloudServersApp,
     ShareApp,
     XpFarmApp,
+    /*TrainerApp, */
 ];

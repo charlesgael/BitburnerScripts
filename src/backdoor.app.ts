@@ -69,10 +69,10 @@ export async function main(ns: NS) {
             }
         }
 
-        ns.tprint(`\n--- Server status (${rootedServers.length}) ---`);
+        ns.print(`\n--- Server status (${rootedServers.length}) ---`);
         for (let server of rootedServers) {
             const status = server.backdoorInstalled ? `backdoor` : `free`;
-            ns.tprint(`${server.hostname.padEnd(20)} ${status}`);
+            ns.print(`${server.hostname.padEnd(20)} ${status}`);
         }
 
         ns.print(
