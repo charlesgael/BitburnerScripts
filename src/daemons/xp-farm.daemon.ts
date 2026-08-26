@@ -16,14 +16,19 @@ import { NS, Server } from "@ns";
  * empty, rather than idling forever with nothing to manage; the app
  * re-launches it the next time a server is (re-)enabled.
  *
- * For each claimed host it picks the single rooted, non-purchased server
- * with the highest `baseDifficulty` among those at or below the player's
- * current hacking level (grow()/weaken() need no hacking-skill check to
- * succeed, unlike hack() — but a target whose `requiredHackingSkill` is far
- * beyond the player's own still takes drastically longer per call, so this
- * keeps throughput reasonable) — XP per completed grow()/weaken() call
- * scales with the target's `baseDifficulty`, not its money or growth rate.
- * It then fills the host's RAM with grow/weaken threads in a ratio (via
+ * Every cycle it (re-)picks the single rooted, non-purchased server with the
+ * highest `baseDifficulty` among those at or below the player's current
+ * hacking level (grow()/weaken() need no hacking-skill check to succeed,
+ * unlike hack() — but a target whose `requiredHackingSkill` is far beyond
+ * the player's own still takes drastically longer per call, so this keeps
+ * throughput reasonable) — XP per completed grow()/weaken() call scales
+ * with the target's `baseDifficulty`, not its money or growth rate. Every
+ * managed host shares that one target, and switches to it live — no
+ * disable/re-enable or daemon restart needed — the moment a better one
+ * becomes available (a server gets rooted, or the player's level clears its
+ * requirement), since the target can only ever improve cycle over cycle,
+ * never regress. It then fills the host's RAM with grow/weaken threads in a
+ * ratio (via
  * `ns.weakenAnalyze`/`ns.growthAnalyzeSecurity`) that keeps the target's
  * security roughly flat forever, instead of grow-only threads slowly
  * driving security — and therefore every future call's time — upward.
@@ -151,11 +156,13 @@ function enforceOwnership(ns: NS, host: string, assignment: Assignment) {
     }
 }
 
-/** Seizes exclusive control of a newly-dedicated host, picks its target and
- * thread split, and starts its loops. Returns null (and leaves the host
- * unmanaged, to be retried next cycle) if there's nothing useful to do yet
- * — too little RAM for even one thread, or no valid target rooted so far. */
-function claim(ns: NS, host: string): Assignment | null {
+/** Seizes exclusive control of a newly-dedicated host, splits its RAM into
+ * grow/weaken threads for `target`, and starts its loops. Returns null (and
+ * leaves the host unmanaged, to be retried next cycle) if there's not even
+ * enough RAM for one thread. `target` is passed in (computed once per cycle
+ * in `main`, shared by every host) rather than picked per-host — there's
+ * only ever one globally-best target at a time, not a per-host one. */
+function claim(ns: NS, host: string, target: string): Assignment | null {
     ns.killall(host);
 
     // Measured from "home" (where Viteburner always deploys these scripts),
@@ -169,12 +176,6 @@ function claim(ns: NS, host: string): Assignment | null {
     const totalThreads = scriptRam > 0 ? Math.floor(ns.getServerMaxRam(host) / scriptRam) : 0;
     if (totalThreads < 1) {
         ns.print(`${host}: skipping — not enough RAM for even one grow/weaken thread (${scriptRam.toFixed(2)} GB each).`);
-        return null;
-    }
-
-    const target = pickTarget(ns);
-    if (!target) {
-        ns.print(`${host}: skipping — no rooted target found yet (root a server, e.g. n00dles, first).`);
         return null;
     }
 
@@ -219,13 +220,38 @@ export async function main(ns: NS) {
             managed.delete(host);
         }
 
-        for (const host of validHosts) {
-            if (managed.has(host)) continue;
-            const assignment = claim(ns, host);
-            if (assignment) managed.set(host, assignment);
+        // Computed once per cycle, not per host — there's only ever one
+        // globally-best target at a time (see pickTarget), so every host
+        // shares it rather than each re-running the same network scan.
+        const bestTarget = pickTarget(ns);
+
+        if (bestTarget) {
+            for (const host of validHosts) {
+                if (managed.has(host)) continue;
+                const assignment = claim(ns, host, bestTarget);
+                if (assignment) managed.set(host, assignment);
+            }
         }
 
         for (const [host, assignment] of managed) {
+            // A better target can appear mid-run — a server gets rooted, or
+            // the player's hacking level clears its requirement — without
+            // this host ever being disabled/re-enabled. Since pickTarget
+            // always returns the single best currently-qualifying target,
+            // any difference here is strictly an upgrade, never a
+            // downgrade, so switching unconditionally is safe. The old
+            // loops are running with the old target baked into their args,
+            // so isRunning(..., newTarget, ...) would find nothing and just
+            // launch a second set alongside them if they weren't killed
+            // first — killall here (not just relying on enforceOwnership's
+            // own foreign-process check, which only looks at filenames and
+            // wouldn't recognize a same-script-different-target process as
+            // foreign) clears them out before the retargeted relaunch.
+            if (bestTarget && bestTarget !== assignment.target) {
+                ns.print(`${host}: switching target ${assignment.target} → ${bestTarget}.`);
+                ns.killall(host);
+                assignment.target = bestTarget;
+            }
             enforceOwnership(ns, host, assignment);
         }
 
