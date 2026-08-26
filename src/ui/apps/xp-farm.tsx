@@ -191,7 +191,7 @@ function XpFarmContent({ React }: AppComponentProps) {
 
     const rows = servers.map((s: CloudServerRow) => {
         const isEnabled = enabled.has(s.hostname);
-        const isBusy = busyHost === s.hostname;
+        const isOccupied = busyHost === s.hostname;
         const assignment = status[s.hostname];
 
         return (
@@ -218,8 +218,8 @@ function XpFarmContent({ React }: AppComponentProps) {
                         </div>
                     ) : null}
                 </div>
-                <button onClick={() => void toggle(s.hostname)} disabled={isBusy} style={buttonStyle(isEnabled)}>
-                    {isBusy ? "..." : isEnabled ? "Disable" : "Enable"}
+                <button onClick={() => void toggle(s.hostname)} disabled={isOccupied} style={buttonStyle(isEnabled)}>
+                    {isOccupied ? "..." : isEnabled ? "Disable" : "Enable"}
                 </button>
             </div>
         );
