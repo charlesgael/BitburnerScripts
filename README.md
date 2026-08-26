@@ -22,6 +22,8 @@ Application scripts will persistently run in the background and continue operati
 
 -   [netmapper.app.ts](src/netmapper.app.ts) - Crawls the network to identify servers and stores its findings in `known-servers.json.txt`. This file is used by other application scripts to avoid having to walk the network to get a list of servers.
 
+-   [next-targets.app.ts](src/next-targets.app.ts) - Uses `known-servers.json.txt`. One-shot report of not-yet-rooted servers: the 3 closest to hack by required hacking level, and the 3 closest to hack by how many more port-opener programs are needed versus what's currently owned on `home`.
+
 ## Daemon Scripts
 
 Daemon scripts are application scripts that execute continuous hack, grow, or weaken calls against a hostname, waiting for a delay period between each call. If the delay is -1, the call will be executed once and the script will terminate.

@@ -19,6 +19,7 @@ const ProgramsApp = createTaskManagerApp("programs", "Programs", "🚀", [
     { script: "cracker.app.js", label: "Cracker" },
     { script: "backdoor.app.js", label: "Backdoor Installer" },
     { script: "backdoor.lite.app.js", label: "List Backdoors", oneShot: true },
+    { script: "next-targets.app.js", label: "Next Targets", oneShot: true },
     { script: "flooder.app.js", label: "Flooder" },
     { script: "hacknet.app.js", label: "Hacknet" },
 ]);
