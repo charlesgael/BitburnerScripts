@@ -1,6 +1,6 @@
 import { useAddChildPid } from "../../../context/child-pids-context";
 import { useQueuedNs } from "../../../context/ns-queue-context";
-import { CloudServerRow, fetchCloudList } from "../../../utils/cloud-list";
+import { CloudServerRow, fetchCloudList, sortByHostname } from "../../../utils/cloud-list";
 import {
     readXpFarmHosts,
     readXpFarmStatus,
@@ -41,7 +41,7 @@ export function useXpFarm(React: any) {
                 readXpFarmStatus(ns),
                 ns.isRunning(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST),
             ]);
-            setServers(cloudList.servers);
+            setServers(sortByHostname(cloudList.servers));
             setEnabled(new Set(hosts));
             setStatus(latestStatus);
             setDaemonRunning(running);

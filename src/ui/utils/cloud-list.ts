@@ -26,6 +26,15 @@ export interface CloudListResult {
 }
 
 /**
+ * Sorts a copy of `rows` alphabetically by hostname — shared so the Cloud
+ * Servers, XP Farm, and Share apps all list purchased servers in the same
+ * order instead of whatever order the daemon happened to enumerate them in.
+ */
+export function sortByHostname<T extends { hostname: string }>(rows: T[]): T[] {
+    return [...rows].sort((a, b) => a.hostname.localeCompare(b.hostname));
+}
+
+/**
  * Runs `daemons/cloud-list.daemon.js` on `host` (default "home") and returns
  * its result. If that fails — most commonly because `host` has no free RAM
  * to spare for even this tiny daemon (e.g. it's fully loaded running other

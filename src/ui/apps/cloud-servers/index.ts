@@ -34,7 +34,7 @@ export const CloudServersApp: AppDefinition = {
     // Wide enough to open already showing two ~260px server cards per row
     // (see the grid in CloudServersContent) instead of the default window
     // width falling back to a single column.
-    preferredWidth: 570,
-    preferredHeight: 420,
+    preferredWidth: 850,
+    preferredHeight: 620,
     minWidth: 290,
 };

@@ -142,7 +142,7 @@ export const controlsStyle = `
     gap: 6px;
     padding: 8px;
     font-size: 12px;
-    background: var(--bb-theme-well, #0b0f0b);
+    background: var(--bb-theme-backgroundsecondary, #0b0f0b);
     border: 1px solid var(--bb-theme-primarydark, #0a0);
     border-radius: 6px;
     min-width: 0;
@@ -156,11 +156,11 @@ export const controlsStyle = `
    section header's bottom edge, a list row's bottom edge, an action bar's
    top edge, ...). */
 .bb-divider-bottom {
-    border-bottom: 1px solid var(--bb-theme-well, #0b0f0b);
+    border-bottom: 1px solid var(--bb-theme-backgroundsecondary, #0b0f0b);
 }
 
 .bb-divider-top {
-    border-top: 1px solid var(--bb-theme-well, #0b0f0b);
+    border-top: 1px solid var(--bb-theme-backgroundsecondary, #0b0f0b);
 }
 
 /* Error/validation text next to a form or list. Font-size/margin still
@@ -174,7 +174,7 @@ export const controlsStyle = `
    anchor (top vs bottom, margin, width) stay inline per call site since
    those differ; only the shared chrome lives here. */
 .bb-menu {
-    background: var(--bb-theme-well, #0b0f0b);
+    background: var(--bb-theme-backgroundsecondary, #0b0f0b);
     border: 1px solid var(--bb-theme-primary, #0f0);
     border-radius: 4px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
@@ -188,7 +188,7 @@ export const controlsStyle = `
     background: transparent;
     color: var(--bb-theme-primary, #0f0);
     border: none;
-    border-bottom: 1px solid var(--bb-theme-well, #0b0f0b);
+    border-bottom: 1px solid var(--bb-theme-backgroundsecondary, #0b0f0b);
     padding: 6px 8px;
     cursor: pointer;
     font-family: inherit;
@@ -214,7 +214,7 @@ export const controlsStyle = `
 /* A well-background, primarydark-bordered scroll panel (File Explorer's
    file grid). */
 .bb-panel {
-    background: var(--bb-theme-well, #0b0f0b);
+    background: var(--bb-theme-backgroundsecondary, #0b0f0b);
     border: 1px solid var(--bb-theme-primarydark, #0a0);
     border-radius: 4px;
 }

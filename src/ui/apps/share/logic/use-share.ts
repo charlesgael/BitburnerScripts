@@ -1,7 +1,7 @@
 import { useQueuedNs } from "../../../context/ns-queue-context";
 import { useAddChildPid } from "../../../context/child-pids-context";
 import { useHomeRam } from "../../../context/home-ram-context";
-import { fetchCloudList, CloudServerRow } from "../../../utils/cloud-list";
+import { fetchCloudList, sortByHostname, CloudServerRow } from "../../../utils/cloud-list";
 import { readXpFarmHosts } from "../../../utils/xp-farm-config";
 import { ShareHost } from "./types";
 
@@ -34,7 +34,7 @@ export function useShare(React: any) {
                 readXpFarmHosts(ns),
             ]);
             const dedicated = new Set(xpFarmHosts);
-            setCloudServers(cloudList.servers.filter((s: CloudServerRow) => !dedicated.has(s.hostname)));
+            setCloudServers(sortByHostname(cloudList.servers.filter((s: CloudServerRow) => !dedicated.has(s.hostname))));
         } catch (err) {
             setError(err instanceof Error ? err.message : String(err));
         } finally {

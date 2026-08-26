@@ -2,7 +2,13 @@ import { useQueuedNs } from "../../../context/ns-queue-context";
 import { useAddChildPid } from "../../../context/child-pids-context";
 import { useHomeRam } from "../../../context/home-ram-context";
 import { runDaemon } from "../../../utils/run-daemon";
-import { CLOUD_LIST_SCRIPT, CLOUD_LIST_RESULT_FILE, CloudListResult, CloudServerRow } from "../../../utils/cloud-list";
+import {
+    CLOUD_LIST_SCRIPT,
+    CLOUD_LIST_RESULT_FILE,
+    CloudListResult,
+    CloudServerRow,
+    sortByHostname,
+} from "../../../utils/cloud-list";
 import { pickCloudServerName } from "../../../utils/cloud-names";
 import { ActionResult } from "./types";
 
@@ -55,7 +61,7 @@ export function useCloudServers(React: any) {
                 DAEMON_HOST,
                 CLOUD_LIST_RESULT_FILE
             );
-            setServers(result.servers);
+            setServers(sortByHostname(result.servers));
             setMoneyAvailable(result.moneyAvailable);
             setServerLimit(result.serverLimit);
             setCostByRam(result.costByRam);
