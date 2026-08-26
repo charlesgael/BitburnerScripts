@@ -36,7 +36,8 @@ html {
     width: 280px;
 }
 
-div[role="tooltip"] {
+div[role="tooltip"],
+.un-scale {
     zoom: 1.25;
 }
 `.trim();

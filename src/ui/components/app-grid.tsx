@@ -146,7 +146,7 @@ export function createAppGrid(
                     flexDirection: "column",
                     alignItems: "center",
                     gap: "2px",
-                    background: theme.well,
+                    background: theme.backgroundPrimary,
                     border: `1px solid ${theme.primary}`,
                     borderRadius: "6px",
                     color: theme.primary,
@@ -163,12 +163,12 @@ export function createAppGrid(
         const grid = (
             <div
                 key="grid"
+                className="un-scale"
                 style={{
                     display: "grid",
                     gridTemplateColumns: "repeat(auto-fill, minmax(56px, 1fr))",
                     gap: "8px",
                     padding: "8px",
-                    zoom: 1.25,
                 }}
             >
                 {icons}
@@ -183,12 +183,13 @@ export function createAppGrid(
                 <div
                     key={win.id}
                     onMouseDown={() => bringToFront(win.id)}
+                    className="un-scale"
                     style={{
                         position: "fixed",
                         left: `${win.x}px`,
                         top: `${win.y}px`,
                         zIndex: 20000 + win.z,
-                        background: theme.well,
+                        background: theme.backgroundPrimary,
                         border: `1px solid ${theme.primary}`,
                         borderRadius: "8px",
                         color: theme.primary,
@@ -198,7 +199,6 @@ export function createAppGrid(
                         boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
                         display: "flex",
                         flexDirection: "column",
-                        zoom: 1.25,
                     }}
                 >
                     <div

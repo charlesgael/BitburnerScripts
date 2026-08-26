@@ -250,7 +250,6 @@ function CloudServersContent({ React }: AppComponentProps) {
                                 key={s.hostname}
                                 style={{
                                     padding: "5px 0",
-                                    borderBottom: `1px solid ${theme.well}`,
                                     fontSize: "12px",
                                 }}
                             >
@@ -285,6 +284,7 @@ function CloudServersContent({ React }: AppComponentProps) {
                                         height: "3px",
                                         borderRadius: "2px",
                                         background: theme.well,
+                                        border: `1px solid ${theme.primary}`,
                                         overflow: "hidden",
                                     }}
                                 >
@@ -311,7 +311,7 @@ function CloudServersContent({ React }: AppComponentProps) {
             ) : null}
 
             {/* --- Buy form --- */}
-            <div style={{ borderTop: `1px solid ${theme.well}`, paddingTop: "10px" }}>
+            <div style={{ paddingTop: "10px" }}>
                 <label
                     style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px", marginBottom: "8px" }}
                 >
