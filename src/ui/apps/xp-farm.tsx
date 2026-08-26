@@ -353,4 +353,5 @@ export const XpFarmApp: AppDefinition = {
     // same reasoning as the Cloud Servers app's own preferredWidth.
     preferredWidth: 570,
     preferredHeight: 420,
+    minWidth: 290,
 };

@@ -632,7 +632,7 @@ function FileExplorerContent({ React }: AppComponentProps) {
 
             {/* Sidebar (hosts) + file grid */}
             <div style={{ display: "flex", flex: "1 1 auto", minHeight: 0, gap: "8px" }}>
-                <div style={{ width: "104px", flexShrink: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: "2px" }}>
+                <div style={{ width: "154px", flexShrink: 0, overflowY: "auto", display: "flex", flexDirection: "column", gap: "2px" }}>
                     {hostsLoading ? (
                         <div style={{ opacity: 0.7, fontSize: "11px" }}>Loading…</div>
                     ) : (
@@ -881,6 +881,11 @@ export const FileExplorerApp: AppDefinition = {
     icon: "🗂️",
     label: "Files",
     Content: FileExplorerContent,
-    preferredWidth: 660,
-    preferredHeight: 480,
+    preferredWidth: 900,
+    preferredHeight: 600,
+    // Floor wide enough for the host sidebar (154px) plus a usable file
+    // grid beside it — below this the grid gets squeezed to nothing before
+    // the sidebar does. See `minWidth`/`minHeight` on `AppDefinition`.
+    minWidth: 650,
+    minHeight: 500,
 };

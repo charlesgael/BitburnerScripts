@@ -274,4 +274,7 @@ export const ShareApp: AppDefinition = {
     icon: "🤝",
     label: "Share",
     Content: ShareContent,
+    preferredWidth: 280,
+    preferredHeight: 180,
+    minHeight: 180,
 };

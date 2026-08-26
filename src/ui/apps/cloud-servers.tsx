@@ -406,4 +406,5 @@ export const CloudServersApp: AppDefinition = {
     // window width falling back to a single column.
     preferredWidth: 570,
     preferredHeight: 420,
+    minWidth: 290,
 };

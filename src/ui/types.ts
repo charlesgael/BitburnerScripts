@@ -48,4 +48,11 @@ export interface AppDefinition {
      * rather than breaking layout. */
     preferredWidth?: number;
     preferredHeight?: number;
+    /** Per-app floor for the window's resizable size (CSS px), for an app
+     * whose content breaks down (e.g. a table or grid mangling) below the
+     * shared 280×120 default every other app gets — see the `minWidth`/
+     * `minHeight` clamp in `ui/components/app-grid.tsx`. Omit to just use
+     * that default; only raise this, never below it. */
+    minWidth?: number;
+    minHeight?: number;
 }

@@ -226,9 +226,9 @@ export function createAppGrid(
                         borderRadius: "8px",
                         color: theme.primary,
                         fontFamily: "Consolas, monospace",
-                        minWidth: "280px",
+                        minWidth: `${app.minWidth ?? 280}px`,
                         maxWidth: "90vw",
-                        minHeight: "120px",
+                        minHeight: `${app.minHeight ?? 120}px`,
                         // Cap the window to the viewport and let the player
                         // drag its own bottom-right corner (native CSS
                         // resize handle) to grow/shrink it — without this,
