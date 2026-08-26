@@ -1,4 +1,11 @@
 import { NS, Server } from "@ns";
+import {
+    XP_FARM_CONFIG_FILE as CONFIG_FILE,
+    XP_FARM_STATUS_FILE as STATUS_FILE,
+    XP_FARM_GROW_SCRIPT as GROW_SCRIPT,
+    XP_FARM_WEAKEN_SCRIPT as WEAKEN_SCRIPT,
+    XP_FARM_LOOP_DELAY as CONTINUOUS,
+} from "../ui/utils/xp-farm-config";
 
 /**
  * Background orchestrator for the XP Farm feature (`ui/apps/xp-farm.tsx`).
@@ -48,12 +55,7 @@ import { NS, Server } from "@ns";
  * manual `run daemons/xp-farm.daemon.js` from the terminal can't end up
  * fighting the app-launched instance over the same hosts.
  */
-const CONFIG_FILE = "xp-farm-config.txt";
-const STATUS_FILE = "xp-farm-status.txt";
-const GROW_SCRIPT = "daemons/grow.daemon.js";
-const WEAKEN_SCRIPT = "daemons/weaken.daemon.js";
 const CHECK_INTERVAL = 15000;
-const CONTINUOUS = 0; // grow/weaken daemons' own "delay between calls" arg — 0 loops back-to-back forever
 
 interface Assignment {
     target: string;

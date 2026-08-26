@@ -29,6 +29,17 @@ export const XP_FARM_STATUS_FILE = "xp-farm-status.txt";
 export const XP_FARM_DAEMON_SCRIPT = "daemons/xp-farm.daemon.js";
 export const XP_FARM_DAEMON_HOST = "home";
 
+/** The two loop scripts the daemon launches on every managed host, and the
+ * fixed "delay between calls" arg (0 — back-to-back forever) it always
+ * launches them with. Shared here — rather than each side hardcoding its
+ * own copy — so `ui/apps/xp-farm.tsx` can open a specific loop's own tail
+ * window (`ns.ui.openTail(script, host, target, XP_FARM_LOOP_DELAY)`) using
+ * the exact same filename+args the daemon actually exec'd it with; a
+ * mismatch here would mean openTail finds nothing. */
+export const XP_FARM_GROW_SCRIPT = "daemons/grow.daemon.js";
+export const XP_FARM_WEAKEN_SCRIPT = "daemons/weaken.daemon.js";
+export const XP_FARM_LOOP_DELAY = 0;
+
 /** One host's current assignment, as last reported by the daemon. */
 export interface XpFarmAssignment {
     target: string;

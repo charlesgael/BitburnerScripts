@@ -6,6 +6,9 @@ import { fetchCloudList, CloudServerRow } from "../utils/cloud-list";
 import {
     XP_FARM_DAEMON_HOST,
     XP_FARM_DAEMON_SCRIPT,
+    XP_FARM_GROW_SCRIPT,
+    XP_FARM_WEAKEN_SCRIPT,
+    XP_FARM_LOOP_DELAY,
     XpFarmStatus,
     readXpFarmHosts,
     readXpFarmStatus,
@@ -105,6 +108,16 @@ function XpFarmContent({ React }: AppComponentProps) {
         await ns.ui.openTail(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST);
     }
 
+    // Opens a specific dedicated host's own grow/weaken loop tail, from the
+    // "Ng / Mw" thread counts in its card below — filename+host+args have to
+    // match exactly what the daemon actually exec'd it with (target,
+    // XP_FARM_LOOP_DELAY) for openTail to find the right process, which is
+    // why those come from `xp-farm-config.ts` rather than being hardcoded
+    // here too.
+    async function openLoopLog(script: string, host: string, target: string) {
+        await ns.ui.openTail(script, host, target, XP_FARM_LOOP_DELAY);
+    }
+
     async function ensureDaemonRunning(): Promise<string | null> {
         const alreadyRunning = await ns.isRunning(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST);
         if (alreadyRunning) return null;
@@ -189,6 +202,14 @@ function XpFarmContent({ React }: AppComponentProps) {
         fontSize: "12px",
     });
 
+    // The clickable "Ng"/"Mw" thread counts in each card's status line (see
+    // openLoopLog above) — styled as an inline text link rather than a
+    // button, since it sits inside a plain sentence rather than its own row.
+    const linkStyle = {
+        textDecoration: "underline",
+        cursor: "pointer",
+    };
+
     // A CSS grid of cards rather than a stacked list — same idea and same
     // 260px column width as the Cloud Servers app's own server grid (see
     // `ui/apps/cloud-servers.tsx`'s header comment on its grid): `auto-fill`
@@ -227,9 +248,39 @@ function XpFarmContent({ React }: AppComponentProps) {
                 </div>
                 {isEnabled ? (
                     <div style={{ fontSize: "11px", opacity: 0.75, ...wrapText }}>
-                        {assignment
-                            ? `→ ${assignment.target} (${assignment.growThreads}g / ${assignment.weakenThreads}w)`
-                            : "→ starting…"}
+                        {assignment ? (
+                            <span>
+                                → {assignment.target} (
+                                {assignment.growThreads > 0 ? (
+                                    <span
+                                        onClick={() => void openLoopLog(XP_FARM_GROW_SCRIPT, s.hostname, assignment.target)}
+                                        title="Open this host's grow loop log"
+                                        style={linkStyle}
+                                    >
+                                        {assignment.growThreads}g
+                                    </span>
+                                ) : (
+                                    `${assignment.growThreads}g`
+                                )}
+                                {" / "}
+                                {assignment.weakenThreads > 0 ? (
+                                    <span
+                                        onClick={() =>
+                                            void openLoopLog(XP_FARM_WEAKEN_SCRIPT, s.hostname, assignment.target)
+                                        }
+                                        title="Open this host's weaken loop log"
+                                        style={linkStyle}
+                                    >
+                                        {assignment.weakenThreads}w
+                                    </span>
+                                ) : (
+                                    `${assignment.weakenThreads}w`
+                                )}
+                                )
+                            </span>
+                        ) : (
+                            "→ starting…"
+                        )}
                     </div>
                 ) : null}
             </div>
