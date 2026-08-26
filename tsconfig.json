@@ -27,6 +27,7 @@
         "src/**/*.js",
         "NetscriptDefinitions.d.ts",
         "vite.config.ts",
-        "vite.config.js"
+        "vite.config.js",
+        "plugin/**/*.ts"
     ]
 }

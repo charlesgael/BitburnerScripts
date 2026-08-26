@@ -4,3 +4,4 @@ node_modules/
 NetscriptDefinitions.d.ts
 test.ts
 src.*/
+dist/

@@ -11,6 +11,7 @@ class Script {
 export async function main(ns: NS) {
     const scripts = [
         new Script(`style.app.js`),
+        new Script(`ui.app.js`),
     ];
 
     const host = ns.getHostname();

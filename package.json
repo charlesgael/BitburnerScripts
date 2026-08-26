@@ -3,7 +3,8 @@
     "version": "0.0.0",
     "author": "Tanimodori",
     "scripts": {
-        "start": "viteburner"
+        "start": "viteburner",
+        "build": "vite build"
     },
     "devDependencies": {
         "@types/node": "^18.18.5",
