@@ -5,6 +5,7 @@ import { useHomeRam } from "../context/home-ram-context";
 import { theme, wrapText } from "../utils/theme";
 import { runDaemon } from "../utils/run-daemon";
 import { CLOUD_LIST_SCRIPT, CLOUD_LIST_RESULT_FILE, CloudListResult, CloudServerRow } from "../utils/cloud-list";
+import { pickCloudServerName } from "../utils/cloud-names";
 
 /**
  * Lets the player buy, list, and delete purchased ("cloud") servers.
@@ -126,12 +127,11 @@ function CloudServersContent({ React }: AppComponentProps) {
     }, []);
 
     async function handleBuy() {
-        const hostname = buyHostname.trim();
+        // Leaving the field blank isn't an error — fall back to a random
+        // themed name (see `ui/utils/cloud-names.ts`) rather than forcing
+        // the player to come up with one.
+        const hostname = buyHostname.trim() || pickCloudServerName(servers.map((s) => s.hostname));
         setBuyError(null);
-        if (!hostname) {
-            setBuyError("Enter a hostname.");
-            return;
-        }
         if (daemonRam.buy > freeRam) {
             setBuyError(`Not enough free RAM to launch ${BUY_SCRIPT} (needs ${daemonRam.buy.toFixed(2)} GB).`);
             return;
@@ -199,7 +199,7 @@ function CloudServersContent({ React }: AppComponentProps) {
     const selectedCost = costByRam[buyRam] ?? 0;
     const atServerLimit = servers.length >= serverLimit && serverLimit > 0;
     const insufficientMoney = selectedCost > moneyAvailable;
-    const buyDisabled = buyBusy || atServerLimit || insufficientMoney || !buyHostname.trim();
+    const buyDisabled = buyBusy || atServerLimit || insufficientMoney;
 
     const fieldStyle = {
         background: theme.well,
@@ -345,7 +345,7 @@ function CloudServersContent({ React }: AppComponentProps) {
                     <input
                         type="text"
                         value={buyHostname}
-                        placeholder="e.g. cloud-1"
+                        placeholder="blank = random name"
                         disabled={busy || atServerLimit}
                         onChange={(ev: any) => setBuyHostname(ev.target.value)}
                         style={fieldStyle}

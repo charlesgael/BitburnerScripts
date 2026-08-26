@@ -1,11 +1,9 @@
 import { AppDefinition } from "../types";
-import { HelloWorldApp } from "./hello-world";
-import { createTaskManagerApp } from "./task-manager";
-import { TrainerApp } from "./trainer";
 import { CloudServersApp } from "./cloud-servers";
-import { ShareApp } from "./share";
-import { XpFarmApp } from "./xp-farm";
 import { FileExplorerApp } from "./file-explorer";
+import { ShareApp } from "./share";
+import { createTaskManagerApp } from "./task-manager";
+import { XpFarmApp } from "./xp-farm";
 
 /**
  * The actual sidebar-launchable "Programs" app — which .js files it can
@@ -17,10 +15,10 @@ import { FileExplorerApp } from "./file-explorer";
 const ProgramsApp = createTaskManagerApp("programs", "Programs", "🚀", [
     { script: "netmapper.app.js", label: "Netmapper" },
     { script: "cracker.app.js", label: "Cracker" },
-    { script: "backdoor.app.js", label: "Backdoor Installer" },
-    { script: "backdoor.lite.app.js", label: "List Backdoors", oneShot: true },
-    { script: "next-targets.app.js", label: "Next Targets", oneShot: true },
     { script: "flooder.app.js", label: "Flooder" },
+    { script: "backdoor.lite.app.js", label: "List Backdoors", oneShot: true },
+    { script: "backdoor.app.js", label: "Backdoor Installer" },
+    { script: "next-targets.app.js", label: "Next Targets", oneShot: true },
     { script: "hacknet.app.js", label: "Hacknet" },
 ]);
 
