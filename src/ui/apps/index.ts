@@ -8,7 +8,7 @@ import { ShareApp } from "./share";
 /**
  * The actual sidebar-launchable "Programs" app — which .js files it can
  * spawn/kill, and what to call them, is fixed here in code (see
- * `program-launcher.ts` for the generic, reusable part).
+ * `program-launcher.tsx` for the generic, reusable part).
  */
 const ProgramsApp = createProgramLauncherApp("programs", "Programs", "🚀", [
     { script: "netmapper.app.js", label: "Netmapper" },
@@ -21,7 +21,7 @@ const ProgramsApp = createProgramLauncherApp("programs", "Programs", "🚀", [
 
 /**
  * Registry of every app shown in the sidebar grid (see
- * `ui/components/app-grid.ts`). To add a new app: create a file next to
- * `hello-world.ts` exporting an `AppDefinition`, then list it here.
+ * `ui/components/app-grid.tsx`). To add a new app: create a file next to
+ * `hello-world.tsx` exporting an `AppDefinition`, then list it here.
  */
 export const APPS: AppDefinition[] = [/*HelloWorldApp, */ProgramsApp, /*TrainerApp, */CloudServersApp, ShareApp];

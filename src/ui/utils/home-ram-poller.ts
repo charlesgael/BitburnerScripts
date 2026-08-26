@@ -18,7 +18,7 @@ const REFRESH_INTERVAL_MS = 1000;
  * so polling them here adds nothing new on top of that.
  *
  * `onUpdate` is wired to `createAppGrid`'s `setHomeRam` (see
- * `ui/components/app-grid.ts`), which re-renders with a new
+ * `ui/components/app-grid.tsx`), which re-renders with a new
  * `HomeRamContext` value — see `ui/context/home-ram-context.ts` for why
  * that's the point of this at all.
  */

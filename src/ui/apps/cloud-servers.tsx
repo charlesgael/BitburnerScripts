@@ -45,7 +45,6 @@ function formatMoney(n: number): string {
 }
 
 function CloudServersContent({ React }: AppComponentProps) {
-    const e = React.createElement;
     const ns = useQueuedNs();
     const addChildPid = useAddChildPid();
 
@@ -222,166 +221,152 @@ function CloudServersContent({ React }: AppComponentProps) {
         fontSize: "12px",
     });
 
-    return e(
-        "div",
-        null,
-        e(
-            "div",
-            { style: { display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "10px" } },
-            e("span", null, `Servers: ${servers.length} / ${serverLimit || "?"}`),
-            e(
-                "button",
-                { onClick: () => void refreshList(), disabled: busy, style: buttonStyle() },
-                listLoading ? "..." : "Refresh"
-            )
-        ),
+    return (
+        <div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "10px" }}>
+                <span>
+                    Servers: {servers.length} / {serverLimit || "?"}
+                </span>
+                <button onClick={() => void refreshList()} disabled={busy} style={buttonStyle()}>
+                    {listLoading ? "..." : "Refresh"}
+                </button>
+            </div>
 
-        listError
-            ? e("div", { style: { color: theme.error, fontSize: "11px", marginBottom: "8px", ...wrapText } }, listError)
-            : null,
+            {listError ? (
+                <div style={{ color: theme.error, fontSize: "11px", marginBottom: "8px", ...wrapText }}>
+                    {listError}
+                </div>
+            ) : null}
 
-        // --- Purchased server list ---
-        e(
-            "div",
-            { style: { marginBottom: "14px", maxHeight: "180px", overflowY: "auto" } },
-            servers.length === 0 && !listLoading
-                ? e("div", { style: { fontSize: "12px", opacity: 0.7 } }, "No purchased servers yet.")
-                : servers.map((s: CloudServerRow) => {
-                      const usedPct = s.ram > 0 ? Math.min(100, (s.usedRam / s.ram) * 100) : 0;
-                      return e(
-                          "div",
-                          {
-                              key: s.hostname,
-                              style: {
-                                  padding: "5px 0",
-                                  borderBottom: `1px solid ${theme.well}`,
-                                  fontSize: "12px",
-                              },
-                          },
-                          e(
-                              "div",
-                              {
-                                  style: {
-                                      display: "flex",
-                                      justifyContent: "space-between",
-                                      alignItems: "center",
-                                      gap: "8px",
-                                      marginBottom: "4px",
-                                  },
-                              },
-                              e(
-                                  "span",
-                                  { style: { ...wrapText, flex: 1 } },
-                                  `${s.hostname} (${s.usedRam.toFixed(1)} / ${s.ram} GB)`
-                              ),
-                              e(
-                                  "button",
-                                  {
-                                      onClick: () => handleDeleteClick(s.hostname),
-                                      disabled: busy,
-                                      style: buttonStyle(true),
-                                  },
-                                  deleteBusyHost === s.hostname
-                                      ? "..."
-                                      : confirmDeleteHost === s.hostname
-                                        ? "Confirm?"
-                                        : "Delete"
-                              )
-                          ),
-                          // Thin per-server RAM usage bar.
-                          e(
-                              "div",
-                              {
-                                  style: {
-                                      position: "relative",
-                                      height: "3px",
-                                      borderRadius: "2px",
-                                      background: theme.well,
-                                      overflow: "hidden",
-                                  },
-                              },
-                              e("div", {
-                                  style: {
-                                      position: "absolute",
-                                      inset: 0,
-                                      width: `${usedPct}%`,
-                                      background: usedPct > 90 ? theme.error : theme.primary,
-                                      transition: "width 0.2s ease",
-                                  },
-                              })
-                          )
-                      );
-                  })
-        ),
+            {/* --- Purchased server list --- */}
+            <div style={{ marginBottom: "14px", maxHeight: "180px", overflowY: "auto" }}>
+                {servers.length === 0 && !listLoading ? (
+                    <div style={{ fontSize: "12px", opacity: 0.7 }}>No purchased servers yet.</div>
+                ) : (
+                    servers.map((s: CloudServerRow) => {
+                        const usedPct = s.ram > 0 ? Math.min(100, (s.usedRam / s.ram) * 100) : 0;
+                        return (
+                            <div
+                                key={s.hostname}
+                                style={{
+                                    padding: "5px 0",
+                                    borderBottom: `1px solid ${theme.well}`,
+                                    fontSize: "12px",
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                        gap: "8px",
+                                        marginBottom: "4px",
+                                    }}
+                                >
+                                    <span style={{ ...wrapText, flex: 1 }}>
+                                        {s.hostname} ({s.usedRam.toFixed(1)} / {s.ram} GB)
+                                    </span>
+                                    <button
+                                        onClick={() => handleDeleteClick(s.hostname)}
+                                        disabled={busy}
+                                        style={buttonStyle(true)}
+                                    >
+                                        {deleteBusyHost === s.hostname
+                                            ? "..."
+                                            : confirmDeleteHost === s.hostname
+                                              ? "Confirm?"
+                                              : "Delete"}
+                                    </button>
+                                </div>
+                                {/* Thin per-server RAM usage bar. */}
+                                <div
+                                    style={{
+                                        position: "relative",
+                                        height: "3px",
+                                        borderRadius: "2px",
+                                        background: theme.well,
+                                        overflow: "hidden",
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            position: "absolute",
+                                            inset: 0,
+                                            width: `${usedPct}%`,
+                                            background: usedPct > 90 ? theme.error : theme.primary,
+                                            transition: "width 0.2s ease",
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        );
+                    })
+                )}
+            </div>
 
-        deleteError
-            ? e("div", { style: { color: theme.error, fontSize: "11px", marginBottom: "8px", ...wrapText } }, deleteError)
-            : null,
+            {deleteError ? (
+                <div style={{ color: theme.error, fontSize: "11px", marginBottom: "8px", ...wrapText }}>
+                    {deleteError}
+                </div>
+            ) : null}
 
-        // --- Buy form ---
-        e(
-            "div",
-            { style: { borderTop: `1px solid ${theme.well}`, paddingTop: "10px" } },
-            e(
-                "label",
-                { style: { display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px", marginBottom: "8px" } },
-                "Hostname",
-                e("input", {
-                    type: "text",
-                    value: buyHostname,
-                    placeholder: "e.g. cloud-1",
-                    disabled: busy || atServerLimit,
-                    onChange: (ev: any) => setBuyHostname(ev.target.value),
-                    style: fieldStyle,
-                })
-            ),
-            e(
-                "label",
-                { style: { display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px", marginBottom: "8px" } },
-                "RAM",
-                e(
-                    "select",
-                    {
-                        value: buyRam,
-                        disabled: busy || atServerLimit || ramTiers.length === 0,
-                        onChange: (ev: any) => setBuyRam(Number(ev.target.value)),
-                        style: fieldStyle,
-                    },
-                    ...ramTiers.map((ram) =>
-                        e(
-                            "option",
-                            { key: ram, value: ram, disabled: costByRam[ram] > moneyAvailable },
-                            `${ram} GB — ${formatMoney(costByRam[ram])}`
-                        )
-                    )
-                )
-            ),
-            atServerLimit
-                ? e(
-                      "div",
-                      { style: { color: theme.error, fontSize: "11px", marginBottom: "8px", ...wrapText } },
-                      `Server limit reached (${serverLimit}). Delete one to buy another.`
-                  )
-                : null,
-            buyError
-                ? e("div", { style: { color: theme.error, fontSize: "11px", marginBottom: "8px", ...wrapText } }, buyError)
-                : null,
-            e(
-                "button",
-                {
-                    onClick: () => void handleBuy(),
-                    disabled: buyDisabled,
-                    title: insufficientMoney ? "Not enough money" : undefined,
-                    style: {
+            {/* --- Buy form --- */}
+            <div style={{ borderTop: `1px solid ${theme.well}`, paddingTop: "10px" }}>
+                <label
+                    style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px", marginBottom: "8px" }}
+                >
+                    Hostname
+                    <input
+                        type="text"
+                        value={buyHostname}
+                        placeholder="e.g. cloud-1"
+                        disabled={busy || atServerLimit}
+                        onChange={(ev: any) => setBuyHostname(ev.target.value)}
+                        style={fieldStyle}
+                    />
+                </label>
+                <label
+                    style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px", marginBottom: "8px" }}
+                >
+                    RAM
+                    <select
+                        value={buyRam}
+                        disabled={busy || atServerLimit || ramTiers.length === 0}
+                        onChange={(ev: any) => setBuyRam(Number(ev.target.value))}
+                        style={fieldStyle}
+                    >
+                        {ramTiers.map((ram) => (
+                            <option key={ram} value={ram} disabled={costByRam[ram] > moneyAvailable}>
+                                {ram} GB — {formatMoney(costByRam[ram])}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+                {atServerLimit ? (
+                    <div style={{ color: theme.error, fontSize: "11px", marginBottom: "8px", ...wrapText }}>
+                        Server limit reached ({serverLimit}). Delete one to buy another.
+                    </div>
+                ) : null}
+                {buyError ? (
+                    <div style={{ color: theme.error, fontSize: "11px", marginBottom: "8px", ...wrapText }}>
+                        {buyError}
+                    </div>
+                ) : null}
+                <button
+                    onClick={() => void handleBuy()}
+                    disabled={buyDisabled}
+                    title={insufficientMoney ? "Not enough money" : undefined}
+                    style={{
                         ...buttonStyle(),
                         width: "100%",
                         opacity: buyDisabled ? 0.6 : 1,
                         cursor: buyDisabled ? "default" : "pointer",
-                    },
-                },
-                buyBusy ? "..." : `Buy (${formatMoney(selectedCost)})`
-            )
-        )
+                    }}
+                >
+                    {buyBusy ? "..." : `Buy (${formatMoney(selectedCost)})`}
+                </button>
+            </div>
+        </div>
     );
 }
 

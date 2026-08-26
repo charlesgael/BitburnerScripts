@@ -54,7 +54,6 @@ function threadTiers(maxThreads: number): number[] {
 }
 
 function ShareContent({ React }: AppComponentProps) {
-    const e = React.createElement;
     const ns = useQueuedNs();
     const addChildPid = useAddChildPid();
 
@@ -173,101 +172,86 @@ function ShareContent({ React }: AppComponentProps) {
         fontFamily: "inherit",
     };
 
-    // Same RAM bar as the Programs app (ui/apps/program-launcher.ts) — kept
+    // Same RAM bar as the Programs app (ui/apps/program-launcher.tsx) — kept
     // visually identical since both apps are ultimately telling the player
     // the same thing about the same host.
     const homeRamPct = homeRam.max > 0 ? Math.min(100, (homeRam.used / homeRam.max) * 100) : 0;
-    const ramBar = e(
-        "div",
-        { style: { marginBottom: "12px" } },
-        e(
-            "div",
-            {
-                style: {
+    const ramBar = (
+        <div style={{ marginBottom: "12px" }}>
+            <div
+                style={{
                     position: "relative",
                     height: "14px",
                     borderRadius: "4px",
                     background: theme.well,
                     border: `1px solid ${theme.primaryDark}`,
                     overflow: "hidden",
-                },
-            },
-            e("div", {
-                style: {
-                    position: "absolute",
-                    inset: 0,
-                    width: `${homeRamPct}%`,
-                    background: homeRamPct > 90 ? theme.error : theme.primary,
-                    transition: "width 0.2s ease",
-                },
-            })
-        ),
-        e(
-            "div",
-            { style: { fontSize: "11px", opacity: 0.85, marginTop: "4px", textAlign: "right" } },
-            `${DAEMON_HOST}: ${homeRam.used.toFixed(2)} / ${homeRam.max.toFixed(2)} GB`
-        )
+                }}
+            >
+                <div
+                    style={{
+                        position: "absolute",
+                        inset: 0,
+                        width: `${homeRamPct}%`,
+                        background: homeRamPct > 90 ? theme.error : theme.primary,
+                        transition: "width 0.2s ease",
+                    }}
+                />
+            </div>
+            <div style={{ fontSize: "11px", opacity: 0.85, marginTop: "4px", textAlign: "right" }}>
+                {DAEMON_HOST}: {homeRam.used.toFixed(2)} / {homeRam.max.toFixed(2)} GB
+            </div>
+        </div>
     );
 
     // With nothing selectable (not even one thread fits), there's nothing
     // useful to show but why — no select with a single disabled placeholder,
     // no button that can never be clicked.
     if (insufficientRam) {
-        return e(
-            "div",
-            null,
-            ramBar,
-            e(
-                "div",
-                { style: { color: theme.error, fontSize: "11px", ...wrapText } },
-                `Needs at least ${costPerThread.toFixed(2)} GB free on ${DAEMON_HOST} to share a single thread — ` +
-                    `only ${freeRam.toFixed(2)} GB is free. Free up RAM (e.g. stop other scripts) and this ` +
-                    `unlocks automatically.`
-            )
+        return (
+            <div>
+                {ramBar}
+                <div style={{ color: theme.error, fontSize: "11px", ...wrapText }}>
+                    Needs at least {costPerThread.toFixed(2)} GB free on {DAEMON_HOST} to share a single thread —
+                    only {freeRam.toFixed(2)} GB is free. Free up RAM (e.g. stop other scripts) and this unlocks
+                    automatically.
+                </div>
+            </div>
         );
     }
 
-    return e(
-        "div",
-        null,
-        ramBar,
-        error
-            ? e("div", { style: { color: theme.error, marginBottom: "8px", fontSize: "12px", ...wrapText } }, error)
-            : null,
-        !sharing
-            ? e(
-                  "label",
-                  { style: { display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px", marginBottom: "12px" } },
-                  "RAM to share",
-                  e(
-                      "select",
-                      {
-                          value: selectedThreads,
-                          onChange: (ev: any) => setSelectedThreads(Number(ev.target.value)),
-                          style: fieldStyle,
-                      },
-                      ...tiers.map((threads) =>
-                          e(
-                              "option",
-                              { key: threads, value: threads },
-                              `${(threads * costPerThread).toFixed(0)} GB — ${threads} thread${threads === 1 ? "" : "s"}`
-                          )
-                      )
-                  )
-              )
-            : e(
-                  "div",
-                  { style: { fontSize: "12px", marginBottom: "12px" } },
-                  `Sharing ${(runningThreads * costPerThread).toFixed(0)} GB — ${runningThreads} thread${
-                      runningThreads === 1 ? "" : "s"
-                  }.`
-              ),
-        e(
-            "button",
-            {
-                onClick: () => void toggleSharing(),
-                disabled: busy,
-                style: {
+    return (
+        <div>
+            {ramBar}
+            {error ? (
+                <div style={{ color: theme.error, marginBottom: "8px", fontSize: "12px", ...wrapText }}>{error}</div>
+            ) : null}
+            {!sharing ? (
+                <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px", marginBottom: "12px" }}>
+                    RAM to share
+                    <select
+                        value={selectedThreads}
+                        onChange={(ev: any) => setSelectedThreads(Number(ev.target.value))}
+                        style={fieldStyle}
+                    >
+                        {tiers.map((threads) => (
+                            <option key={threads} value={threads}>
+                                {(threads * costPerThread).toFixed(0)} GB — {threads} thread
+                                {threads === 1 ? "" : "s"}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+            ) : (
+                <div style={{ fontSize: "12px", marginBottom: "12px" }}>
+                    Sharing {(runningThreads * costPerThread).toFixed(0)} GB — {runningThreads} thread
+                    {runningThreads === 1 ? "" : "s"}.
+                </div>
+            )}
+            <button
+                onClick={() => void toggleSharing()}
+                disabled={busy}
+                style={{
                     width: "100%",
                     background: sharing ? theme.errorDark : theme.button,
                     color: sharing ? theme.error : theme.primary,
@@ -277,10 +261,11 @@ function ShareContent({ React }: AppComponentProps) {
                     cursor: busy ? "default" : "pointer",
                     opacity: busy ? 0.6 : 1,
                     fontFamily: "inherit",
-                },
-            },
-            busy ? "..." : sharing ? "Stop Sharing" : "Start Sharing"
-        )
+                }}
+            >
+                {busy ? "..." : sharing ? "Stop Sharing" : "Start Sharing"}
+            </button>
+        </div>
     );
 }
 

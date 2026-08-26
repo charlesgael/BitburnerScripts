@@ -84,7 +84,6 @@ export function createProgramLauncherApp(
     const primaryHost = programs[0]?.host ?? "home";
 
     function ProgramLauncherContent({ React }: AppComponentProps) {
-        const e = React.createElement;
         const ns = useQueuedNs();
         const addChildPid = useAddChildPid();
 
@@ -296,36 +295,32 @@ export function createProgramLauncherApp(
         const primaryRam = effectiveRamByHost[primaryHost] ?? { used: 0, max: 0 };
         const primaryPct = primaryRam.max > 0 ? Math.min(100, (primaryRam.used / primaryRam.max) * 100) : 0;
 
-        const ramBar = e(
-            "div",
-            { style: { marginBottom: "12px" } },
-            e(
-                "div",
-                {
-                    style: {
+        const ramBar = (
+            <div style={{ marginBottom: "12px" }}>
+                <div
+                    style={{
                         position: "relative",
                         height: "14px",
                         borderRadius: "4px",
                         background: theme.well,
                         border: `1px solid ${theme.primaryDark}`,
                         overflow: "hidden",
-                    },
-                },
-                e("div", {
-                    style: {
-                        position: "absolute",
-                        inset: 0,
-                        width: `${primaryPct}%`,
-                        background: primaryPct > 90 ? theme.error : theme.primary,
-                        transition: "width 0.2s ease",
-                    },
-                })
-            ),
-            e(
-                "div",
-                { style: { fontSize: "11px", opacity: 0.85, marginTop: "4px", textAlign: "right" } },
-                `${primaryHost}: ${primaryRam.used.toFixed(2)} / ${primaryRam.max.toFixed(2)} GB`
-            )
+                    }}
+                >
+                    <div
+                        style={{
+                            position: "absolute",
+                            inset: 0,
+                            width: `${primaryPct}%`,
+                            background: primaryPct > 90 ? theme.error : theme.primary,
+                            transition: "width 0.2s ease",
+                        }}
+                    />
+                </div>
+                <div style={{ fontSize: "11px", opacity: 0.85, marginTop: "4px", textAlign: "right" }}>
+                    {primaryHost}: {primaryRam.used.toFixed(2)} / {primaryRam.max.toFixed(2)} GB
+                </div>
+            </div>
         );
 
         const rows = programs.map((program) => {
@@ -350,13 +345,12 @@ export function createProgramLauncherApp(
             const hasCloudOption = compatibleCloudHosts.length > 0;
 
             const spawnBorderColor = isRunning ? theme.error : theme.primary;
-            const spawnButton = e(
-                "button",
-                {
-                    onClick: () => toggle(program),
-                    disabled,
-                    title: insufficientRam ? "Not enough free RAM" : undefined,
-                    style: {
+            const spawnButton = (
+                <button
+                    onClick={() => toggle(program)}
+                    disabled={disabled}
+                    title={insufficientRam ? "Not enough free RAM" : undefined}
+                    style={{
                         minWidth: "60px",
                         background: isRunning ? theme.errorDark : theme.button,
                         color: isRunning ? theme.error : theme.primary,
@@ -375,17 +369,18 @@ export function createProgramLauncherApp(
                         cursor: disabled ? "default" : "pointer",
                         opacity: disabled ? 0.6 : 1,
                         fontFamily: "inherit",
-                    },
-                },
-                isPending
-                    ? "..."
-                    : isRunning
-                    ? "Kill"
-                    : insufficientRam
-                    ? "No RAM"
-                    : program.oneShot
-                    ? "Run"
-                    : "Spawn"
+                    }}
+                >
+                    {isPending
+                        ? "..."
+                        : isRunning
+                        ? "Kill"
+                        : insufficientRam
+                        ? "No RAM"
+                        : program.oneShot
+                        ? "Run"
+                        : "Spawn"}
+                </button>
             );
 
             const menuOpen = openMenuFor === program.script;
@@ -398,140 +393,130 @@ export function createProgramLauncherApp(
             // z-index above the click-catching backdrop below only while
             // its menu is open, so the popup — and the arrow button itself,
             // to keep toggling it closed working — aren't hidden behind it.
-            const cloudMenuButton = hasCloudOption
-                ? e(
-                      "div",
-                      {
-                          // `display: flex` here (rather than just on the row
-                          // above) is what makes the arrow button stretch to
-                          // match spawnButton's height: the row's flex already
-                          // stretches *this* wrapper div to that height, and
-                          // making the wrapper itself a flex container in turn
-                          // stretches its own child (the button, which has no
-                          // explicit height) to fill it.
-                          style: {
-                              position: "relative",
-                              display: "flex",
-                              ...(menuOpen ? { zIndex: 2 } : {}),
-                          },
-                      },
-                      e(
-                          "button",
-                          {
-                              onClick: () => setOpenMenuFor(menuOpen ? null : program.script),
-                              disabled: isPending,
-                              title: "Spawn on a cloud server instead",
-                              style: {
-                                  boxSizing: "border-box",
-                                  background: theme.button,
-                                  color: theme.primary,
-                                  border: `1px solid ${theme.primary}`,
-                                  borderRadius: "0 4px 4px 0",
-                                  padding: "0 6px",
-                                  fontFamily: "inherit",
-                                  fontSize: "10px",
-                                  cursor: isPending ? "default" : "pointer",
-                              },
-                          },
-                          "▾"
-                      ),
-                      menuOpen
-                          ? e(
-                                "div",
-                                {
-                                    style: {
-                                        position: "absolute",
-                                        top: "100%",
-                                        right: 0,
-                                        marginTop: "2px",
-                                        background: theme.well,
-                                        border: `1px solid ${theme.primary}`,
-                                        borderRadius: "4px",
-                                        boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
-                                        minWidth: "170px",
-                                        overflow: "hidden",
-                                    },
-                                },
-                                ...compatibleCloudHosts.map((cs) =>
-                                    e(
-                                        "button",
-                                        {
-                                            key: cs.hostname,
-                                            onClick: () => {
-                                                setOpenMenuFor(null);
-                                                void spawnOnCloudHost(program, cs.hostname);
-                                            },
-                                            style: {
-                                                display: "block",
-                                                width: "100%",
-                                                textAlign: "left",
-                                                background: "transparent",
-                                                color: theme.primary,
-                                                border: "none",
-                                                borderBottom: `1px solid ${theme.well}`,
-                                                padding: "6px 8px",
-                                                cursor: "pointer",
-                                                fontFamily: "inherit",
-                                                fontSize: "11px",
-                                            },
-                                        },
-                                        `${cs.hostname} (${(cs.ram - cs.usedRam).toFixed(1)} GB free)`
-                                    )
-                                )
-                            )
-                          : null
-                  )
-                : null;
+            const cloudMenuButton = hasCloudOption ? (
+                <div
+                    // `display: flex` here (rather than just on the row
+                    // above) is what makes the arrow button stretch to
+                    // match spawnButton's height: the row's flex already
+                    // stretches *this* wrapper div to that height, and
+                    // making the wrapper itself a flex container in turn
+                    // stretches its own child (the button, which has no
+                    // explicit height) to fill it.
+                    style={{
+                        position: "relative",
+                        display: "flex",
+                        ...(menuOpen ? { zIndex: 2 } : {}),
+                    }}
+                >
+                    <button
+                        onClick={() => setOpenMenuFor(menuOpen ? null : program.script)}
+                        disabled={isPending}
+                        title="Spawn on a cloud server instead"
+                        style={{
+                            boxSizing: "border-box",
+                            background: theme.button,
+                            color: theme.primary,
+                            border: `1px solid ${theme.primary}`,
+                            borderRadius: "0 4px 4px 0",
+                            padding: "0 6px",
+                            fontFamily: "inherit",
+                            fontSize: "10px",
+                            cursor: isPending ? "default" : "pointer",
+                        }}
+                    >
+                        ▾
+                    </button>
+                    {menuOpen ? (
+                        <div
+                            style={{
+                                position: "absolute",
+                                top: "100%",
+                                right: 0,
+                                marginTop: "2px",
+                                background: theme.well,
+                                border: `1px solid ${theme.primary}`,
+                                borderRadius: "4px",
+                                boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+                                minWidth: "170px",
+                                overflow: "hidden",
+                            }}
+                        >
+                            {compatibleCloudHosts.map((cs) => (
+                                <button
+                                    key={cs.hostname}
+                                    onClick={() => {
+                                        setOpenMenuFor(null);
+                                        void spawnOnCloudHost(program, cs.hostname);
+                                    }}
+                                    style={{
+                                        display: "block",
+                                        width: "100%",
+                                        textAlign: "left",
+                                        background: "transparent",
+                                        color: theme.primary,
+                                        border: "none",
+                                        borderBottom: `1px solid ${theme.well}`,
+                                        padding: "6px 8px",
+                                        cursor: "pointer",
+                                        fontFamily: "inherit",
+                                        fontSize: "11px",
+                                    }}
+                                >
+                                    {cs.hostname} ({(cs.ram - cs.usedRam).toFixed(1)} GB free)
+                                </button>
+                            ))}
+                        </div>
+                    ) : null}
+                </div>
+            ) : null;
 
-            return e(
-                "div",
-                {
-                    key: program.script,
-                    style: {
+            return (
+                <div
+                    key={program.script}
+                    style={{
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
                         gap: "12px",
                         padding: "6px 0",
                         borderBottom: `1px solid ${theme.well}`,
-                    },
-                },
-                e(
-                    "span",
-                    { style: { display: "inline-flex", alignItems: "center", gap: "5px" } },
-                    `${program.label} (${requiredRam.toFixed(2)} GB)`,
-                    isRemote
-                        ? e(
-                              "span",
-                              { title: `Running on ${runningAt}`, style: { fontSize: "11px", opacity: 0.85, cursor: "help" } },
-                              "🌐"
-                          )
-                        : null
-                ),
-                e(
-                    "div",
-                    { style: { display: "flex", gap: "6px" } },
-                    isRunning
-                        ? e(
-                              "button",
-                              {
-                                  onClick: () => openLog(program),
-                                  title: "Open this program's log window",
-                                  style: {
-                                      background: theme.button,
-                                      color: theme.primary,
-                                      border: `1px solid ${theme.primary}`,
-                                      borderRadius: "4px",
-                                      padding: "4px 10px",
-                                      cursor: "pointer",
-                                      fontFamily: "inherit",
-                                  },
-                              },
-                              "📃"
-                          )
-                        : null,
-                    e("div", { style: { display: "flex" } }, spawnButton, cloudMenuButton)
-                )
+                    }}
+                >
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                        {program.label} ({requiredRam.toFixed(2)} GB)
+                        {isRemote ? (
+                            <span
+                                title={`Running on ${runningAt}`}
+                                style={{ fontSize: "11px", opacity: 0.85, cursor: "help" }}
+                            >
+                                🌐
+                            </span>
+                        ) : null}
+                    </span>
+                    <div style={{ display: "flex", gap: "6px" }}>
+                        {isRunning ? (
+                            <button
+                                onClick={() => openLog(program)}
+                                title="Open this program's log window"
+                                style={{
+                                    background: theme.button,
+                                    color: theme.primary,
+                                    border: `1px solid ${theme.primary}`,
+                                    borderRadius: "4px",
+                                    padding: "4px 10px",
+                                    cursor: "pointer",
+                                    fontFamily: "inherit",
+                                }}
+                            >
+                                📃
+                            </button>
+                        ) : null}
+                        <div style={{ display: "flex" }}>
+                            {spawnButton}
+                            {cloudMenuButton}
+                        </div>
+                    </div>
+                </div>
             );
         });
 
@@ -541,15 +526,22 @@ export function createProgramLauncherApp(
         // receive their own clicks — and above everything else (which is
         // unpositioned, so it stacks below any explicitly positioned
         // sibling regardless of DOM order).
-        const menuBackdrop = openMenuFor
-            ? e("div", { onClick: () => setOpenMenuFor(null), style: { position: "fixed", inset: 0, zIndex: 1 } })
-            : null;
+        const menuBackdrop = openMenuFor ? (
+            <div onClick={() => setOpenMenuFor(null)} style={{ position: "fixed", inset: 0, zIndex: 1 }} />
+        ) : null;
 
-        const errorBanner = error
-            ? e("div", { style: { color: theme.error, fontSize: "11px", marginBottom: "8px", ...wrapText } }, error)
-            : null;
+        const errorBanner = error ? (
+            <div style={{ color: theme.error, fontSize: "11px", marginBottom: "8px", ...wrapText }}>{error}</div>
+        ) : null;
 
-        return e("div", null, menuBackdrop, errorBanner, ramBar, ...rows);
+        return (
+            <div>
+                {menuBackdrop}
+                {errorBanner}
+                {ramBar}
+                {rows}
+            </div>
+        );
     }
 
     return {

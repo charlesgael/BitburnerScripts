@@ -9,7 +9,6 @@ import { theme } from "../utils/theme";
  * against the script's main loop instead of racing it.
  */
 function HelloWorldContent({ React }: AppComponentProps) {
-    const e = React.createElement;
     const ns = useQueuedNs();
     const [hostname, setHostname] = React.useState(null);
 
@@ -17,15 +16,12 @@ function HelloWorldContent({ React }: AppComponentProps) {
         setHostname(await ns.getHostname());
     }
 
-    return e(
-        "div",
-        null,
-        e("div", { style: { marginBottom: "8px" } }, "Hello, world!"),
-        e(
-            "button",
-            {
-                onClick: fetchHostname,
-                style: {
+    return (
+        <div>
+            <div style={{ marginBottom: "8px" }}>Hello, world!</div>
+            <button
+                onClick={fetchHostname}
+                style={{
                     background: theme.button,
                     color: theme.primary,
                     border: `1px solid ${theme.primary}`,
@@ -33,13 +29,12 @@ function HelloWorldContent({ React }: AppComponentProps) {
                     padding: "4px 10px",
                     cursor: "pointer",
                     fontFamily: "inherit",
-                },
-            },
-            "Get hostname via queued ns"
-        ),
-        hostname
-            ? e("div", { style: { marginTop: "8px", opacity: 0.85 } }, `Host: ${hostname}`)
-            : null
+                }}
+            >
+                Get hostname via queued ns
+            </button>
+            {hostname ? <div style={{ marginTop: "8px", opacity: 0.85 }}>Host: {hostname}</div> : null}
+        </div>
     );
 }
 

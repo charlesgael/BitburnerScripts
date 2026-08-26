@@ -73,7 +73,7 @@ export function createAppGrid(
     // Forces the app's Content component to remount (see the `key` used
     // below) rather than trying to poke each app into refetching itself —
     // every app already fetches fresh data in a mount-time `useEffect`
-    // (see e.g. `cloud-servers.ts`'s "remounts every time the window is
+    // (see e.g. `cloud-servers.tsx`'s "remounts every time the window is
     // opened" comment), so remounting is a generic recompute that works
     // for any app without each one needing its own refresh plumbing.
     function refreshApp(id: string) {
@@ -136,63 +136,54 @@ export function createAppGrid(
     doc.addEventListener("keydown", onKeyDown);
 
     function render() {
-        const e = React.createElement;
+        const icons = apps.map((app) => (
+            <button
+                key={app.id}
+                onClick={() => openApp(app.id)}
+                title={app.label}
+                style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: "2px",
+                    background: theme.well,
+                    border: `1px solid ${theme.primary}`,
+                    borderRadius: "6px",
+                    color: theme.primary,
+                    fontFamily: "inherit",
+                    cursor: "pointer",
+                    padding: "6px 2px",
+                }}
+            >
+                <span style={{ fontSize: "18px", lineHeight: 1 }}>{app.icon}</span>
+                <span style={{ fontSize: "9px", opacity: 0.85, textAlign: "center" }}>{app.label}</span>
+            </button>
+        ));
 
-        const icons = apps.map((app) =>
-            e(
-                "button",
-                {
-                    key: app.id,
-                    onClick: () => openApp(app.id),
-                    title: app.label,
-                    style: {
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: "2px",
-                        background: theme.well,
-                        border: `1px solid ${theme.primary}`,
-                        borderRadius: "6px",
-                        color: theme.primary,
-                        fontFamily: "inherit",
-                        cursor: "pointer",
-                        padding: "6px 2px",
-                    },
-                },
-                e("span", { style: { fontSize: "18px", lineHeight: 1 } }, app.icon),
-                e(
-                    "span",
-                    { style: { fontSize: "9px", opacity: 0.85, textAlign: "center" } },
-                    app.label
-                )
-            )
-        );
-
-        const grid = e(
-            "div",
-            {
-                key: "grid",
-                style: {
+        const grid = (
+            <div
+                key="grid"
+                style={{
                     display: "grid",
                     gridTemplateColumns: "repeat(auto-fill, minmax(56px, 1fr))",
                     gap: "8px",
                     padding: "8px",
                     zoom: 1.25,
-                },
-            },
-            ...icons
+                }}
+            >
+                {icons}
+            </div>
         );
 
         const windows = state.windows.map((win) => {
             const app = apps.find((a) => a.id === win.id);
             if (!app) return null;
 
-            return e(
-                "div",
-                {
-                    key: win.id,
-                    onMouseDown: () => bringToFront(win.id),
-                    style: {
+            return (
+                <div
+                    key={win.id}
+                    onMouseDown={() => bringToFront(win.id)}
+                    style={{
                         position: "fixed",
                         left: `${win.x}px`,
                         top: `${win.y}px`,
@@ -208,14 +199,12 @@ export function createAppGrid(
                         display: "flex",
                         flexDirection: "column",
                         zoom: 1.25,
-                    },
-                },
-                e(
-                    "div",
-                    {
+                    }}
+                >
+                    <div
                         // Title bar: drag handle + close button.
-                        onMouseDown: (ev: any) => startDrag(win.id, ev),
-                        style: {
+                        onMouseDown={(ev: any) => startDrag(win.id, ev)}
+                        style={{
                             display: "flex",
                             justifyContent: "space-between",
                             alignItems: "center",
@@ -224,79 +213,71 @@ export function createAppGrid(
                             cursor: "move",
                             fontWeight: "bold",
                             userSelect: "none",
-                        },
-                    },
-                    e("span", null, `${app.icon} ${app.label}`),
-                    e(
-                        "div",
-                        { style: { display: "flex", alignItems: "center", gap: "6px" } },
-                        e(
-                            "button",
-                            {
+                        }}
+                    >
+                        <span>
+                            {app.icon} {app.label}
+                        </span>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <button
                                 // Dragging starts on the title bar's mousedown before
                                 // this click fires — stop it from also being read as
                                 // a drag-start on the button itself.
-                                onMouseDown: (ev: any) => ev.stopPropagation(),
-                                onClick: () => refreshApp(win.id),
-                                title: "Refresh",
-                                style: {
+                                onMouseDown={(ev: any) => ev.stopPropagation()}
+                                onClick={() => refreshApp(win.id)}
+                                title="Refresh"
+                                style={{
                                     background: "transparent",
                                     border: "none",
                                     color: theme.primary,
                                     cursor: "pointer",
                                     fontSize: "14px",
                                     fontFamily: "inherit",
-                                },
-                            },
-                            "🗘"
-                        ),
-                        e(
-                            "button",
-                            {
-                                onMouseDown: (ev: any) => ev.stopPropagation(),
-                                onClick: () => closeApp(win.id),
-                                title: "Close",
-                                style: {
+                                }}
+                            >
+                                🗘
+                            </button>
+                            <button
+                                onMouseDown={(ev: any) => ev.stopPropagation()}
+                                onClick={() => closeApp(win.id)}
+                                title="Close"
+                                style={{
                                     background: "transparent",
                                     border: "none",
                                     color: theme.error,
                                     cursor: "pointer",
                                     fontSize: "14px",
                                     fontFamily: "inherit",
-                                },
-                            },
-                            "✕"
-                        )
-                    )
-                ),
-                e(
-                    "div",
-                    { style: { padding: "12px" } },
-                    // Keying on refreshCount forces React to unmount and
-                    // remount the app's Content on refresh, re-running its
-                    // mount-time effects instead of leaving stale state in
-                    // place.
-                    e(app.Content, { key: `${win.id}-${win.refreshCount}`, React })
-                )
+                                }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                    <div style={{ padding: "12px" }}>
+                        {/* Keying on refreshCount forces React to unmount and
+                        remount the app's Content on refresh, re-running its
+                        mount-time effects instead of leaving stale state in
+                        place. */}
+                        <app.Content key={`${win.id}-${win.refreshCount}`} React={React} />
+                    </div>
+                </div>
             );
         });
 
         ReactDOM.render(
-            e(
-                NsQueueContext.Provider,
-                { value: queuedNs },
-                e(
-                    ChildPidsContext.Provider,
-                    { value: addChildPid },
-                    e(
-                        HomeRamContext.Provider,
-                        { value: homeRam },
-                        e("hr", { className: "MuiDivider-root MuiDivider-fullWidth css-8dakje", style: { margin: "0 -16px" } }),
-                        grid,
-                        ...windows
-                    )
-                )
-            ),
+            <NsQueueContext.Provider value={queuedNs}>
+                <ChildPidsContext.Provider value={addChildPid}>
+                    <HomeRamContext.Provider value={homeRam}>
+                        <hr
+                            className="MuiDivider-root MuiDivider-fullWidth css-8dakje"
+                            style={{ margin: "0 -16px" }}
+                        />
+                        {grid}
+                        {windows}
+                    </HomeRamContext.Provider>
+                </ChildPidsContext.Provider>
+            </NsQueueContext.Provider>,
             container
         );
     }

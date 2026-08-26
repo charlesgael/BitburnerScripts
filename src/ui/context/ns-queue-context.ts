@@ -10,7 +10,7 @@ import { QueuedNS } from "../utils/ns-proxy";
  * not a package this project imports statically, so the Context object
  * can't be created at module-load time the way `createContext` normally
  * is. `initNsQueueContext` creates it once, right after we grab React
- * (see `ui/components/app-grid.ts`), and `useQueuedNs` is the hook
+ * (see `ui/components/app-grid.tsx`), and `useQueuedNs` is the hook
  * descendant components call to read the value it provides: a queued,
  * `ns`-shaped proxy (see `ui/utils/ns-proxy.ts`).
  *
@@ -29,7 +29,7 @@ export function initNsQueueContext(React: any) {
 }
 
 /** Reads the queued `ns` proxy provided by the nearest
- * `NsQueueContext.Provider` (set up in `ui/components/app-grid.ts`). */
+ * `NsQueueContext.Provider` (set up in `ui/components/app-grid.tsx`). */
 export function useQueuedNs(): QueuedNS {
     if (!NsQueueContext) {
         throw new Error("useQueuedNs() called before initNsQueueContext() ran");

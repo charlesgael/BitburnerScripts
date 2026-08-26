@@ -12,7 +12,7 @@
  * Same catch as `ns-queue-context.ts`: since React is a runtime global here
  * rather than an imported package, the Context object has to be created
  * from that runtime reference. `initChildPidsContext` does that once (see
- * `ui/components/app-grid.ts`), and `useAddChildPid` is the hook descendant
+ * `ui/components/app-grid.tsx`), and `useAddChildPid` is the hook descendant
  * components call to read the value it provides.
  */
 let ChildPidsContext: any = null;

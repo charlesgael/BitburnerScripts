@@ -42,7 +42,6 @@ function formatDuration(totalSeconds: number): string {
 }
 
 function TrainerContent({ React }: AppComponentProps) {
-    const e = React.createElement;
     const ns = useQueuedNs();
     const addChildPid = useAddChildPid();
 
@@ -211,122 +210,106 @@ function TrainerContent({ React }: AppComponentProps) {
         fontFamily: "inherit",
     };
 
-    return e(
-        "div",
-        null,
-        error
-            ? e("div", { style: { color: theme.error, marginBottom: "8px", fontSize: "12px", ...wrapText } }, error)
-            : null,
-        e(
-            "div",
-            { style: { display: "flex", flexDirection: "column", gap: "8px", marginBottom: "12px" } },
-            !training
-                ? e(
-                      "label",
-                      { style: { display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px" } },
-                      "Stat",
-                      e(
-                          "select",
-                          {
-                              value: selectedStat,
-                              onChange: (ev: any) => {
-                                  const stat = ev.target.value;
-                                  setSelectedStat(stat);
-                                  setTargetLevel((levels[stat] ?? 0) + 1);
-                              },
-                              style: fieldStyle,
-                          },
-                          ...STATS.map((s) =>
-                              e("option", { key: s.key, value: s.key }, `${s.label} (Lv. ${levels[s.key] ?? 0})`)
-                          )
-                      )
-                  )
-                : null,
-            !training
-                ? e(
-                      "label",
-                      { style: { display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px" } },
-                      "Target level",
-                      e("input", {
-                          type: "number",
-                          min: minTargetLevel,
-                          value: targetLevel,
-                          onChange: (ev: any) =>
-                              setTargetLevel(Math.max(minTargetLevel, Number(ev.target.value) || minTargetLevel)),
-                          style: fieldStyle,
-                      })
-                  )
-                : null,
-            e(
-                "label",
-                { style: { display: "flex", alignItems: "center", gap: "6px", fontSize: "12px" } },
-                e("input", {
-                    type: "checkbox",
-                    checked: focus,
-                    disabled: training,
-                    onChange: (ev: any) => setFocusEnabled(ev.target.checked),
-                }),
-                "Focus"
-            )
-        ),
-        training
-            ? e(
-                  "div",
-                  { style: { marginBottom: "12px" } },
-                  e(
-                      "div",
-                      {
-                          style: {
-                              position: "relative",
-                              height: "14px",
-                              borderRadius: "4px",
-                              background: theme.well,
-                              border: `1px solid ${theme.primaryDark}`,
-                              overflow: "hidden",
-                          },
-                      },
-                      e("div", {
-                          style: {
-                              position: "absolute",
-                              inset: 0,
-                              width: `${progressPct}%`,
-                              background: theme.primary,
-                              transition: "width 0.3s ease",
-                          },
-                      })
-                  ),
-                  e(
-                      "div",
-                      {
-                          style: {
-                              fontSize: "11px",
-                              opacity: 0.85,
-                              marginTop: "4px",
-                              display: "flex",
-                              justifyContent: "space-between",
-                          },
-                      },
-                      e("span", null, `${currentLevel} / ${targetLevel} (${progressPct.toFixed(0)}%)`),
-                      e("span", null, eta === null ? "Estimating…" : `~${formatDuration(eta)} left`)
-                  )
-              )
-            : null,
-        insufficientRam
-            ? e(
-                  "div",
-                  { style: { color: theme.error, fontSize: "11px", marginBottom: "6px", ...wrapText } },
-                  `Needs ${daemonRam.toFixed(2)} GB free on ${DAEMON_HOST} to launch daemons/train.daemon.js — only ` +
-                      `${freeRam.toFixed(2)} GB is free. Free up RAM (e.g. stop other scripts) and this ` +
-                      `unlocks automatically.`
-              )
-            : null,
-        e(
-            "button",
-            {
-                onClick: toggleTraining,
-                disabled: busy || insufficientRam,
-                title: insufficientRam ? "Not enough free RAM to launch daemons/train.daemon.js" : undefined,
-                style: {
+    return (
+        <div>
+            {error ? (
+                <div style={{ color: theme.error, marginBottom: "8px", fontSize: "12px", ...wrapText }}>{error}</div>
+            ) : null}
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "12px" }}>
+                {!training ? (
+                    <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px" }}>
+                        Stat
+                        <select
+                            value={selectedStat}
+                            onChange={(ev: any) => {
+                                const stat = ev.target.value;
+                                setSelectedStat(stat);
+                                setTargetLevel((levels[stat] ?? 0) + 1);
+                            }}
+                            style={fieldStyle}
+                        >
+                            {STATS.map((s) => (
+                                <option key={s.key} value={s.key}>
+                                    {s.label} (Lv. {levels[s.key] ?? 0})
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                ) : null}
+                {!training ? (
+                    <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px" }}>
+                        Target level
+                        <input
+                            type="number"
+                            min={minTargetLevel}
+                            value={targetLevel}
+                            onChange={(ev: any) =>
+                                setTargetLevel(Math.max(minTargetLevel, Number(ev.target.value) || minTargetLevel))
+                            }
+                            style={fieldStyle}
+                        />
+                    </label>
+                ) : null}
+                <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px" }}>
+                    <input
+                        type="checkbox"
+                        checked={focus}
+                        disabled={training}
+                        onChange={(ev: any) => setFocusEnabled(ev.target.checked)}
+                    />
+                    Focus
+                </label>
+            </div>
+            {training ? (
+                <div style={{ marginBottom: "12px" }}>
+                    <div
+                        style={{
+                            position: "relative",
+                            height: "14px",
+                            borderRadius: "4px",
+                            background: theme.well,
+                            border: `1px solid ${theme.primaryDark}`,
+                            overflow: "hidden",
+                        }}
+                    >
+                        <div
+                            style={{
+                                position: "absolute",
+                                inset: 0,
+                                width: `${progressPct}%`,
+                                background: theme.primary,
+                                transition: "width 0.3s ease",
+                            }}
+                        />
+                    </div>
+                    <div
+                        style={{
+                            fontSize: "11px",
+                            opacity: 0.85,
+                            marginTop: "4px",
+                            display: "flex",
+                            justifyContent: "space-between",
+                        }}
+                    >
+                        <span>
+                            {currentLevel} / {targetLevel} ({progressPct.toFixed(0)}%)
+                        </span>
+                        <span>{eta === null ? "Estimating…" : `~${formatDuration(eta)} left`}</span>
+                    </div>
+                </div>
+            ) : null}
+            {insufficientRam ? (
+                <div style={{ color: theme.error, fontSize: "11px", marginBottom: "6px", ...wrapText }}>
+                    Needs {daemonRam.toFixed(2)} GB free on {DAEMON_HOST} to launch daemons/train.daemon.js — only{" "}
+                    {freeRam.toFixed(2)} GB is free. Free up RAM (e.g. stop other scripts) and this unlocks
+                    automatically.
+                </div>
+            ) : null}
+            <button
+                onClick={toggleTraining}
+                disabled={busy || insufficientRam}
+                title={insufficientRam ? "Not enough free RAM to launch daemons/train.daemon.js" : undefined}
+                style={{
                     width: "100%",
                     background: training ? theme.errorDark : theme.button,
                     color: training ? theme.error : theme.primary,
@@ -336,10 +319,11 @@ function TrainerContent({ React }: AppComponentProps) {
                     cursor: busy || insufficientRam ? "default" : "pointer",
                     opacity: busy || insufficientRam ? 0.6 : 1,
                     fontFamily: "inherit",
-                },
-            },
-            busy ? "..." : training ? "Stop Training" : insufficientRam ? "Not Enough RAM" : "Start Training"
-        )
+                }}
+            >
+                {busy ? "..." : training ? "Stop Training" : insufficientRam ? "Not Enough RAM" : "Start Training"}
+            </button>
+        </div>
     );
 }
 

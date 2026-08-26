@@ -26,7 +26,7 @@ export interface AppComponentProps {
 
 /**
  * One entry in the sidebar app grid. Register new apps in `ui/apps/index.ts`
- * — the grid and modal in `ui/components/app-grid.ts` don't need to change.
+ * — the grid and modal in `ui/components/app-grid.tsx` don't need to change.
  */
 export interface AppDefinition {
     id: string;

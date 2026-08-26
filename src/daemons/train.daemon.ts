@@ -4,7 +4,7 @@ import { NS } from "@ns";
  * Trains one stat toward a target level via Singularity actions — mirrors
  * `src.prestige/player/train.js`'s `trainStat`/`prepareStats`.
  *
- * Split out of the sidebar Trainer app (`ui/apps/trainer.ts`) on purpose:
+ * Split out of the sidebar Trainer app (`ui/apps/trainer.tsx`) on purpose:
  * Bitburner charges a script for every ns.* function it merely
  * *references* anywhere in its reachable code, whether that code path ever
  * runs or not. universityCourse/gymWorkout/stopAction/isBusy alone are

@@ -3,7 +3,8 @@
         "module": "esnext",
         "target": "esnext",
         "lib": ["esnext", "dom"],
-        "types": ["vite/client", "node", "viteburner"],
+        "types": ["vite/client", "node", "viteburner", "react"],
+        "jsx": "react",
         "strict": true,
         "allowJs": true,
         "noEmit": true,
@@ -22,6 +23,7 @@
     },
     "include": [
         "src/**/*.ts",
+        "src/**/*.tsx",
         "src/**/*.js",
         "NetscriptDefinitions.d.ts",
         "vite.config.ts",

@@ -5,8 +5,8 @@
  * exposed React/ReactDOM globals. See `src/ui/` for the pieces:
  *  - `ui/utils/react-globals.ts` — grabs React/ReactDOM/document/window
  *  - `ui/utils/mount.ts`         — container create/cleanup helpers
- *  - `ui/components/status-panel.ts` — live status line + kill switch
- *  - `ui/components/app-grid.ts`     — sidebar app icon grid + modal
+ *  - `ui/components/status-panel.tsx` — live status line + kill switch
+ *  - `ui/components/app-grid.tsx`     — sidebar app icon grid + modal
  *  - `ui/apps/`                      — one file per app, registered in
  *                                      `ui/apps/index.ts`
  *

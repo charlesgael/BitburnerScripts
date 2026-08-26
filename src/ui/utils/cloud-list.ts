@@ -6,7 +6,7 @@ import { runDaemon } from "./run-daemon";
  * `daemons/cloud-list.daemon.ts` — used by both the Cloud Servers app (its own
  * list) and the Programs app (to offer spawning on a compatible cloud
  * server). Neither references `ns.cloud.*` directly — see
- * `ui/apps/cloud-servers.ts`'s header comment for why.
+ * `ui/apps/cloud-servers.tsx`'s header comment for why.
  */
 export const CLOUD_LIST_SCRIPT = "daemons/cloud-list.daemon.js";
 export const CLOUD_LIST_RESULT_FILE = "cloud-list-result.txt";

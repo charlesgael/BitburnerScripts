@@ -17,7 +17,7 @@
  * Same catch as `ns-queue-context.ts`: since React is a runtime global here
  * rather than an imported package, the Context object has to be created
  * from that runtime reference. `initHomeRamContext` does that once (see
- * `ui/components/app-grid.ts`), and `useHomeRam` is the hook descendant
+ * `ui/components/app-grid.tsx`), and `useHomeRam` is the hook descendant
  * components call to read the value it provides.
  */
 export interface HomeRam {
@@ -37,7 +37,7 @@ export function initHomeRamContext(React: any) {
 /** Reads `home`'s current `{ used, max }` RAM, kept fresh by
  * `ui.app.ts`'s main loop (see `ui/utils/home-ram-poller.ts`) and provided
  * by the nearest `HomeRamContext.Provider` (set up in
- * `ui/components/app-grid.ts`). */
+ * `ui/components/app-grid.tsx`). */
 export function useHomeRam(): HomeRam {
     if (!HomeRamContext) {
         throw new Error("useHomeRam() called before initHomeRamContext() ran");
