@@ -1,5 +1,6 @@
 import { uiScaleStyle } from "./ui-scale";
 import { overviewStyle } from "./overview";
+import { scrollbarStyle } from "./scrollbar";
 
 /**
  * Every style chunk injected into the shared `#custom-styles` element (see
@@ -9,4 +10,5 @@ import { overviewStyle } from "./overview";
 export const ALL_STYLES: { name: string; css: string }[] = [
     { name: "ui-scale", css: uiScaleStyle },
     { name: "overview", css: overviewStyle },
+    { name: "scrollbar", css: scrollbarStyle },
 ];

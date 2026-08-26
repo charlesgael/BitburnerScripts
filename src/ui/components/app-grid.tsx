@@ -11,6 +11,15 @@ interface OpenWindow {
     y: number;
     z: number;
     refreshCount: number;
+    /** The app's `preferredWidth`/`preferredHeight` (see `ui/types.ts`),
+     * captured once at open time. Applied to the DOM node imperatively via
+     * a `ref` (see `sizeWindowNode` below) rather than through React's
+     * `style` prop, so it only ever sets the *starting* size — if it were
+     * a normal style prop, every re-render (e.g. every mousemove while
+     * dragging the title bar) would reassert it and stomp whatever size
+     * the player dragged the window's own resize handle to. */
+    width?: number;
+    height?: number;
 }
 
 /**
@@ -59,9 +68,31 @@ export function createAppGrid(
         // Cascade each new window a bit further down/right than the last,
         // wrapping so a long session doesn't march windows off-screen.
         const offset = (state.windows.length % 8) * 28;
-        state.windows.push({ id, x: 280 + offset, y: 80 + offset, z: ++nextZ, refreshCount: 0 });
+        const app = apps.find((a) => a.id === id);
+        state.windows.push({
+            id,
+            x: 280 + offset,
+            y: 80 + offset,
+            z: ++nextZ,
+            refreshCount: 0,
+            width: app?.preferredWidth,
+            height: app?.preferredHeight,
+        });
         focusedId = id;
         render();
+    }
+
+    // Applies a window's preferred starting size (if any) to its DOM node
+    // exactly once, imperatively — see the `width`/`height` comment on
+    // `OpenWindow` for why this can't just be a normal React style prop.
+    // The `node.style.width` check is what makes this idempotent: it's
+    // re-run as a ref callback on every render (see below), but only ever
+    // acts the first time, before either this or a native resize-handle
+    // drag has put an explicit width/height on the node.
+    function sizeWindowNode(win: OpenWindow, node: any) {
+        if (!node || node.style.width) return;
+        if (win.width) node.style.width = `${win.width}px`;
+        if (win.height) node.style.height = `${win.height}px`;
     }
 
     function closeApp(id: string) {
@@ -182,6 +213,7 @@ export function createAppGrid(
             return (
                 <div
                     key={win.id}
+                    ref={(node: any) => sizeWindowNode(win, node)}
                     onMouseDown={() => bringToFront(win.id)}
                     className="un-scale"
                     style={{
@@ -195,7 +227,23 @@ export function createAppGrid(
                         color: theme.primary,
                         fontFamily: "Consolas, monospace",
                         minWidth: "280px",
-                        maxWidth: "420px",
+                        maxWidth: "90vw",
+                        minHeight: "120px",
+                        // Cap the window to the viewport and let the player
+                        // drag its own bottom-right corner (native CSS
+                        // resize handle) to grow/shrink it — without this,
+                        // a window cascaded low on screen (see `offset` in
+                        // openApp) or one whose app content is simply
+                        // taller than the remaining viewport has no way to
+                        // reach content past the screen edge, since the
+                        // page itself doesn't scroll. `overflow: hidden`
+                        // here (rather than auto) means the window itself
+                        // never grows a scrollbar — only the content area
+                        // below the title bar does, so the title bar stays
+                        // put while the body scrolls under it.
+                        maxHeight: "calc(100vh - 40px)",
+                        overflow: "hidden",
+                        resize: "both",
                         boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
                         display: "flex",
                         flexDirection: "column",
@@ -213,6 +261,7 @@ export function createAppGrid(
                             cursor: "move",
                             fontWeight: "bold",
                             userSelect: "none",
+                            flexShrink: 0,
                         }}
                     >
                         <span>
@@ -254,7 +303,22 @@ export function createAppGrid(
                             </button>
                         </div>
                     </div>
-                    <div style={{ padding: "12px" }}>
+                    <div
+                        style={{
+                            padding: "12px",
+                            // Grow to fill whatever height the outer window
+                            // (native-resized or viewport-capped) leaves
+                            // available, and scroll internally rather than
+                            // letting content spill past the window's own
+                            // bottom edge. `minHeight: 0` is required for a
+                            // flex child to actually shrink below its
+                            // content's natural size instead of forcing the
+                            // window taller than its maxHeight.
+                            flex: "1 1 auto",
+                            minHeight: 0,
+                            overflowY: "auto",
+                        }}
+                    >
                         {/* Keying on refreshCount forces React to unmount and
                         remount the app's Content on refresh, re-running its
                         mount-time effects instead of leaving stale state in

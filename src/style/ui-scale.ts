@@ -38,6 +38,6 @@ html {
 
 div[role="tooltip"],
 .un-scale {
-    zoom: 1.25;
+    zoom: 1.2;
 }
 `.trim();

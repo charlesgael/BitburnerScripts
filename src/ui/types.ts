@@ -37,4 +37,15 @@ export interface AppDefinition {
      * hooks — e.g. `useQueuedNs()` for ns.* calls, `React.useState` for
      * local state. */
     Content: (props: AppComponentProps) => any;
+    /** Initial window size (CSS px) when this app is opened, e.g. an app
+     * whose content is a wide responsive grid (see `cloud-servers.tsx`)
+     * can ask to start wider than the default so it opens already showing
+     * multiple columns instead of the single-column fallback width. Purely
+     * a starting point — `ui/components/app-grid.tsx`'s window is still
+     * freely resizable (drag the bottom-right corner) and still clamped to
+     * the same `minWidth`/`maxWidth`/`maxHeight` every window gets, so an
+     * omitted or oversized value just falls back to that default sizing
+     * rather than breaking layout. */
+    preferredWidth?: number;
+    preferredHeight?: number;
 }

@@ -238,10 +238,30 @@ function CloudServersContent({ React }: AppComponentProps) {
                 </div>
             ) : null}
 
-            {/* --- Purchased server list --- */}
-            <div style={{ marginBottom: "14px", maxHeight: "180px", overflowY: "auto" }}>
+            {/* --- Purchased server list ---
+            A CSS grid of cards rather than a stacked list: `auto-fill` +
+            `minmax` picks however many ~200px columns currently fit and
+            wraps the rest onto new rows, so widening the floating window
+            (see the resize handle added in `ui/components/app-grid.tsx`)
+            reflows this into more columns instead of leaving a fixed-width
+            list stranded in the middle of empty space. 200px keeps each
+            card's "hostname (used / total GB)" + Delete button row (the
+            original single-column layout) from cramping before it falls
+            back to `wrapText`. No max-height/overflow of its own — the
+            window's own content area (also in app-grid.tsx) already
+            scrolls when everything together doesn't fit. */}
+            <div
+                style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+                    gap: "8px",
+                    marginBottom: "14px",
+                }}
+            >
                 {servers.length === 0 && !listLoading ? (
-                    <div style={{ fontSize: "12px", opacity: 0.7 }}>No purchased servers yet.</div>
+                    <div style={{ gridColumn: "1 / -1", fontSize: "12px", opacity: 0.7 }}>
+                        No purchased servers yet.
+                    </div>
                 ) : (
                     servers.map((s: CloudServerRow) => {
                         const usedPct = s.ram > 0 ? Math.min(100, (s.usedRam / s.ram) * 100) : 0;
@@ -249,8 +269,15 @@ function CloudServersContent({ React }: AppComponentProps) {
                             <div
                                 key={s.hostname}
                                 style={{
-                                    padding: "5px 0",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: "4px",
+                                    padding: "8px",
                                     fontSize: "12px",
+                                    background: theme.well,
+                                    border: `1px solid ${theme.primaryDark}`,
+                                    borderRadius: "6px",
+                                    minWidth: 0,
                                 }}
                             >
                                 <div
@@ -259,7 +286,6 @@ function CloudServersContent({ React }: AppComponentProps) {
                                         justifyContent: "space-between",
                                         alignItems: "center",
                                         gap: "8px",
-                                        marginBottom: "4px",
                                     }}
                                 >
                                     <span style={{ ...wrapText, flex: 1 }}>
@@ -283,7 +309,7 @@ function CloudServersContent({ React }: AppComponentProps) {
                                         position: "relative",
                                         height: "3px",
                                         borderRadius: "2px",
-                                        background: theme.well,
+                                        background: theme.backgroundPrimary,
                                         border: `1px solid ${theme.primary}`,
                                         overflow: "hidden",
                                     }}
@@ -375,4 +401,9 @@ export const CloudServersApp: AppDefinition = {
     icon: "🖥️",
     label: "Cloud S.",
     Content: CloudServersContent,
+    // Wide enough to open already showing two ~260px server cards per row
+    // (see the grid in CloudServersContent above) instead of the default
+    // window width falling back to a single column.
+    preferredWidth: 570,
+    preferredHeight: 420,
 };

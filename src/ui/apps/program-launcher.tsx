@@ -490,7 +490,12 @@ export function createProgramLauncherApp(
                         borderBottom: `1px solid ${theme.well}`,
                     }}
                 >
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                    <span style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "5px",
+                        fontSize: "12px",
+                    }}>
                         {program.label} ({requiredRam.toFixed(2)} GB)
                         {isRemote ? (
                             <span
