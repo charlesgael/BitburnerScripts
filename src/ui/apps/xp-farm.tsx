@@ -41,7 +41,7 @@ import {
  * `ui/apps/share.tsx`): it's meant to keep running across a UI restart, not
  * die with this window or with ui.app.js itself.
  *
- * Once a server is dedicated, `ui/apps/program-launcher.tsx` (the Programs
+ * Once a server is dedicated, `ui/apps/task-manager.tsx` (the Programs
  * app) excludes it from its own cloud-server dropdown — the daemon has
  * exclusive control (it `ns.killall`s the host the moment it claims it, and
  * again the moment it's released) and Programs launching something there
@@ -132,12 +132,12 @@ function XpFarmContent({ React }: AppComponentProps) {
     }
 
     // Manual override of the daemon's otherwise self-managing lifecycle
-    // (see this file's header comment) — same Spawn/Kill toggle as the
-    // Programs app (`ui/apps/program-launcher.tsx`)'s per-program button.
-    // Killing it here doesn't touch `xp-farm-config.txt` or any dedicated
-    // host's own grow/weaken loops — it's purely stopping the orchestrator;
-    // re-spawning it (or re-enabling any server) picks up right where the
-    // config file says it should.
+    // (see this file's header comment) — a single button whose label flips
+    // between Spawn and Kill depending on whether the orchestrator is
+    // currently running. Killing it here doesn't touch `xp-farm-config.txt`
+    // or any dedicated host's own grow/weaken loops — it's purely stopping
+    // the orchestrator; re-spawning it (or re-enabling any server) picks up
+    // right where the config file says it should.
     async function toggleDaemon() {
         setError(null);
         setDaemonBusy(true);

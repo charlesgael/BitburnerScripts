@@ -172,7 +172,7 @@ function ShareContent({ React }: AppComponentProps) {
         fontFamily: "inherit",
     };
 
-    // Same RAM bar as the Programs app (ui/apps/program-launcher.tsx) — kept
+    // Same RAM bar as the Programs app (ui/apps/task-manager.tsx) — kept
     // visually identical since both apps are ultimately telling the player
     // the same thing about the same host.
     const homeRamPct = homeRam.max > 0 ? Math.min(100, (homeRam.used / homeRam.max) * 100) : 0;

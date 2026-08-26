@@ -13,7 +13,7 @@ import {
  * cycle it reconciles that file against reality — claiming newly-listed
  * hosts (killing whatever was already running there, since Programs treats
  * a dedicated host as off-limits once it's in this list — see
- * `ui/apps/program-launcher.tsx`'s filtering), releasing hosts that dropped
+ * `ui/apps/task-manager.tsx`'s filtering), releasing hosts that dropped
  * off the list (killall, handing them back to Programs), and re-asserting
  * exclusive control of every already-claimed host — relaunching a loop that
  * died, but also evicting anything foreign that moved onto a dedicated host

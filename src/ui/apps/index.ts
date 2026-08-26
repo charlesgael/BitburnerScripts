@@ -1,6 +1,6 @@
 import { AppDefinition } from "../types";
 import { HelloWorldApp } from "./hello-world";
-import { createProgramLauncherApp } from "./program-launcher";
+import { createTaskManagerApp } from "./task-manager";
 import { TrainerApp } from "./trainer";
 import { CloudServersApp } from "./cloud-servers";
 import { ShareApp } from "./share";
@@ -8,10 +8,12 @@ import { XpFarmApp } from "./xp-farm";
 
 /**
  * The actual sidebar-launchable "Programs" app — which .js files it can
- * spawn/kill, and what to call them, is fixed here in code (see
- * `program-launcher.tsx` for the generic, reusable part).
+ * spawn, and what to call them, is fixed here in code (see
+ * `task-manager.tsx` for the generic, reusable task-manager part: spawning
+ * any of these on `home` or a non-reserved cloud server, and the flat
+ * running-tasks list with per-task Tail/Kill).
  */
-const ProgramsApp = createProgramLauncherApp("programs", "Programs", "🚀", [
+const ProgramsApp = createTaskManagerApp("programs", "Programs", "🚀", [
     { script: "netmapper.app.js", label: "Netmapper" },
     { script: "cracker.app.js", label: "Cracker" },
     { script: "backdoor.app.js", label: "Backdoor Installer" },
