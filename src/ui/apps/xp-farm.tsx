@@ -189,7 +189,15 @@ function XpFarmContent({ React }: AppComponentProps) {
         fontSize: "12px",
     });
 
-    const rows = servers.map((s: CloudServerRow) => {
+    // A CSS grid of cards rather than a stacked list — same idea and same
+    // 260px column width as the Cloud Servers app's own server grid (see
+    // `ui/apps/cloud-servers.tsx`'s header comment on its grid): `auto-fill`
+    // + `minmax` wraps however many currently fit, so widening the window
+    // reflows into more columns instead of a fixed-width list stranded in
+    // empty space. Same info as before, same place within each card — just
+    // a hostname/RAM + Enable/Disable header row with the target/thread
+    // status line underneath, instead of a full-width row.
+    const cards = servers.map((s: CloudServerRow) => {
         const isEnabled = enabled.has(s.hostname);
         const isOccupied = busyHost === s.hostname;
         const assignment = status[s.hostname];
@@ -199,28 +207,31 @@ function XpFarmContent({ React }: AppComponentProps) {
                 key={s.hostname}
                 style={{
                     display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: "12px",
-                    padding: "6px 0",
-                    borderBottom: `1px solid ${theme.well}`,
+                    flexDirection: "column",
+                    gap: "4px",
+                    padding: "8px",
+                    fontSize: "12px",
+                    background: theme.well,
+                    border: `1px solid ${theme.primaryDark}`,
+                    borderRadius: "6px",
+                    minWidth: 0,
                 }}
             >
-                <div style={{ ...wrapText, flex: 1, fontSize: "12px" }}>
-                    <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
+                    <span style={{ ...wrapText, flex: 1 }}>
                         {s.hostname} ({s.ram} GB)
-                    </div>
-                    {isEnabled ? (
-                        <div style={{ fontSize: "11px", opacity: 0.75, marginTop: "2px" }}>
-                            {assignment
-                                ? `→ ${assignment.target} (${assignment.growThreads}g / ${assignment.weakenThreads}w)`
-                                : "→ starting…"}
-                        </div>
-                    ) : null}
+                    </span>
+                    <button onClick={() => void toggle(s.hostname)} disabled={isOccupied} style={buttonStyle(isEnabled)}>
+                        {isOccupied ? "..." : isEnabled ? "Disable" : "Enable"}
+                    </button>
                 </div>
-                <button onClick={() => void toggle(s.hostname)} disabled={isOccupied} style={buttonStyle(isEnabled)}>
-                    {isOccupied ? "..." : isEnabled ? "Disable" : "Enable"}
-                </button>
+                {isEnabled ? (
+                    <div style={{ fontSize: "11px", opacity: 0.75, ...wrapText }}>
+                        {assignment
+                            ? `→ ${assignment.target} (${assignment.growThreads}g / ${assignment.weakenThreads}w)`
+                            : "→ starting…"}
+                    </div>
+                ) : null}
             </div>
         );
     });
@@ -263,13 +274,21 @@ function XpFarmContent({ React }: AppComponentProps) {
 
             {error ? <div style={{ color: theme.error, fontSize: "11px", marginBottom: "8px", ...wrapText }}>{error}</div> : null}
 
-            {servers.length === 0 && !loading ? (
-                <div style={{ fontSize: "12px", opacity: 0.7 }}>
-                    No purchased servers yet — buy one in the Cloud Servers app first.
-                </div>
-            ) : (
-                rows
-            )}
+            <div
+                style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+                    gap: "8px",
+                }}
+            >
+                {servers.length === 0 && !loading ? (
+                    <div style={{ gridColumn: "1 / -1", fontSize: "12px", opacity: 0.7 }}>
+                        No purchased servers yet — buy one in the Cloud Servers app first.
+                    </div>
+                ) : (
+                    cards
+                )}
+            </div>
         </div>
     );
 }
@@ -279,4 +298,8 @@ export const XpFarmApp: AppDefinition = {
     icon: "🏋️",
     label: "XP Farm",
     Content: XpFarmContent,
+    // Wide enough to open already showing two ~260px server cards per row —
+    // same reasoning as the Cloud Servers app's own preferredWidth.
+    preferredWidth: 570,
+    preferredHeight: 420,
 };
