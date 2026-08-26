@@ -119,6 +119,13 @@ export async function main(ns: NS) {
         }
     );
     const appGrid = createAppGrid(globals, gridContainer, APPS, queuedNs, addChildPid);
+    // Feeds an app's `minSourceFile`/`isAvailable` check (see ui/utils/app-
+    // availability.ts) — fetched once, not polled: neither can change
+    // without a BitNode/aug reset, which kills this script too.
+    // ns.getResetInfo is a flat 1 GB (see NetscriptDefinitions.d.ts), cheap
+    // enough to reference directly here rather than needing its own daemon.
+    const resetInfo = ns.getResetInfo();
+    appGrid.setResetInfo(resetInfo.ownedSF, resetInfo.currentNode);
     const overviewStats = createOverviewStats();
     // Feeds HomeRamContext (see ui/context/home-ram-context.ts) so every
     // open app window sees home's live RAM without polling for itself.

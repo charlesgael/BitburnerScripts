@@ -3,6 +3,7 @@ import { CloudServersApp } from "./cloud-servers";
 import { FileExplorerApp } from "./file-explorer";
 import { ShareApp } from "./share";
 import { createTaskManagerApp } from "./task-manager";
+import { TrainerApp } from "./trainer";
 import { XpFarmApp } from "./xp-farm";
 
 /**
@@ -34,5 +35,5 @@ export const APPS: AppDefinition[] = [
     CloudServersApp,
     ShareApp,
     XpFarmApp,
-    /*TrainerApp, */
+    TrainerApp,
 ];

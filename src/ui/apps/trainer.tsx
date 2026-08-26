@@ -1,4 +1,8 @@
-import { AppComponentProps, AppDefinition } from "../types";
+import {
+    AppAvailabilityContext,
+    AppComponentProps,
+    AppDefinition,
+} from "../types";
 import { useQueuedNs } from "../context/ns-queue-context";
 import { useAddChildPid } from "../context/child-pids-context";
 import { useHomeRam } from "../context/home-ram-context";
@@ -16,7 +20,13 @@ import { theme, wrapText } from "../utils/theme";
  * from `useHomeRam()` (see `ui/context/home-ram-context.ts`) rather than
  * this app polling ns.getServerUsedRam/getServerMaxRam on its own timer.
  */
-type StatKey = "hacking" | "charisma" | "strength" | "defense" | "dexterity" | "agility";
+type StatKey =
+    | "hacking"
+    | "charisma"
+    | "strength"
+    | "defense"
+    | "dexterity"
+    | "agility";
 
 const STATS: { key: StatKey; label: string }[] = [
     { key: "hacking", label: "Hacking" },
@@ -45,7 +55,9 @@ function TrainerContent({ React }: AppComponentProps) {
     const ns = useQueuedNs();
     const addChildPid = useAddChildPid();
 
-    const [levels, setLevels] = React.useState(() => Object.fromEntries(STATS.map((s) => [s.key, 0])));
+    const [levels, setLevels] = React.useState(() =>
+        Object.fromEntries(STATS.map((s) => [s.key, 0]))
+    );
     const [selectedStat, setSelectedStat] = React.useState(STATS[0].key);
     const [targetLevel, setTargetLevel] = React.useState(50);
     const [focus, setFocusEnabled] = React.useState(true);
@@ -164,15 +176,26 @@ function TrainerContent({ React }: AppComponentProps) {
             // this poll hasn't caught up yet, ...).
             if (daemonRam > freeRam) {
                 setError(
-                    `Not enough free RAM: ${DAEMON_SCRIPT} needs ${daemonRam.toFixed(2)} GB, only ` +
+                    `Not enough free RAM: ${DAEMON_SCRIPT} needs ${daemonRam.toFixed(
+                        2
+                    )} GB, only ` +
                         `${freeRam.toFixed(2)} GB is free on ${DAEMON_HOST}.`
                 );
                 return;
             }
 
-            const newPid = await ns.exec(DAEMON_SCRIPT, DAEMON_HOST, 1, selectedStat, targetLevel, focus);
+            const newPid = await ns.exec(
+                DAEMON_SCRIPT,
+                DAEMON_HOST,
+                1,
+                selectedStat,
+                targetLevel,
+                focus
+            );
             if (newPid === 0) {
-                setError(`Couldn't launch ${DAEMON_SCRIPT} — enough RAM? Is it deployed to ${DAEMON_HOST}?`);
+                setError(
+                    `Couldn't launch ${DAEMON_SCRIPT} — enough RAM? Is it deployed to ${DAEMON_HOST}?`
+                );
                 return;
             }
 
@@ -189,7 +212,8 @@ function TrainerContent({ React }: AppComponentProps) {
 
     const currentLevel = levels[selectedStat] ?? 0;
     const minTargetLevel = currentLevel + 1; // can't train toward a level you're already at/past
-    const progressPct = targetLevel > 0 ? Math.min(100, (currentLevel / targetLevel) * 100) : 0;
+    const progressPct =
+        targetLevel > 0 ? Math.min(100, (currentLevel / targetLevel) * 100) : 0;
 
     let eta: number | null = null;
     if (training && sessionStartLevel != null && sessionStartTime != null) {
@@ -213,11 +237,34 @@ function TrainerContent({ React }: AppComponentProps) {
     return (
         <div>
             {error ? (
-                <div style={{ color: theme.error, marginBottom: "8px", fontSize: "12px", ...wrapText }}>{error}</div>
+                <div
+                    style={{
+                        color: theme.error,
+                        marginBottom: "8px",
+                        fontSize: "12px",
+                        ...wrapText,
+                    }}
+                >
+                    {error}
+                </div>
             ) : null}
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "12px" }}>
+            <div
+                style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "8px",
+                    marginBottom: "12px",
+                }}
+            >
                 {!training ? (
-                    <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px" }}>
+                    <label
+                        style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "4px",
+                            fontSize: "12px",
+                        }}
+                    >
                         Stat
                         <select
                             value={selectedStat}
@@ -237,25 +284,47 @@ function TrainerContent({ React }: AppComponentProps) {
                     </label>
                 ) : null}
                 {!training ? (
-                    <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px" }}>
+                    <label
+                        style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "4px",
+                            fontSize: "12px",
+                        }}
+                    >
                         Target level
                         <input
                             type="number"
                             min={minTargetLevel}
                             value={targetLevel}
                             onChange={(ev: any) =>
-                                setTargetLevel(Math.max(minTargetLevel, Number(ev.target.value) || minTargetLevel))
+                                setTargetLevel(
+                                    Math.max(
+                                        minTargetLevel,
+                                        Number(ev.target.value) ||
+                                            minTargetLevel
+                                    )
+                                )
                             }
                             style={fieldStyle}
                         />
                     </label>
                 ) : null}
-                <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px" }}>
+                <label
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        fontSize: "12px",
+                    }}
+                >
                     <input
                         type="checkbox"
                         checked={focus}
                         disabled={training}
-                        onChange={(ev: any) => setFocusEnabled(ev.target.checked)}
+                        onChange={(ev: any) =>
+                            setFocusEnabled(ev.target.checked)
+                        }
                     />
                     Focus
                 </label>
@@ -292,28 +361,47 @@ function TrainerContent({ React }: AppComponentProps) {
                         }}
                     >
                         <span>
-                            {currentLevel} / {targetLevel} ({progressPct.toFixed(0)}%)
+                            {currentLevel} / {targetLevel} (
+                            {progressPct.toFixed(0)}%)
                         </span>
-                        <span>{eta === null ? "Estimating…" : `~${formatDuration(eta)} left`}</span>
+                        <span>
+                            {eta === null
+                                ? "Estimating…"
+                                : `~${formatDuration(eta)} left`}
+                        </span>
                     </div>
                 </div>
             ) : null}
             {insufficientRam ? (
-                <div style={{ color: theme.error, fontSize: "11px", marginBottom: "6px", ...wrapText }}>
-                    Needs {daemonRam.toFixed(2)} GB free on {DAEMON_HOST} to launch daemons/train.daemon.js — only{" "}
-                    {freeRam.toFixed(2)} GB is free. Free up RAM (e.g. stop other scripts) and this unlocks
-                    automatically.
+                <div
+                    style={{
+                        color: theme.error,
+                        fontSize: "11px",
+                        marginBottom: "6px",
+                        ...wrapText,
+                    }}
+                >
+                    Needs {daemonRam.toFixed(2)} GB free on {DAEMON_HOST} to
+                    launch daemons/train.daemon.js — only {freeRam.toFixed(2)}{" "}
+                    GB is free. Free up RAM (e.g. stop other scripts) and this
+                    unlocks automatically.
                 </div>
             ) : null}
             <button
                 onClick={toggleTraining}
                 disabled={busy || insufficientRam}
-                title={insufficientRam ? "Not enough free RAM to launch daemons/train.daemon.js" : undefined}
+                title={
+                    insufficientRam
+                        ? "Not enough free RAM to launch daemons/train.daemon.js"
+                        : undefined
+                }
                 style={{
                     width: "100%",
                     background: training ? theme.errorDark : theme.button,
                     color: training ? theme.error : theme.primary,
-                    border: `1px solid ${training ? theme.error : theme.primary}`,
+                    border: `1px solid ${
+                        training ? theme.error : theme.primary
+                    }`,
                     borderRadius: "4px",
                     padding: "6px 10px",
                     cursor: busy || insufficientRam ? "default" : "pointer",
@@ -321,10 +409,27 @@ function TrainerContent({ React }: AppComponentProps) {
                     fontFamily: "inherit",
                 }}
             >
-                {busy ? "..." : training ? "Stop Training" : insufficientRam ? "Not Enough RAM" : "Start Training"}
+                {busy
+                    ? "..."
+                    : training
+                    ? "Stop Training"
+                    : insufficientRam
+                    ? "Not Enough RAM"
+                    : "Start Training"}
             </button>
         </div>
     );
+}
+
+// daemons/train.daemon.ts is all ns.singularity.* calls (see its header
+// comment), which need either owned SF4 or, before it's ever been owned,
+// simply being in the middle of playing BitNode 4 itself (the
+// "Singularity" BitNode) — a plain `minSourceFile: { n: 4, lvl: 1 }` can't
+// express that OR, hence the escape-hatch lambda instead (see `ui/utils/
+// app-availability.ts`).
+function trainerAvailable(ctx: AppAvailabilityContext): true | string {
+    if ((ctx.ownedSF.get(4) ?? 0) >= 1 || ctx.currentNode === 4) return true;
+    return "Needs Source-File 4 (or being in BitNode 4) for Singularity access.";
 }
 
 export const TrainerApp: AppDefinition = {
@@ -332,4 +437,6 @@ export const TrainerApp: AppDefinition = {
     icon: "💪",
     label: "Trainer",
     Content: TrainerContent,
+    minRam: 90.1,
+    isAvailable: trainerAvailable,
 };

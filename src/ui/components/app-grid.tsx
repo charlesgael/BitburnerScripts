@@ -4,6 +4,7 @@ import { initChildPidsContext } from "../context/child-pids-context";
 import { initHomeRamContext, HomeRam } from "../context/home-ram-context";
 import { QueuedNS } from "../utils/ns-proxy";
 import { theme } from "../utils/theme";
+import { ramShortfallReason, isAppVisible } from "../utils/app-availability";
 
 interface OpenWindow {
     id: string;
@@ -56,8 +57,27 @@ export function createAppGrid(
     // ui/utils/home-ram-poller.ts) — a fresh object each time so
     // HomeRamContext's consumers see the change.
     let homeRam: HomeRam = { used: 0, max: 0 };
+    // Set once via setResetInfo (see below) — ui.app.ts fetches this once at
+    // startup from ns.getResetInfo() (1 GB, safe to reference directly
+    // there) rather than polling it: neither can change without a BitNode/
+    // aug reset, which kills this script too.
+    let ownedSF: Map<number, number> = new Map();
+    let currentNode = 0;
     let focusedId: string | null = null;
     let nextZ = 0;
+
+    // Two different rules, two different treatments in the grid below (see
+    // `ui/utils/app-availability.ts`'s own header comments for why they're
+    // split): `minRam` shows the icon disabled with a reason (something the
+    // player can fix mid-session), while `minSourceFile`/`isAvailable`
+    // leaves the icon out of the grid entirely. Both re-evaluated on every
+    // render since `homeRam`/`ownedSF`/`currentNode` change live.
+    function ramReason(app: AppDefinition): string | null {
+        return ramShortfallReason(app, { homeRam, ownedSF, currentNode });
+    }
+    function visible(app: AppDefinition): boolean {
+        return isAppVisible(app, { homeRam, ownedSF, currentNode });
+    }
 
     function openApp(id: string) {
         const existing = state.windows.find((w) => w.id === id);
@@ -65,10 +85,13 @@ export function createAppGrid(
             bringToFront(id);
             return;
         }
+        const app = apps.find((a) => a.id === id);
+        // Belt-and-suspenders alongside the disabled/hidden icon below —
+        // this is what actually stops the window from opening.
+        if (app && (!visible(app) || ramReason(app))) return;
         // Cascade each new window a bit further down/right than the last,
         // wrapping so a long session doesn't march windows off-screen.
         const offset = (state.windows.length % 8) * 28;
-        const app = apps.find((a) => a.id === id);
         state.windows.push({
             id,
             x: 280 + offset,
@@ -123,6 +146,16 @@ export function createAppGrid(
         render();
     }
 
+    // Called once from ui.app.ts, right after ns.getResetInfo() resolves at
+    // startup (see that file) — no poller needed since neither piece can
+    // change without a reset that kills this script too (see `ownedSF`
+    // above).
+    function setResetInfo(sf: Map<number, number>, node: number) {
+        ownedSF = sf;
+        currentNode = node;
+        render();
+    }
+
     function bringToFront(id: string) {
         const win = state.windows.find((w) => w.id === id);
         if (!win) return;
@@ -167,29 +200,38 @@ export function createAppGrid(
     doc.addEventListener("keydown", onKeyDown);
 
     function render() {
-        const icons = apps.map((app) => (
-            <button
-                key={app.id}
-                onClick={() => openApp(app.id)}
-                title={app.label}
-                style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: "2px",
-                    background: theme.backgroundPrimary,
-                    border: `1px solid ${theme.primary}`,
-                    borderRadius: "6px",
-                    color: theme.primary,
-                    fontFamily: "inherit",
-                    cursor: "pointer",
-                    padding: "6px 2px",
-                }}
-            >
-                <span style={{ fontSize: "18px", lineHeight: 1 }}>{app.icon}</span>
-                <span style={{ fontSize: "11px", opacity: 0.85, textAlign: "center" }}>{app.label}</span>
-            </button>
-        ));
+        // Apps failing minSourceFile/isAvailable are left out of the icon
+        // list entirely (see visible() above) — filter before map rather
+        // than returning null from within it, so there's no gap left in the
+        // grid where a hidden icon would've sat.
+        const icons = apps.filter(visible).map((app) => {
+            const reason = ramReason(app);
+            return (
+                <button
+                    key={app.id}
+                    onClick={() => openApp(app.id)}
+                    disabled={reason != null}
+                    title={reason ?? app.label}
+                    style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: "2px",
+                        background: theme.backgroundPrimary,
+                        border: `1px solid ${theme.primary}`,
+                        borderRadius: "6px",
+                        color: theme.primary,
+                        fontFamily: "inherit",
+                        cursor: reason != null ? "default" : "pointer",
+                        opacity: reason != null ? 0.4 : 1,
+                        padding: "6px 2px",
+                    }}
+                >
+                    <span style={{ fontSize: "18px", lineHeight: 1 }}>{app.icon}</span>
+                    <span style={{ fontSize: "11px", opacity: 0.85, textAlign: "center" }}>{app.label}</span>
+                </button>
+            );
+        });
 
         const grid = (
             <div
@@ -352,5 +394,5 @@ export function createAppGrid(
         doc.removeEventListener("mouseup", onDragEnd);
     }
 
-    return { render, destroy, setHomeRam };
+    return { render, destroy, setHomeRam, setResetInfo };
 }
