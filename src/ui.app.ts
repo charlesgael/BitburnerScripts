@@ -67,10 +67,7 @@ export async function main(ns: NS) {
     if (!globals) return;
     const { doc, win, ReactDOM } = globals;
 
-    // Needs to happen before anything below mounts — see ensure-assets.ts.
-    // Nothing has been mounted and ns.atExit isn't registered yet at this
-    // point, so returning here on failure needs no cleanup.
-    if (!(await ensureAssetsLoaded(ns, win))) return;
+    buildAssets(ns)
 
     // --- Track anything we need to clean up on exit ---
     const state = {
