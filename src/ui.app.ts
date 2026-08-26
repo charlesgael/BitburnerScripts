@@ -4,6 +4,8 @@
  * A self-contained sidebar UI built with React, rendered via the game's
  * exposed React/ReactDOM globals. See `src/ui/` for the pieces:
  *  - `ui/utils/react-globals.ts` — grabs React/ReactDOM/document/window
+ *  - `ui/utils/ensure-assets.ts` — makes sure `assets.app.js` (notyf, custom
+ *                                  CSS) has run before anything else starts
  *  - `ui/utils/mount.ts`         — container create/cleanup helpers
  *  - `ui/components/status-panel.tsx` — live status line + kill switch
  *  - `ui/components/app-grid.tsx`     — sidebar app icon grid + modal
@@ -16,12 +18,15 @@
  * code placed after the main loop, which only runs on the cooperative path.
  * `main()` refuses to start at all if another instance is already running
  * (see the ns.ps check right at its top) — see that check's comment for why.
+ * It also refuses to start if `assets.app.js` hasn't run and can't be
+ * auto-launched (not enough free RAM) — see `ensureAssetsLoaded`.
  *
  * Usage: run with `run ui.app.js`.
  */
 
 import { NS } from "@ns";
 import { getReactGlobals } from "./ui/utils/react-globals";
+import { ensureAssetsLoaded } from "./ui/utils/ensure-assets";
 import { mountContainer, unmountContainer, reattachIfDetached } from "./ui/utils/mount";
 import { createNsQueue } from "./ui/utils/ns-queue";
 import { createQueuedNs } from "./ui/utils/ns-proxy";
@@ -60,7 +65,12 @@ export async function main(ns: NS) {
 
     const globals = getReactGlobals(ns);
     if (!globals) return;
-    const { doc, ReactDOM } = globals;
+    const { doc, win, ReactDOM } = globals;
+
+    // Needs to happen before anything below mounts — see ensure-assets.ts.
+    // Nothing has been mounted and ns.atExit isn't registered yet at this
+    // point, so returning here on failure needs no cleanup.
+    if (!(await ensureAssetsLoaded(ns, win))) return;
 
     // --- Track anything we need to clean up on exit ---
     const state = {

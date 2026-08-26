@@ -2,6 +2,7 @@ import { AppComponentProps, AppDefinition } from "../types";
 import { useQueuedNs } from "../context/ns-queue-context";
 import { useAddChildPid } from "../context/child-pids-context";
 import { theme, wrapText } from "../utils/theme";
+import { notifySuccess } from "../utils/notify";
 import { fetchCloudList } from "../utils/cloud-list";
 import { readNetworkHosts } from "../utils/network-hosts";
 import { pullRemoteFile, pushRemoteFile } from "../utils/remote-file-bounce";
@@ -129,17 +130,6 @@ function FileExplorerContent({ React }: AppComponentProps) {
 
     const [actionBusy, setActionBusy] = React.useState(false);
     const [actionError, setActionError]: [string | null, (v: string | null) => void] = React.useState(null);
-    const [actionNotice, setActionNotice]: [string | null, (v: string | null) => void] = React.useState(null);
-    const noticeTimeout = React.useRef(null);
-
-    /** Shows a brief, self-dismissing success message in the browse
-     * screen's banner (e.g. after Copy to) — errors use `actionError`
-     * instead, which stays until the next action. */
-    function showNotice(message: string) {
-        if (noticeTimeout.current) clearTimeout(noticeTimeout.current);
-        setActionNotice(message);
-        noticeTimeout.current = setTimeout(() => setActionNotice(null), 2500);
-    }
 
     async function loadHosts() {
         setHostsLoading(true);
@@ -227,8 +217,6 @@ function FileExplorerContent({ React }: AppComponentProps) {
         setConfirmDelete(null);
         setCopyMenuFor(null);
         setActionError(null);
-        if (noticeTimeout.current) clearTimeout(noticeTimeout.current);
-        setActionNotice(null);
         setNewFileOpen(false);
     }
 
@@ -416,7 +404,7 @@ function FileExplorerContent({ React }: AppComponentProps) {
         try {
             const ok = await ns.scp(path, destHost, selectedHost);
             if (!ok) throw new Error(`Copy to ${destHost} failed.`);
-            showNotice(`✓ Copied ${path} to ${destHost}`);
+            notifySuccess(`Copied ${path} to ${destHost}`);
         } catch (err) {
             setActionError(err instanceof Error ? err.message : String(err));
         } finally {
@@ -564,10 +552,6 @@ function FileExplorerContent({ React }: AppComponentProps) {
             {actionError ? (
                 <div style={{ color: theme.error, fontSize: "11px", marginBottom: "6px", flexShrink: 0, ...wrapText }}>
                     {actionError}
-                </div>
-            ) : actionNotice ? (
-                <div style={{ color: theme.primary, fontSize: "11px", marginBottom: "6px", flexShrink: 0, ...wrapText }}>
-                    {actionNotice}
                 </div>
             ) : null}
 

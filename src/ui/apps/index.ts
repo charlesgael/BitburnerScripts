@@ -29,9 +29,11 @@ const ProgramsApp = createTaskManagerApp("programs", "Programs", "🚀", [
  * `hello-world.tsx` exporting an `AppDefinition`, then list it here.
  */
 export const APPS: AppDefinition[] = [
-    /*HelloWorldApp, */ ProgramsApp,
-    /*TrainerApp, */ CloudServersApp,
+    /*HelloWorldApp, */
+    /*TrainerApp, */
+    FileExplorerApp,
+    ProgramsApp,
+    CloudServersApp,
     ShareApp,
     XpFarmApp,
-    FileExplorerApp,
 ];

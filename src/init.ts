@@ -10,7 +10,7 @@ class Script {
 
 export async function main(ns: NS) {
     const scripts = [
-        new Script(`style.app.js`),
+        new Script(`assets.app.js`),
         new Script(`ui.app.js`),
     ];
 
