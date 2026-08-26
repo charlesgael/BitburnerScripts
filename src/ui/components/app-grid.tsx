@@ -3,7 +3,6 @@ import { initNsQueueContext } from "../context/ns-queue-context";
 import { initChildPidsContext } from "../context/child-pids-context";
 import { initHomeRamContext, HomeRam } from "../context/home-ram-context";
 import { QueuedNS } from "../utils/ns-proxy";
-import { theme } from "../utils/theme";
 import { ramShortfallReason, isAppVisible } from "../utils/app-availability";
 
 interface OpenWindow {
@@ -212,20 +211,7 @@ export function createAppGrid(
                     onClick={() => openApp(app.id)}
                     disabled={reason != null}
                     title={reason ?? app.label}
-                    style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: "2px",
-                        background: theme.backgroundPrimary,
-                        border: `1px solid ${theme.primary}`,
-                        borderRadius: "6px",
-                        color: theme.primary,
-                        fontFamily: "inherit",
-                        cursor: reason != null ? "default" : "pointer",
-                        opacity: reason != null ? 0.4 : 1,
-                        padding: "6px 2px",
-                    }}
+                    className="bb-icon-btn"
                 >
                     <span style={{ fontSize: "18px", lineHeight: 1 }}>{app.icon}</span>
                     <span style={{ fontSize: "11px", opacity: 0.85, textAlign: "center" }}>{app.label}</span>
@@ -257,17 +243,12 @@ export function createAppGrid(
                     key={win.id}
                     ref={(node: any) => sizeWindowNode(win, node)}
                     onMouseDown={() => bringToFront(win.id)}
-                    className="un-scale"
+                    className="un-scale bb-window"
                     style={{
                         position: "fixed",
                         left: `${win.x}px`,
                         top: `${win.y}px`,
                         zIndex: 20000 + win.z,
-                        background: theme.backgroundPrimary,
-                        border: `1px solid ${theme.primary}`,
-                        borderRadius: "8px",
-                        color: theme.primary,
-                        fontFamily: "Consolas, monospace",
                         minWidth: `${app.minWidth ?? 280}px`,
                         maxWidth: "90vw",
                         minHeight: `${app.minHeight ?? 120}px`,
@@ -286,7 +267,6 @@ export function createAppGrid(
                         maxHeight: "calc(100vh - 40px)",
                         overflow: "hidden",
                         resize: "both",
-                        boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
                         display: "flex",
                         flexDirection: "column",
                     }}
@@ -294,17 +274,7 @@ export function createAppGrid(
                     <div
                         // Title bar: drag handle + close button.
                         onMouseDown={(ev: any) => startDrag(win.id, ev)}
-                        style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            padding: "8px 10px",
-                            borderBottom: `1px solid ${theme.primaryDark}`,
-                            cursor: "move",
-                            fontWeight: "bold",
-                            userSelect: "none",
-                            flexShrink: 0,
-                        }}
+                        className="bb-window-titlebar"
                     >
                         <span>
                             {app.icon} {app.label}
@@ -317,14 +287,7 @@ export function createAppGrid(
                                 onMouseDown={(ev: any) => ev.stopPropagation()}
                                 onClick={() => refreshApp(win.id)}
                                 title="Refresh"
-                                style={{
-                                    background: "transparent",
-                                    border: "none",
-                                    color: theme.primary,
-                                    cursor: "pointer",
-                                    fontSize: "14px",
-                                    fontFamily: "inherit",
-                                }}
+                                className="bb-icon-link"
                             >
                                 🗘
                             </button>
@@ -332,14 +295,7 @@ export function createAppGrid(
                                 onMouseDown={(ev: any) => ev.stopPropagation()}
                                 onClick={() => closeApp(win.id)}
                                 title="Close"
-                                style={{
-                                    background: "transparent",
-                                    border: "none",
-                                    color: theme.error,
-                                    cursor: "pointer",
-                                    fontSize: "14px",
-                                    fontFamily: "inherit",
-                                }}
+                                className="bb-icon-link bb-icon-link--danger"
                             >
                                 ✕
                             </button>

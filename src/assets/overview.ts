@@ -18,8 +18,9 @@
  * game update that a full class-name match wouldn't.
  *
  * Colors come from the same `--bb-theme-*` custom properties the sidebar
- * app grid uses (see `ui/utils/theme.ts`), so this matches whatever theme
- * is active instead of only looking right under the default one.
+ * app grid's own CSS (see `assets/controls.ts`) uses, so this matches
+ * whatever theme is active instead of only looking right under the default
+ * one.
  *
  * The XP bars are colored per-stat by row position (see the comment above
  * those rules): CSS has no "previous sibling" selector, so there's no way

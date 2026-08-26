@@ -1,6 +1,4 @@
-import { wrapText } from "../../../utils/theme";
 import { FileExplorerState } from "../logic/use-file-explorer";
-import { buttonStyle, fieldStyle } from "../logic/styles";
 
 /** Up/breadcrumb/refresh/new-file toolbar, the new-file inline form, and
  * the search box — everything above the host sidebar + file grid. */
@@ -8,10 +6,10 @@ export function BrowseToolbar({ React, fx }: { React: any; fx: FileExplorerState
     return (
         <React.Fragment>
             <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px", flexShrink: 0 }}>
-                <button onClick={fx.goUp} disabled={!fx.currentPath} title="Up one folder" style={buttonStyle()}>
+                <button onClick={fx.goUp} disabled={!fx.currentPath} title="Up one folder" className="bb-btn bb-btn--sm">
                     ⬆
                 </button>
-                <div style={{ flex: 1, minWidth: 0, ...wrapText }}>
+                <div className="bb-wrap" style={{ flex: 1, minWidth: 0 }}>
                     <span
                         onClick={() => fx.navigate("")}
                         style={{ cursor: "pointer", textDecoration: fx.currentPath ? "underline" : "none" }}
@@ -34,7 +32,7 @@ export function BrowseToolbar({ React, fx }: { React: any; fx: FileExplorerState
                     onClick={() => void fx.loadFiles(fx.selectedHost)}
                     disabled={fx.filesLoading}
                     title="Refresh this folder"
-                    style={buttonStyle()}
+                    className="bb-btn bb-btn--sm"
                 >
                     {fx.filesLoading ? "..." : "⟳"}
                 </button>
@@ -49,7 +47,7 @@ export function BrowseToolbar({ React, fx }: { React: any; fx: FileExplorerState
                             ? "New files can only be created on home (ns.write always targets home)"
                             : "New text file"
                     }
-                    style={{ ...buttonStyle(), opacity: fx.selectedHost !== "home" ? 0.5 : 1 }}
+                    className="bb-btn bb-btn--sm"
                 >
                     ＋
                 </button>
@@ -62,16 +60,16 @@ export function BrowseToolbar({ React, fx }: { React: any; fx: FileExplorerState
                         value={fx.newFileName}
                         placeholder="notes.txt"
                         onChange={(ev: any) => fx.setNewFileName(ev.target.value)}
-                        style={fieldStyle}
+                        className="bb-field bb-field--sm bb-field--block"
                     />
                     <button
                         onClick={() => void fx.createNewFile()}
                         disabled={fx.actionBusy || !fx.newFileName.trim()}
-                        style={buttonStyle()}
+                        className="bb-btn bb-btn--sm"
                     >
                         Create
                     </button>
-                    <button onClick={() => fx.setNewFileOpen(false)} style={buttonStyle()}>
+                    <button onClick={() => fx.setNewFileOpen(false)} className="bb-btn bb-btn--sm">
                         Cancel
                     </button>
                 </div>
@@ -82,7 +80,8 @@ export function BrowseToolbar({ React, fx }: { React: any; fx: FileExplorerState
                 value={fx.search}
                 placeholder="🔎 Search this folder"
                 onChange={(ev: any) => fx.setSearch(ev.target.value)}
-                style={{ ...fieldStyle, marginBottom: "6px", flexShrink: 0 }}
+                className="bb-field bb-field--sm bb-field--block"
+                style={{ marginBottom: "6px", flexShrink: 0 }}
             />
         </React.Fragment>
     );

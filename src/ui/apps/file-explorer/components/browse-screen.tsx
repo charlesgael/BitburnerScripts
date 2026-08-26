@@ -1,4 +1,3 @@
-import { theme, wrapText } from "../../../utils/theme";
 import { FileExplorerState } from "../logic/use-file-explorer";
 import { BrowseToolbar } from "./browse-toolbar";
 import { HostSidebar } from "./host-sidebar";
@@ -15,7 +14,10 @@ export function BrowseScreen({ React, fx }: { React: any; fx: FileExplorerState 
             ) : null}
 
             {fx.actionError ? (
-                <div style={{ color: theme.error, fontSize: "11px", marginBottom: "6px", flexShrink: 0, ...wrapText }}>
+                <div
+                    className="bb-text-error bb-wrap"
+                    style={{ fontSize: "11px", marginBottom: "6px", flexShrink: 0 }}
+                >
                     {fx.actionError}
                 </div>
             ) : null}

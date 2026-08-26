@@ -1,6 +1,5 @@
 import { AppComponentProps } from "../../../types";
 import { useQueuedNs } from "../../../context/ns-queue-context";
-import { theme } from "../../../utils/theme";
 
 /**
  * Proofing app: says hello, and proves the `useQueuedNs` context hook works
@@ -19,18 +18,7 @@ export function HelloWorldContent({ React }: AppComponentProps) {
     return (
         <div>
             <div style={{ marginBottom: "8px" }}>Hello, world!</div>
-            <button
-                onClick={fetchHostname}
-                style={{
-                    background: theme.button,
-                    color: theme.primary,
-                    border: `1px solid ${theme.primary}`,
-                    borderRadius: "4px",
-                    padding: "4px 10px",
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                }}
-            >
+            <button onClick={fetchHostname} className="bb-btn">
                 Get hostname via queued ns
             </button>
             {hostname ? <div style={{ marginTop: "8px", opacity: 0.85 }}>Host: {hostname}</div> : null}

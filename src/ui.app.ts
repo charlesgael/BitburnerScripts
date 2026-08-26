@@ -25,11 +25,11 @@
  */
 
 import { NS } from "@ns";
+import { main as buildAssets } from "./assets.app";
 import { APPS } from "./ui/apps";
 import { createAppGrid } from "./ui/components/app-grid";
 import { createOverviewStats } from "./ui/components/overview-stats";
 import { createStatusPanel } from "./ui/components/status-panel";
-import { ensureAssetsLoaded } from "./ui/utils/ensure-assets";
 import { createHomeRamPoller } from "./ui/utils/home-ram-poller";
 import { mountContainer, reattachIfDetached, unmountContainer } from "./ui/utils/mount";
 import { createQueuedNs } from "./ui/utils/ns-proxy";

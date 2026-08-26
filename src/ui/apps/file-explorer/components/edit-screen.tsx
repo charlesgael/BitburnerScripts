@@ -1,7 +1,5 @@
-import { theme, wrapText } from "../../../utils/theme";
 import { iconForFile, isEditable } from "../../../utils/file-types";
 import { FileExplorerState } from "../logic/use-file-explorer";
-import { buttonStyle } from "../logic/styles";
 
 /** The View/Edit screen — shown instead of the browse screen while
  * `fx.mode === "edit"`. See `../index.ts`'s header comment for the
@@ -21,7 +19,7 @@ export function EditScreen({ React, fx }: { React: any; fx: FileExplorerState })
                     flexShrink: 0,
                 }}
             >
-                <span style={{ fontWeight: "bold", fontSize: "12px", ...wrapText }}>
+                <span className="bb-wrap" style={{ fontWeight: "bold", fontSize: "12px" }}>
                     {fx.editingHost !== "home" ? `${fx.editingHost}: ` : ""}
                     {iconForFile(editingPath)} {editingPath}
                     {fx.editDirty ? " *" : ""}
@@ -31,18 +29,18 @@ export function EditScreen({ React, fx }: { React: any; fx: FileExplorerState })
                         <button
                             onClick={() => void fx.saveEdit()}
                             disabled={fx.editBusy || !fx.editDirty}
-                            style={{ ...buttonStyle(), opacity: fx.editBusy || !fx.editDirty ? 0.6 : 1 }}
+                            className="bb-btn bb-btn--sm"
                         >
                             {fx.editBusy ? "..." : "💾 Save"}
                         </button>
                     ) : null}
-                    <button onClick={fx.closeEditor} style={buttonStyle()}>
+                    <button onClick={fx.closeEditor} className="bb-btn bb-btn--sm">
                         {fx.confirmDiscardEditor ? "Discard?" : "✕ Close"}
                     </button>
                 </div>
             </div>
             {fx.editError ? (
-                <div style={{ color: theme.error, fontSize: "11px", marginBottom: "8px", ...wrapText }}>
+                <div className="bb-text-error bb-wrap" style={{ fontSize: "11px", marginBottom: "8px" }}>
                     {fx.editError}
                 </div>
             ) : null}
@@ -65,14 +63,11 @@ export function EditScreen({ React, fx }: { React: any; fx: FileExplorerState })
                     fx.setEditDirty(true);
                     fx.setConfirmDiscardEditor(false);
                 }}
+                className="bb-field"
                 style={{
                     flex: "1 1 auto",
                     minHeight: 0,
                     resize: "none",
-                    background: theme.well,
-                    color: theme.primary,
-                    border: `1px solid ${theme.primary}`,
-                    borderRadius: "4px",
                     padding: "8px",
                     fontFamily: "Consolas, monospace",
                     fontSize: "12px",

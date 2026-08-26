@@ -1,4 +1,3 @@
-import { theme, wrapText } from "../../../utils/theme";
 import { ShareHost } from "../logic/types";
 import { useShareHostCard } from "../logic/use-share-host-card";
 
@@ -17,42 +16,8 @@ export function ShareHostCard({
 }) {
     const card = useShareHostCard(React, ns, host, onUsedRamChange);
 
-    const fieldStyle = {
-        background: theme.well,
-        color: theme.primary,
-        border: `1px solid ${theme.primary}`,
-        borderRadius: "4px",
-        padding: "4px",
-        fontFamily: "inherit",
-        width: "100%",
-    };
-
-    const buttonStyle = (danger = false) => ({
-        width: "100%",
-        background: danger ? theme.errorDark : theme.button,
-        color: danger ? theme.error : theme.primary,
-        border: `1px solid ${danger ? theme.error : theme.primary}`,
-        borderRadius: "4px",
-        padding: "6px 10px",
-        cursor: card.busy ? "default" : "pointer",
-        opacity: card.busy ? 0.6 : 1,
-        fontFamily: "inherit",
-    });
-
     return (
-        <div
-            style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "6px",
-                padding: "8px",
-                fontSize: "12px",
-                background: theme.well,
-                border: `1px solid ${theme.primaryDark}`,
-                borderRadius: "6px",
-                minWidth: 0,
-            }}
-        >
+        <div className="bb-card">
             <div
                 style={{
                     display: "flex",
@@ -60,30 +25,18 @@ export function ShareHostCard({
                     gap: "8px",
                 }}
             >
-                <span style={{ ...wrapText, flex: 1, fontWeight: "bold" }}>{host.hostname}</span>
+                <span className="bb-wrap" style={{ flex: 1, fontWeight: "bold" }}>
+                    {host.hostname}
+                </span>
                 <span style={{ opacity: 0.75 }}>
                     {host.usedRam.toFixed(1)} / {host.maxRam.toFixed(1)} GB
                 </span>
             </div>
             {/* Thin per-server RAM usage bar. */}
-            <div
-                style={{
-                    position: "relative",
-                    height: "3px",
-                    borderRadius: "2px",
-                    background: theme.backgroundPrimary,
-                    border: `1px solid ${theme.primary}`,
-                    overflow: "hidden",
-                }}
-            >
+            <div className="bb-progress bb-progress--thin">
                 <div
-                    style={{
-                        position: "absolute",
-                        inset: 0,
-                        width: `${host.usedRam}%`,
-                        background: host.usedRam > 90 ? theme.error : theme.primary,
-                        transition: "width 0.2s ease",
-                    }}
+                    className={`bb-progress-fill${host.usedRam > 90 ? " bb-progress-fill--danger" : ""}`}
+                    style={{ width: `${host.usedRam}%` }}
                 />
             </div>
 
@@ -91,16 +44,10 @@ export function ShareHostCard({
                 <div style={{ fontSize: "10px", opacity: 0.6 }}>{card.reservedRam.toFixed(1)} GB kept in reserve</div>
             ) : null}
 
-            {card.error ? <div style={{ color: theme.error, ...wrapText }}>{card.error}</div> : null}
+            {card.error ? <div className="bb-text-error bb-wrap">{card.error}</div> : null}
 
             {card.insufficientRam ? (
-                <div
-                    style={{
-                        color: theme.error,
-                        fontSize: "11px",
-                        ...wrapText,
-                    }}
-                >
+                <div className="bb-text-error bb-wrap" style={{ fontSize: "11px" }}>
                     Needs at least {card.costPerThread.toFixed(2)} GB shareable to share a single thread — only{" "}
                     {card.shareableRam.toFixed(2)} GB is shareable here.
                 </div>
@@ -113,7 +60,7 @@ export function ShareHostCard({
                                 card.setThreadsChosenByUser(true);
                                 card.setSelectedThreads(Number(ev.target.value));
                             }}
-                            style={fieldStyle}
+                            className="bb-field bb-field--block"
                         >
                             {card.tiers.map((threads) => (
                                 <option key={threads} value={threads}>
@@ -128,7 +75,11 @@ export function ShareHostCard({
                             {card.runningThreads === 1 ? "" : "s"}.
                         </div>
                     )}
-                    <button onClick={() => void card.toggleSharing()} disabled={card.busy} style={buttonStyle(card.sharing)}>
+                    <button
+                        onClick={() => void card.toggleSharing()}
+                        disabled={card.busy}
+                        className={`bb-btn bb-btn--block bb-btn--lg${card.sharing ? " bb-btn-danger" : ""}`}
+                    >
                         {card.busy ? "..." : card.sharing ? "Stop Sharing" : "Start Sharing"}
                     </button>
                 </React.Fragment>

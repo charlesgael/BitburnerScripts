@@ -1,8 +1,6 @@
 import { AppComponentProps } from "../../../types";
-import { theme, wrapText } from "../../../utils/theme";
 import { CloudServerRow } from "../../../utils/cloud-list";
 import { useCloudServers } from "../logic/use-cloud-servers";
-import { buttonStyle } from "./styles";
 import { ServerCard } from "./server-card";
 import { BuyForm } from "./buy-form";
 
@@ -18,13 +16,13 @@ export function CloudServersContent({ React }: AppComponentProps) {
                 <span>
                     Servers: {cs.servers.length} / {cs.serverLimit || "?"}
                 </span>
-                <button onClick={() => void cs.refreshList()} disabled={cs.busy} style={buttonStyle()}>
+                <button onClick={() => void cs.refreshList()} disabled={cs.busy} className="bb-btn">
                     {cs.listLoading ? "..." : "Refresh"}
                 </button>
             </div>
 
             {cs.listError ? (
-                <div style={{ color: theme.error, fontSize: "11px", marginBottom: "8px", ...wrapText }}>
+                <div className="bb-text-error bb-wrap" style={{ fontSize: "11px", marginBottom: "8px" }}>
                     {cs.listError}
                 </div>
             ) : null}
@@ -38,7 +36,7 @@ export function CloudServersContent({ React }: AppComponentProps) {
             list stranded in the middle of empty space. 200px keeps each
             card's "hostname (used / total GB)" + Delete button row (the
             original single-column layout) from cramping before it falls
-            back to `wrapText`. No max-height/overflow of its own — the
+            back to wrapping (`.bb-wrap`). No max-height/overflow of its own — the
             window's own content area (also in app-grid.tsx) already
             scrolls when everything together doesn't fit. */}
             <div
@@ -59,7 +57,7 @@ export function CloudServersContent({ React }: AppComponentProps) {
             </div>
 
             {cs.deleteError ? (
-                <div style={{ color: theme.error, fontSize: "11px", marginBottom: "8px", ...wrapText }}>
+                <div className="bb-text-error bb-wrap" style={{ fontSize: "11px", marginBottom: "8px" }}>
                     {cs.deleteError}
                 </div>
             ) : null}

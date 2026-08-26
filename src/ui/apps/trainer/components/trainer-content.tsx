@@ -1,5 +1,4 @@
 import { AppComponentProps } from "../../../types";
-import { theme, wrapText } from "../../../utils/theme";
 import { useTrainer, STATS } from "../logic/use-trainer";
 import { formatDuration } from "../logic/format-duration";
 
@@ -11,24 +10,14 @@ const DAEMON_HOST = "home";
 export function TrainerContent({ React }: AppComponentProps) {
     const t = useTrainer(React);
 
-    const fieldStyle = {
-        background: theme.well,
-        color: theme.primary,
-        border: `1px solid ${theme.primary}`,
-        borderRadius: "4px",
-        padding: "4px",
-        fontFamily: "inherit",
-    };
-
     return (
         <div>
             {t.error ? (
                 <div
+                    className="bb-text-error bb-wrap"
                     style={{
-                        color: theme.error,
                         marginBottom: "8px",
                         fontSize: "12px",
-                        ...wrapText,
                     }}
                 >
                     {t.error}
@@ -59,7 +48,7 @@ export function TrainerContent({ React }: AppComponentProps) {
                                 t.setSelectedStat(stat);
                                 t.setTargetLevel((t.levels[stat] ?? 0) + 1);
                             }}
-                            style={fieldStyle}
+                            className="bb-field"
                         >
                             {STATS.map((s) => (
                                 <option key={s.key} value={s.key}>
@@ -86,7 +75,7 @@ export function TrainerContent({ React }: AppComponentProps) {
                             onChange={(ev: any) =>
                                 t.setTargetLevel(Math.max(t.minTargetLevel, Number(ev.target.value) || t.minTargetLevel))
                             }
-                            style={fieldStyle}
+                            className="bb-field"
                         />
                     </label>
                 ) : null}
@@ -109,25 +98,8 @@ export function TrainerContent({ React }: AppComponentProps) {
             </div>
             {t.training ? (
                 <div style={{ marginBottom: "12px" }}>
-                    <div
-                        style={{
-                            position: "relative",
-                            height: "14px",
-                            borderRadius: "4px",
-                            background: theme.well,
-                            border: `1px solid ${theme.primaryDark}`,
-                            overflow: "hidden",
-                        }}
-                    >
-                        <div
-                            style={{
-                                position: "absolute",
-                                inset: 0,
-                                width: `${t.progressPct}%`,
-                                background: theme.primary,
-                                transition: "width 0.3s ease",
-                            }}
-                        />
+                    <div className="bb-progress">
+                        <div className="bb-progress-fill" style={{ width: `${t.progressPct}%` }} />
                     </div>
                     <div
                         style={{
@@ -147,11 +119,10 @@ export function TrainerContent({ React }: AppComponentProps) {
             ) : null}
             {t.insufficientRam ? (
                 <div
+                    className="bb-text-error bb-wrap"
                     style={{
-                        color: theme.error,
                         fontSize: "11px",
                         marginBottom: "6px",
-                        ...wrapText,
                     }}
                 >
                     Needs {t.daemonRam.toFixed(2)} GB free on {DAEMON_HOST} to launch daemons/train.daemon.js — only{" "}
@@ -163,17 +134,7 @@ export function TrainerContent({ React }: AppComponentProps) {
                 onClick={t.toggleTraining}
                 disabled={t.busy || t.insufficientRam}
                 title={t.insufficientRam ? "Not enough free RAM to launch daemons/train.daemon.js" : undefined}
-                style={{
-                    width: "100%",
-                    background: t.training ? theme.errorDark : theme.button,
-                    color: t.training ? theme.error : theme.primary,
-                    border: `1px solid ${t.training ? theme.error : theme.primary}`,
-                    borderRadius: "4px",
-                    padding: "6px 10px",
-                    cursor: t.busy || t.insufficientRam ? "default" : "pointer",
-                    opacity: t.busy || t.insufficientRam ? 0.6 : 1,
-                    fontFamily: "inherit",
-                }}
+                className={`bb-btn bb-btn--block bb-btn--lg${t.training ? " bb-btn-danger" : ""}`}
             >
                 {t.busy ? "..." : t.training ? "Stop Training" : t.insufficientRam ? "Not Enough RAM" : "Start Training"}
             </button>

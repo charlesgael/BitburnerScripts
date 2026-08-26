@@ -1,8 +1,6 @@
 import { AppComponentProps } from "../../../types";
-import { theme, wrapText } from "../../../utils/theme";
 import { CloudServerRow } from "../../../utils/cloud-list";
 import { useXpFarm } from "../logic/use-xp-farm";
-import { buttonStyle } from "./styles";
 import { ServerCard } from "./server-card";
 
 /** Root component: the dedicated-count/refresh header, the daemon status
@@ -36,13 +34,14 @@ export function XpFarmContent({ React }: AppComponentProps) {
                 <button
                     onClick={() => void xf.refresh()}
                     disabled={xf.loading}
-                    style={buttonStyle()}
+                    className="bb-btn bb-btn--wide"
                 >
                     {xf.loading ? "..." : "Refresh"}
                 </button>
             </div>
 
             <div
+                className="bb-divider-bottom"
                 style={{
                     display: "flex",
                     justifyContent: "space-between",
@@ -50,7 +49,6 @@ export function XpFarmContent({ React }: AppComponentProps) {
                     fontSize: "12px",
                     marginBottom: "10px",
                     paddingBottom: "8px",
-                    borderBottom: `1px solid ${theme.well}`,
                 }}
             >
                 <span
@@ -67,7 +65,7 @@ export function XpFarmContent({ React }: AppComponentProps) {
                         <button
                             onClick={() => void xf.openLog()}
                             title="Open the daemon's log window"
-                            style={buttonStyle(false, true)}
+                            className="bb-btn"
                         >
                             📃
                         </button>
@@ -75,7 +73,7 @@ export function XpFarmContent({ React }: AppComponentProps) {
                     <button
                         onClick={() => void xf.toggleDaemon()}
                         disabled={xf.daemonBusy}
-                        style={buttonStyle(xf.daemonRunning)}
+                        className={`bb-btn bb-btn--wide${xf.daemonRunning ? " bb-btn-danger" : ""}`}
                     >
                         {xf.daemonBusy
                             ? "..."
@@ -88,11 +86,10 @@ export function XpFarmContent({ React }: AppComponentProps) {
 
             {xf.error ? (
                 <div
+                    className="bb-text-error bb-wrap"
                     style={{
-                        color: theme.error,
                         fontSize: "11px",
                         marginBottom: "8px",
-                        ...wrapText,
                     }}
                 >
                     {xf.error}

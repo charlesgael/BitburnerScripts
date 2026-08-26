@@ -1,7 +1,5 @@
-import { theme, wrapText } from "../../../utils/theme";
 import { CloudServersState } from "../logic/use-cloud-servers";
 import { formatMoney } from "../logic/format-money";
-import { fieldStyle, buttonStyle } from "./styles";
 
 /** The purchase form: hostname (blank = random), RAM tier picker, and the
  * Buy button. */
@@ -16,7 +14,7 @@ export function BuyForm({ React, cs }: { React: any; cs: CloudServersState }) {
                     placeholder="blank = random name"
                     disabled={cs.busy || cs.atServerLimit}
                     onChange={(ev: any) => cs.setBuyHostname(ev.target.value)}
-                    style={fieldStyle}
+                    className="bb-field"
                 />
             </label>
             <label style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "12px", marginBottom: "8px" }}>
@@ -25,7 +23,7 @@ export function BuyForm({ React, cs }: { React: any; cs: CloudServersState }) {
                     value={cs.buyRam}
                     disabled={cs.busy || cs.atServerLimit || cs.ramTiers.length === 0}
                     onChange={(ev: any) => cs.setBuyRam(Number(ev.target.value))}
-                    style={fieldStyle}
+                    className="bb-field"
                 >
                     {cs.ramTiers.map((ram) => (
                         <option key={ram} value={ram} disabled={cs.costByRam[ram] > cs.moneyAvailable}>
@@ -35,23 +33,20 @@ export function BuyForm({ React, cs }: { React: any; cs: CloudServersState }) {
                 </select>
             </label>
             {cs.atServerLimit ? (
-                <div style={{ color: theme.error, fontSize: "11px", marginBottom: "8px", ...wrapText }}>
+                <div className="bb-text-error bb-wrap" style={{ fontSize: "11px", marginBottom: "8px" }}>
                     Server limit reached ({cs.serverLimit}). Delete one to buy another.
                 </div>
             ) : null}
             {cs.buyError ? (
-                <div style={{ color: theme.error, fontSize: "11px", marginBottom: "8px", ...wrapText }}>{cs.buyError}</div>
+                <div className="bb-text-error bb-wrap" style={{ fontSize: "11px", marginBottom: "8px" }}>
+                    {cs.buyError}
+                </div>
             ) : null}
             <button
                 onClick={() => void cs.handleBuy()}
                 disabled={cs.buyDisabled}
                 title={cs.insufficientMoney ? "Not enough money" : undefined}
-                style={{
-                    ...buttonStyle(),
-                    width: "100%",
-                    opacity: cs.buyDisabled ? 0.6 : 1,
-                    cursor: cs.buyDisabled ? "default" : "pointer",
-                }}
+                className="bb-btn bb-btn--block"
             >
                 {cs.buyBusy ? "..." : `Buy (${formatMoney(cs.selectedCost)})`}
             </button>

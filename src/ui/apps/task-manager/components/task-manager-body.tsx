@@ -1,4 +1,3 @@
-import { theme, wrapText } from "../../../utils/theme";
 import { ManagedAppDefinition } from "../logic/types";
 import { taskKey } from "../logic/task-key";
 import { useTaskManager } from "../logic/use-task-manager";
@@ -24,24 +23,10 @@ export function TaskManagerBody({
 
     const ramBar = (
         <div style={{ marginBottom: "12px" }}>
-            <div
-                style={{
-                    position: "relative",
-                    height: "14px",
-                    borderRadius: "4px",
-                    background: theme.well,
-                    border: `1px solid ${theme.primaryDark}`,
-                    overflow: "hidden",
-                }}
-            >
+            <div className="bb-progress">
                 <div
-                    style={{
-                        position: "absolute",
-                        inset: 0,
-                        width: `${tm.homePct}%`,
-                        background: tm.homePct > 90 ? theme.error : theme.primary,
-                        transition: "width 0.2s ease",
-                    }}
+                    className={`bb-progress-fill${tm.homePct > 90 ? " bb-progress-fill--danger" : ""}`}
+                    style={{ width: `${tm.homePct}%` }}
                 />
             </div>
             <div style={{ fontSize: "11px", opacity: 0.85, marginTop: "4px", textAlign: "right" }}>
@@ -51,7 +36,9 @@ export function TaskManagerBody({
     );
 
     const errorBanner = tm.error ? (
-        <div style={{ color: theme.error, fontSize: "11px", marginBottom: "8px", ...wrapText }}>{tm.error}</div>
+        <div className="bb-text-error bb-wrap" style={{ fontSize: "11px", marginBottom: "8px" }}>
+            {tm.error}
+        </div>
     ) : null;
 
     // Invisible click-catcher that closes an open cloud-host menu when the

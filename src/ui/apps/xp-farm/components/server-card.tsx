@@ -1,11 +1,9 @@
-import { theme, wrapText } from "../../../utils/theme";
 import { CloudServerRow } from "../../../utils/cloud-list";
 import {
     XP_FARM_GROW_SCRIPT,
     XP_FARM_WEAKEN_SCRIPT,
 } from "../../../utils/xp-farm-config";
 import { XpFarmState } from "../logic/use-xp-farm";
-import { buttonStyle } from "./styles";
 
 // The clickable "Ng"/"Mw" thread counts in each card's status line — styled
 // as an inline text link rather than a button, since it sits inside a
@@ -31,19 +29,7 @@ export function ServerCard({
     const assignment = xf.status[s.hostname];
 
     return (
-        <div
-            style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "4px",
-                padding: "8px",
-                fontSize: "12px",
-                background: theme.well,
-                border: `1px solid ${theme.primaryDark}`,
-                borderRadius: "6px",
-                minWidth: 0,
-            }}
-        >
+        <div className="bb-card">
             <div
                 style={{
                     display: "flex",
@@ -52,19 +38,19 @@ export function ServerCard({
                     gap: "8px",
                 }}
             >
-                <span style={{ ...wrapText, flex: 1 }}>
+                <span className="bb-wrap" style={{ flex: 1 }}>
                     {s.hostname} ({s.ram} GB)
                 </span>
                 <button
                     onClick={() => void xf.toggle(s.hostname)}
                     disabled={isOccupied}
-                    style={buttonStyle(isEnabled)}
+                    className={`bb-btn bb-btn--wide${isEnabled ? " bb-btn-danger" : ""}`}
                 >
                     {isOccupied ? "..." : isEnabled ? "Disable" : "Enable"}
                 </button>
             </div>
             {isEnabled ? (
-                <div style={{ fontSize: "11px", opacity: 0.75, ...wrapText }}>
+                <div className="bb-wrap" style={{ fontSize: "11px", opacity: 0.75 }}>
                     {assignment ? (
                         <span>
                             → {assignment.target} (

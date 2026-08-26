@@ -1,4 +1,3 @@
-import { theme, wrapText } from "../../../utils/theme";
 import { ManagedAppDefinition } from "../logic/types";
 import { TaskManagerState } from "../logic/use-task-manager";
 
@@ -33,28 +32,14 @@ export function SpawnRow({ React, tm, app }: { React: any; tm: TaskManagerState;
         : !homeOption
           ? "Not enough free RAM on home"
           : undefined;
-    const spawnBorderColor = theme.primary;
 
     const mainButton = (
         <button
             onClick={() => void tm.spawnTask(app, "home")}
             disabled={homeDisabled}
             title={mainTitle}
-            style={{
-                minWidth: "60px",
-                background: theme.button,
-                color: theme.primary,
-                borderTop: `1px solid ${spawnBorderColor}`,
-                borderBottom: `1px solid ${spawnBorderColor}`,
-                borderLeft: `1px solid ${spawnBorderColor}`,
-                borderRight: hasCloudOption ? "none" : `1px solid ${spawnBorderColor}`,
-                borderRadius: hasCloudOption ? "4px 0 0 4px" : "4px",
-                padding: "4px 10px",
-                cursor: homeDisabled ? "default" : "pointer",
-                opacity: homeDisabled ? 0.6 : 1,
-                fontFamily: "inherit",
-                fontSize: "12px",
-            }}
+            className={`bb-btn${hasCloudOption ? " bb-btn--split-left" : ""}`}
+            style={{ minWidth: "60px" }}
         >
             {mainLabel}
         </button>
@@ -80,33 +65,19 @@ export function SpawnRow({ React, tm, app }: { React: any; tm: TaskManagerState;
                 onClick={() => tm.setOpenMenuFor(menuOpen ? null : app.script)}
                 disabled={isOccupied}
                 title="Spawn on a cloud server instead"
-                style={{
-                    boxSizing: "border-box",
-                    background: theme.button,
-                    color: theme.primary,
-                    border: `1px solid ${theme.primary}`,
-                    borderRadius: "0 4px 4px 0",
-                    padding: "0 6px",
-                    fontFamily: "inherit",
-                    fontSize: "10px",
-                    cursor: isOccupied ? "default" : "pointer",
-                }}
+                className="bb-btn bb-btn--split-right"
             >
                 ▾
             </button>
             {menuOpen ? (
                 <div
+                    className="bb-menu"
                     style={{
                         position: "absolute",
                         top: "100%",
                         right: 0,
                         marginTop: "2px",
-                        background: theme.well,
-                        border: `1px solid ${theme.primary}`,
-                        borderRadius: "4px",
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
                         minWidth: "170px",
-                        overflow: "hidden",
                     }}
                 >
                     {cloudOptions.map((o) => (
@@ -116,19 +87,7 @@ export function SpawnRow({ React, tm, app }: { React: any; tm: TaskManagerState;
                                 tm.setOpenMenuFor(null);
                                 void tm.spawnTask(app, o.host);
                             }}
-                            style={{
-                                display: "block",
-                                width: "100%",
-                                textAlign: "left",
-                                background: "transparent",
-                                color: theme.primary,
-                                border: "none",
-                                borderBottom: `1px solid ${theme.well}`,
-                                padding: "6px 8px",
-                                cursor: "pointer",
-                                fontFamily: "inherit",
-                                fontSize: "11px",
-                            }}
+                            className="bb-menu-item"
                         >
                             {o.host} ({o.freeRam.toFixed(1)} GB free)
                         </button>
@@ -140,16 +99,16 @@ export function SpawnRow({ React, tm, app }: { React: any; tm: TaskManagerState;
 
     return (
         <div
+            className="bb-divider-bottom"
             style={{
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
                 gap: "8px",
                 padding: "6px 0",
-                borderBottom: `1px solid ${theme.well}`,
             }}
         >
-            <span style={{ fontSize: "12px", ...wrapText }}>
+            <span className="bb-wrap" style={{ fontSize: "12px" }}>
                 {app.label} ({required.toFixed(2)} GB)
             </span>
             <div style={{ display: "flex" }}>

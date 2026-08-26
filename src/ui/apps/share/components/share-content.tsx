@@ -1,5 +1,4 @@
 import { AppComponentProps } from "../../../types";
-import { theme, wrapText } from "../../../utils/theme";
 import { useShare } from "../logic/use-share";
 import { ShareHostCard } from "./share-host-card";
 
@@ -21,16 +20,7 @@ export function ShareContent({ React }: AppComponentProps) {
                 <button
                     onClick={() => void share.refresh()}
                     disabled={share.loading}
-                    style={{
-                        background: theme.button,
-                        color: theme.primary,
-                        border: `1px solid ${theme.primary}`,
-                        borderRadius: "4px",
-                        padding: "4px 10px",
-                        cursor: "pointer",
-                        fontFamily: "inherit",
-                        fontSize: "12px",
-                    }}
+                    className="bb-btn"
                 >
                     {share.loading ? "..." : "Refresh"}
                 </button>
@@ -38,11 +28,10 @@ export function ShareContent({ React }: AppComponentProps) {
 
             {share.error ? (
                 <div
+                    className="bb-text-error bb-wrap"
                     style={{
-                        color: theme.error,
                         fontSize: "11px",
                         marginBottom: "8px",
-                        ...wrapText,
                     }}
                 >
                     {share.error}

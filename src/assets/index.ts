@@ -2,6 +2,7 @@ import { uiScaleStyle } from "./ui-scale";
 import { overviewStyle } from "./overview";
 import { scrollbarStyle } from "./scrollbar";
 import { notyfFont } from "./notyf-font";
+import { controlsStyle } from "./controls";
 
 /**
  * Every style chunk injected into the shared `#custom-styles` element (see
@@ -16,5 +17,6 @@ export const ALL_STYLES: { name: string; css: string }[] = [
     { name: "ui-scale", css: uiScaleStyle },
     { name: "overview", css: overviewStyle },
     { name: "scrollbar", css: scrollbarStyle },
-    { name: "notyf", css: notyfFont }
+    { name: "notyf", css: notyfFont },
+    { name: "controls", css: controlsStyle },
 ];

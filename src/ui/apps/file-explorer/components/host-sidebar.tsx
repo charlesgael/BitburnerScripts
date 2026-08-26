@@ -1,4 +1,3 @@
-import { theme, wrapText } from "../../../utils/theme";
 import { FileExplorerState } from "../logic/use-file-explorer";
 
 /** The left-hand "drives" list — home, purchased/cloud servers, and any
@@ -14,23 +13,20 @@ export function HostSidebar({ React, fx }: { React: any; fx: FileExplorerState }
                         key={h.hostname}
                         onClick={() => fx.selectHost(h.hostname)}
                         title={h.hostname}
+                        className={`bb-list-item${h.hostname === fx.selectedHost ? " bb-list-item--selected" : ""}`}
                         style={{
                             display: "flex",
                             alignItems: "center",
                             gap: "4px",
                             textAlign: "left",
-                            background: h.hostname === fx.selectedHost ? theme.button : "transparent",
-                            color: theme.primary,
-                            border: `1px solid ${h.hostname === fx.selectedHost ? theme.primary : "transparent"}`,
-                            borderRadius: "4px",
                             padding: "4px 6px",
-                            cursor: "pointer",
-                            fontFamily: "inherit",
                             fontSize: "11px",
                         }}
                     >
                         <span>{h.icon}</span>
-                        <span style={{ ...wrapText, flex: 1 }}>{h.hostname}</span>
+                        <span className="bb-wrap" style={{ flex: 1 }}>
+                            {h.hostname}
+                        </span>
                     </button>
                 ))
             )}

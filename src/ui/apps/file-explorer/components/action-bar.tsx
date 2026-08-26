@@ -1,7 +1,5 @@
-import { theme, wrapText } from "../../../utils/theme";
 import { iconForFile, isReadable, isMovable, isCopyable, isRunnable, isDeletable } from "../../../utils/file-types";
 import { FileExplorerState } from "../logic/use-file-explorer";
-import { buttonStyle, fieldStyle } from "../logic/styles";
 import { canViewFile } from "../logic/can-view-file";
 
 /** The action bar for the currently-selected file: View/Edit, Run/Kill/
@@ -14,10 +12,10 @@ export function ActionBar({ React, fx }: { React: any; fx: FileExplorerState }) 
 
     return (
         <div
+            className="bb-divider-top"
             style={{
                 marginTop: "6px",
                 flexShrink: 0,
-                borderTop: `1px solid ${theme.well}`,
                 paddingTop: "6px",
             }}
         >
@@ -27,18 +25,22 @@ export function ActionBar({ React, fx }: { React: any; fx: FileExplorerState }) 
                         type="text"
                         value={fx.renameValue}
                         onChange={(ev: any) => fx.setRenameValue(ev.target.value)}
-                        style={fieldStyle}
+                        className="bb-field bb-field--sm bb-field--block"
                     />
-                    <button onClick={() => void fx.confirmRename()} disabled={fx.actionBusy} style={buttonStyle()}>
+                    <button
+                        onClick={() => void fx.confirmRename()}
+                        disabled={fx.actionBusy}
+                        className="bb-btn bb-btn--sm"
+                    >
                         Save
                     </button>
-                    <button onClick={() => fx.setRenaming(null)} style={buttonStyle()}>
+                    <button onClick={() => fx.setRenaming(null)} className="bb-btn bb-btn--sm">
                         Cancel
                     </button>
                 </div>
             ) : (
                 <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" as const }}>
-                    <span style={{ ...wrapText, flex: "1 1 auto", fontSize: "11px", opacity: 0.85 }}>
+                    <span className="bb-wrap" style={{ flex: "1 1 auto", fontSize: "11px", opacity: 0.85 }}>
                         {iconForFile(selected)} {selected}
                     </span>
                     <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" as const }}>
@@ -51,7 +53,7 @@ export function ActionBar({ React, fx }: { React: any; fx: FileExplorerState }) 
                                         ? `Fetches a cached copy to remote/${fx.selectedHost}/... on home`
                                         : undefined
                                 }
-                                style={buttonStyle()}
+                                className="bb-btn bb-btn--sm"
                             >
                                 {fx.editBusy ? "..." : "👁 View"}
                             </button>
@@ -59,7 +61,7 @@ export function ActionBar({ React, fx }: { React: any; fx: FileExplorerState }) 
                             <button
                                 disabled
                                 title="Literature/message files can't be cached from another server — Copy to home, then view it there"
-                                style={{ ...buttonStyle(), opacity: 0.5 }}
+                                className="bb-btn bb-btn--sm"
                             >
                                 👁 View
                             </button>
@@ -71,22 +73,34 @@ export function ActionBar({ React, fx }: { React: any; fx: FileExplorerState }) 
                                         onClick={() => void fx.tailFile(selected)}
                                         disabled={fx.actionBusy}
                                         title="Open log window"
-                                        style={buttonStyle()}
+                                        className="bb-btn bb-btn--sm"
                                     >
                                         📃
                                     </button>
-                                    <button onClick={() => void fx.killFile(selected)} disabled={fx.actionBusy} style={buttonStyle(true)}>
+                                    <button
+                                        onClick={() => void fx.killFile(selected)}
+                                        disabled={fx.actionBusy}
+                                        className="bb-btn bb-btn--sm bb-btn-danger"
+                                    >
                                         ⏹ Kill
                                     </button>
                                 </React.Fragment>
                             ) : (
-                                <button onClick={() => void fx.runFile(selected)} disabled={fx.actionBusy} style={buttonStyle()}>
+                                <button
+                                    onClick={() => void fx.runFile(selected)}
+                                    disabled={fx.actionBusy}
+                                    className="bb-btn bb-btn--sm"
+                                >
                                     ▶ Run
                                 </button>
                             )
                         ) : null}
                         {isMovable(selected) ? (
-                            <button onClick={() => fx.startRename(selected)} disabled={fx.actionBusy} style={buttonStyle()}>
+                            <button
+                                onClick={() => fx.startRename(selected)}
+                                disabled={fx.actionBusy}
+                                className="bb-btn bb-btn--sm"
+                            >
                                 ✏ Rename
                             </button>
                         ) : null}
@@ -101,21 +115,18 @@ export function ActionBar({ React, fx }: { React: any; fx: FileExplorerState }) 
                                 <button
                                     onClick={() => fx.setCopyMenuFor(fx.copyMenuFor === selected ? null : selected)}
                                     disabled={fx.actionBusy || fx.hosts.length <= 1}
-                                    style={buttonStyle()}
+                                    className="bb-btn bb-btn--sm"
                                 >
                                     ⧉ Copy to ▾
                                 </button>
                                 {fx.copyMenuFor === selected ? (
                                     <div
+                                        className="bb-menu"
                                         style={{
                                             position: "absolute",
                                             bottom: "100%",
                                             right: 0,
                                             marginBottom: "2px",
-                                            background: theme.well,
-                                            border: `1px solid ${theme.primary}`,
-                                            borderRadius: "4px",
-                                            boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
                                             minWidth: "140px",
                                             maxHeight: "160px",
                                             overflowY: "auto",
@@ -128,19 +139,7 @@ export function ActionBar({ React, fx }: { React: any; fx: FileExplorerState }) 
                                                 <button
                                                     key={h.hostname}
                                                     onClick={() => void fx.copyTo(selected, h.hostname)}
-                                                    style={{
-                                                        display: "block",
-                                                        width: "100%",
-                                                        textAlign: "left",
-                                                        background: "transparent",
-                                                        color: theme.primary,
-                                                        border: "none",
-                                                        borderBottom: `1px solid ${theme.well}`,
-                                                        padding: "6px 8px",
-                                                        cursor: "pointer",
-                                                        fontFamily: "inherit",
-                                                        fontSize: "11px",
-                                                    }}
+                                                    className="bb-menu-item"
                                                 >
                                                     {h.icon} {h.hostname}
                                                 </button>
@@ -150,7 +149,11 @@ export function ActionBar({ React, fx }: { React: any; fx: FileExplorerState }) 
                             </div>
                         ) : null}
                         {isDeletable(selected) ? (
-                            <button onClick={() => fx.handleDeleteClick(selected)} disabled={fx.actionBusy} style={buttonStyle(true)}>
+                            <button
+                                onClick={() => fx.handleDeleteClick(selected)}
+                                disabled={fx.actionBusy}
+                                className="bb-btn bb-btn--sm bb-btn-danger"
+                            >
                                 {fx.confirmDelete === selected ? "Confirm?" : "🗑 Delete"}
                             </button>
                         ) : null}

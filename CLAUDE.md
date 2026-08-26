@@ -86,8 +86,11 @@ code lives under `src/ui/`:
 - `ui/apps/` — pluggable apps shown in the grid, registered in `ui/apps/index.ts`. Each is an
   `AppDefinition { id, icon, label, Content }`, where `Content` is a real React function component (not just a
   render callback) specifically so it can use hooks like `useQueuedNs()`.
-- `ui/utils/theme.ts` — reads the player's active in-game color theme via `--bb-theme-*` CSS custom properties
-  (with hardcoded fallbacks), so this UI matches whatever theme — including a player-imported one — is active.
+- Styling is plain CSS, not inline `style` objects: every app applies the `.bb-*` classes from `assets/controls.ts`
+  (see that file's header comment), which read the player's active in-game color theme via `--bb-theme-*` CSS
+  custom properties (with hardcoded fallbacks) so this UI matches whatever theme — including a player-imported
+  one — is active. `ui/utils/theme.ts` no longer exists; only reach for an inline `style` for genuinely one-off,
+  non-thematic layout (`position`, `gap`, a dynamic `width: ${pct}%`, ...) that doesn't belong in shared CSS.
 
 Any file that renders React elements uses real JSX (`.tsx`), not `React.createElement(...)` calls — see any file
 under `ui/apps/` or `ui/components/` (except `overview-stats.ts`, see above) for the pattern. This works without an
@@ -126,8 +129,10 @@ independent of any script's process. Two things live here:
   layout is fixed-px, and only `zoom` actually reflows to reclaim the freed space), `overview.ts` (restyles the
   game's default character-overview table, which has no id/class of its own — scoped via
   `table:has(#overview-hp-hook)` instead, and per-stat XP bar colors are matched by fixed row position since CSS has
-  no "previous sibling" selector to look back at a labeled row from its bar row), and `scrollbar.ts` (thin
-  theme-colored scrollbars, scoped to the app grid/floating windows only).
+  no "previous sibling" selector to look back at a labeled row from its bar row), `scrollbar.ts` (thin
+  theme-colored scrollbars, scoped to the app grid/floating windows only), and `controls.ts` (the `.bb-btn`/
+  `.bb-field`/`.bb-card`/`.bb-progress`/... classes every app under `ui/apps/` and `ui/components/` uses instead of
+  computing its own inline `style` object — see that file's own header comment for the full class list).
 - **The vendored `notyf` toast library** (`src/assets/vendor/notyf-lib.ts` — a verbatim copy of npm `notyf`'s
   minified JS/CSS, MIT licensed, embedded as plain strings since this project has no bundling step for a real npm
   dependency): its CSS goes into its own `<style id="notyf-styles">` element, and its JS is run as a real inserted

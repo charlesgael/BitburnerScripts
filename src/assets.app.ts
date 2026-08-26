@@ -1,7 +1,7 @@
 import { NS } from "@ns";
-import { ensureStyleElement, runScriptOnce } from "./assets/utils/inject-element";
 import { ALL_STYLES } from "./assets/index";
-import { NOTYF_JS, NOTYF_CSS } from "./assets/vendor/notyf-lib";
+import { ensureStyleElement, runScriptOnce } from "./assets/utils/inject-element";
+import { NOTYF_CSS, NOTYF_JS } from "./assets/vendor/notyf-lib";
 
 /**
  * Injects this project's page-level assets into the live game window:
@@ -37,7 +37,7 @@ export async function main(ns: NS) {
 
     runScriptOnce(doc, "notyf-lib", NOTYF_JS);
 
-    ns.tprint(
+    ns.print(
         `INFO: custom-styles updated (${ALL_STYLES.length} chunk${ALL_STYLES.length === 1 ? "" : "s"}); notyf loaded.`
     );
 }

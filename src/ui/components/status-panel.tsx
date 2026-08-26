@@ -1,5 +1,4 @@
 import { ReactGlobals } from "../types";
-import { theme } from "../utils/theme";
 
 /**
  * Floating status panel: a live status line plus "Restart" and
@@ -28,32 +27,10 @@ export function createStatusPanel(
                 <div style={{ marginBottom: "8px", fontWeight: "bold" }}>Bitburner UI</div>
                 <div style={{ marginBottom: "10px", opacity: 0.85 }}>{statusText ?? "Running..."}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    <button
-                        onClick={onRestart}
-                        style={{
-                            background: theme.button,
-                            color: theme.primary,
-                            border: `1px solid ${theme.primary}`,
-                            borderRadius: "4px",
-                            padding: "4px 10px",
-                            cursor: "pointer",
-                            fontFamily: "inherit",
-                        }}
-                    >
+                    <button onClick={onRestart} className="bb-btn">
                         Restart
                     </button>
-                    <button
-                        onClick={onStop}
-                        style={{
-                            background: theme.errorDark,
-                            color: theme.error,
-                            border: `1px solid ${theme.error}`,
-                            borderRadius: "4px",
-                            padding: "4px 10px",
-                            cursor: "pointer",
-                            fontFamily: "inherit",
-                        }}
-                    >
+                    <button onClick={onStop} className="bb-btn bb-btn-danger">
                         Quit
                     </button>
                 </div>

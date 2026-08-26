@@ -43,7 +43,8 @@ export const XpFarmApp: AppDefinition = {
     Content: XpFarmContent,
     // Wide enough to open already showing two ~260px server cards per row —
     // same reasoning as the Cloud Servers app's own preferredWidth.
-    preferredWidth: 570,
-    preferredHeight: 420,
-    minWidth: 290,
+    preferredWidth: 850,
+    preferredHeight: 640,
+    minWidth: 550,
+    minHeight: 400,
 };
