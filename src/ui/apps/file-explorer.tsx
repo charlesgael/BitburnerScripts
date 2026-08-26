@@ -16,6 +16,15 @@ import {
     isDeletable,
 } from "../utils/file-types";
 
+/** Whether View is actually offered for `name` while browsing `host`.
+ * Local (`home`) files just need to be readable at all; a file on another
+ * host additionally needs to be `isMovable` — the remote View/Edit cache
+ * bounce (`ui/utils/remote-file-bounce.ts`) relies on `ns.mv`, which (unlike
+ * `ns.scp`) doesn't support .lit/.msg. */
+function canViewFile(name: string, host: string): boolean {
+    return isReadable(name) && (host === "home" || isMovable(name));
+}
+
 /**
  * A small Windows-Explorer-flavored file browser: a left-hand list of
  * "drives" (`home`, purchased/cloud servers, and any host previously found
@@ -120,6 +129,17 @@ function FileExplorerContent({ React }: AppComponentProps) {
 
     const [actionBusy, setActionBusy] = React.useState(false);
     const [actionError, setActionError]: [string | null, (v: string | null) => void] = React.useState(null);
+    const [actionNotice, setActionNotice]: [string | null, (v: string | null) => void] = React.useState(null);
+    const noticeTimeout = React.useRef(null);
+
+    /** Shows a brief, self-dismissing success message in the browse
+     * screen's banner (e.g. after Copy to) — errors use `actionError`
+     * instead, which stays until the next action. */
+    function showNotice(message: string) {
+        if (noticeTimeout.current) clearTimeout(noticeTimeout.current);
+        setActionNotice(message);
+        noticeTimeout.current = setTimeout(() => setActionNotice(null), 2500);
+    }
 
     async function loadHosts() {
         setHostsLoading(true);
@@ -207,6 +227,8 @@ function FileExplorerContent({ React }: AppComponentProps) {
         setConfirmDelete(null);
         setCopyMenuFor(null);
         setActionError(null);
+        if (noticeTimeout.current) clearTimeout(noticeTimeout.current);
+        setActionNotice(null);
         setNewFileOpen(false);
     }
 
@@ -230,7 +252,7 @@ function FileExplorerContent({ React }: AppComponentProps) {
     function handleOpenEntry(e: Entry) {
         if (e.isFolder) {
             navigate(e.fullPath);
-        } else if (isReadable(e.name)) {
+        } else if (canViewFile(e.name, selectedHost)) {
             void openViewer(e.fullPath, selectedHost);
         } else {
             setSelected(e.fullPath);
@@ -253,7 +275,13 @@ function FileExplorerContent({ React }: AppComponentProps) {
             setEditingHost(host);
             setMode("edit");
         } catch (err) {
-            setEditError(err instanceof Error ? err.message : String(err));
+            // Still on the browse screen at this point (mode/editingPath
+            // are only set on success) — editError only ever renders inside
+            // the edit screen, so a failure here also needs to go through
+            // actionError (rendered in browse mode) or it'd be invisible.
+            const message = err instanceof Error ? err.message : String(err);
+            setEditError(message);
+            setActionError(message);
         } finally {
             setEditBusy(false);
         }
@@ -388,6 +416,7 @@ function FileExplorerContent({ React }: AppComponentProps) {
         try {
             const ok = await ns.scp(path, destHost, selectedHost);
             if (!ok) throw new Error(`Copy to ${destHost} failed.`);
+            showNotice(`✓ Copied ${path} to ${destHost}`);
         } catch (err) {
             setActionError(err instanceof Error ? err.message : String(err));
         } finally {
@@ -535,6 +564,10 @@ function FileExplorerContent({ React }: AppComponentProps) {
             {actionError ? (
                 <div style={{ color: theme.error, fontSize: "11px", marginBottom: "6px", flexShrink: 0, ...wrapText }}>
                     {actionError}
+                </div>
+            ) : actionNotice ? (
+                <div style={{ color: theme.primary, fontSize: "11px", marginBottom: "6px", flexShrink: 0, ...wrapText }}>
+                    {actionNotice}
                 </div>
             ) : null}
 
@@ -734,16 +767,24 @@ function FileExplorerContent({ React }: AppComponentProps) {
                                 {iconForFile(selected)} {selected}
                             </span>
                             <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" as const }}>
-                                {isReadable(selected) ? (
+                                {canViewFile(selected, selectedHost) ? (
                                     <button
                                         onClick={() => void openViewer(selected, selectedHost)}
-                                        disabled={actionBusy}
+                                        disabled={actionBusy || editBusy}
                                         title={
                                             selectedHost !== "home"
                                                 ? `Fetches a cached copy to remote/${selectedHost}/... on home`
                                                 : undefined
                                         }
                                         style={buttonStyle()}
+                                    >
+                                        {editBusy ? "..." : "👁 View"}
+                                    </button>
+                                ) : isReadable(selected) ? (
+                                    <button
+                                        disabled
+                                        title="Literature/message files can't be cached from another server — Copy to home, then view it there"
+                                        style={{ ...buttonStyle(), opacity: 0.5 }}
                                     >
                                         👁 View
                                     </button>

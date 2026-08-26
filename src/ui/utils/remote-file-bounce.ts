@@ -1,4 +1,5 @@
 import { QueuedNS } from "./ns-proxy";
+import { isMovable } from "./file-types";
 
 /**
  * Lets the File Explorer app (`ui/apps/file-explorer.tsx`) View/Edit a file
@@ -6,6 +7,19 @@ import { QueuedNS } from "./ns-proxy";
  * having no host parameter at all — they only ever touch the calling
  * script's own server (`home`, since `ui.app.ts` always runs there — see
  * `ui/utils/file-types.ts`'s header comment for the fuller explanation).
+ *
+ * Only works for files `ns.mv` supports (`isMovable` — scripts and .txt/
+ * .json/.css, NOT .lit/.msg/.exe/.cct), even though `ns.scp` itself has a
+ * wider reach (it also accepts .lit — see `isCopyable`): the cache-slot
+ * bounce below needs `ns.mv` to relocate the file into its namespaced slot,
+ * and the collision-restore needs `ns.write`, and *neither* of those
+ * supports .lit. (This was a real bug once: viewing a remote .lit file
+ * whose name happened to collide with an existing one on `home` threw
+ * "write: File path should be a text file or script" from the restore
+ * step — see the git history on this file.) Callers must gate the UI with
+ * `isMovable` themselves; `pullRemoteFile`/`pushRemoteFile` also throw a
+ * clear error up front if asked to handle a non-movable file, as a
+ * backstop rather than the primary guard.
  *
  * The trick: every file this app has ever pulled from another host ends up
  * cached at a fixed, namespaced path on `home` — `remote/<host>/<original
@@ -52,8 +66,13 @@ async function withHomeBounce<T>(ns: QueuedNS, path: string, action: () => Promi
 
 /** Pulls `path` from `host` into its cache slot on `home` and returns its
  * content. Safe to call repeatedly — each call re-fetches the latest
- * remote content and overwrites whatever was cached before. */
+ * remote content and overwrites whatever was cached before. Throws
+ * up front for a file type `ns.mv` doesn't support (see the module doc
+ * comment) — callers should avoid offering this for such files at all. */
 export async function pullRemoteFile(ns: QueuedNS, host: string, path: string): Promise<string> {
+    if (!isMovable(path)) {
+        throw new Error(`Can't preview ${path} from another server — copy it to home first, then view it there.`);
+    }
     const staged = stagedPathFor(host, path);
     await withHomeBounce(ns, path, async () => {
         const ok = await ns.scp(path, "home", host);
@@ -67,8 +86,14 @@ export async function pullRemoteFile(ns: QueuedNS, host: string, path: string): 
 }
 
 /** Pushes `content` back to `path` on `host`, and refreshes the cache slot
- * to match so a subsequent View doesn't show stale content. */
+ * to match so a subsequent View doesn't show stale content. Same
+ * `isMovable`-only restriction as `pullRemoteFile` — moot in practice since
+ * a non-movable file was never editable to begin with (see `isEditable`),
+ * but kept as the same defensive backstop. */
 export async function pushRemoteFile(ns: QueuedNS, host: string, path: string, content: string): Promise<void> {
+    if (!isMovable(path)) {
+        throw new Error(`Can't save ${path} back to another server.`);
+    }
     await withHomeBounce(ns, path, async () => {
         await ns.write(path, content, "w");
         const ok = await ns.scp(path, host, "home");
