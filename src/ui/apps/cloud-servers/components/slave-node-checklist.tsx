@@ -26,13 +26,7 @@ export function SlaveNodeChecklist({
     }
 
     return (
-        <div
-            style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "6px",
-            }}
-        >
+        <div>
             <div
                 className="bb-text-warning"
                 style={{
@@ -42,46 +36,59 @@ export function SlaveNodeChecklist({
             >
                 ⚠ When changing slaves, remember to restart Flooder program.
             </div>
-            {cs.slaveHosts.map((h) => {
-                const checked = designated.has(h.hostname);
-                const busy = cs.toggleSlaveBusyHost === h.hostname;
-                return (
-                    <label
-                        key={h.hostname}
-                        className="bb-card"
-                        style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            cursor: busy ? "default" : "pointer",
-                        }}
-                    >
-                        <span
+            <div
+                style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                        "repeat(auto-fill, minmax(260px, 1fr))",
+                    gap: "8px",
+                }}
+            >
+                {cs.slaveHosts.map((h) => {
+                    const checked = designated.has(h.hostname);
+                    const busy = cs.toggleSlaveBusyHost === h.hostname;
+                    return (
+                        <label
+                            key={h.hostname}
+                            className="bb-card"
                             style={{
-                                display: "flex",
+                                flexDirection: "row",
                                 alignItems: "center",
-                                gap: "8px",
-                                minWidth: 0,
+                                justifyContent: "space-between",
+                                cursor: busy ? "default" : "pointer",
                             }}
                         >
-                            <input
-                                type="checkbox"
-                                checked={checked}
-                                disabled={busy}
-                                onChange={() => void cs.toggleSlave(h.hostname)}
-                            />
-                            <span className="bb-wrap">
-                                {h.hostname} ({h.ram} GB)
+                            <span
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "8px",
+                                    minWidth: 0,
+                                }}
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    disabled={busy}
+                                    onChange={() =>
+                                        void cs.toggleSlave(h.hostname)
+                                    }
+                                />
+                                <span className="bb-wrap">
+                                    {h.hostname} ({h.ram} GB)
+                                </span>
                             </span>
-                        </span>
-                        {busy ? (
-                            <span style={{ fontSize: "11px", opacity: 0.7 }}>
-                                ...
-                            </span>
-                        ) : null}
-                    </label>
-                );
-            })}
+                            {busy ? (
+                                <span
+                                    style={{ fontSize: "11px", opacity: 0.7 }}
+                                >
+                                    ...
+                                </span>
+                            ) : null}
+                        </label>
+                    );
+                })}
+            </div>
         </div>
     );
 }
