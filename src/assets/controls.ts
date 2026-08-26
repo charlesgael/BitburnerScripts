@@ -274,6 +274,7 @@ export const controlsStyle = `
     cursor: pointer;
     font-family: inherit;
     font-size: 14px;
+    color: var(--bb-theme-primary, #0f0);
 }
 
 .bb-icon-link--danger {

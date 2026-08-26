@@ -165,7 +165,13 @@ export function createAppGrid(
 
     // --- Dragging: plain mousedown/mousemove/mouseup on `doc`, since a
     // drag can move the pointer outside the window's own DOM node.
-    let drag: { id: string; startX: number; startY: number; originX: number; originY: number } | null = null;
+    let drag: {
+        id: string;
+        startX: number;
+        startY: number;
+        originX: number;
+        originY: number;
+    } | null = null;
 
     function onDragMove(ev: MouseEvent) {
         if (!drag) return;
@@ -187,7 +193,13 @@ export function createAppGrid(
         bringToFront(id);
         const win = state.windows.find((w) => w.id === id);
         if (!win) return;
-        drag = { id, startX: ev.clientX, startY: ev.clientY, originX: win.x, originY: win.y };
+        drag = {
+            id,
+            startX: ev.clientX,
+            startY: ev.clientY,
+            originX: win.x,
+            originY: win.y,
+        };
         doc.body.style.userSelect = "none"; // avoid selecting page text while dragging fast
         doc.addEventListener("mousemove", onDragMove);
         doc.addEventListener("mouseup", onDragEnd);
@@ -213,8 +225,18 @@ export function createAppGrid(
                     title={reason ?? app.label}
                     className="bb-icon-btn"
                 >
-                    <span style={{ fontSize: "18px", lineHeight: 1 }}>{app.icon}</span>
-                    <span style={{ fontSize: "11px", opacity: 0.85, textAlign: "center" }}>{app.label}</span>
+                    <span style={{ fontSize: "18px", lineHeight: 1 }}>
+                        {app.icon}
+                    </span>
+                    <span
+                        style={{
+                            fontSize: "11px",
+                            opacity: 0.85,
+                            textAlign: "center",
+                        }}
+                    >
+                        {app.label}
+                    </span>
                 </button>
             );
         });
@@ -279,7 +301,13 @@ export function createAppGrid(
                         <span>
                             {app.icon} {app.label}
                         </span>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <div
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "0px",
+                            }}
+                        >
                             <button
                                 // Dragging starts on the title bar's mousedown before
                                 // this click fires — stop it from also being read as
@@ -321,7 +349,10 @@ export function createAppGrid(
                         remount the app's Content on refresh, re-running its
                         mount-time effects instead of leaving stale state in
                         place. */}
-                        <app.Content key={`${win.id}-${win.refreshCount}`} React={React} />
+                        <app.Content
+                            key={`${win.id}-${win.refreshCount}`}
+                            React={React}
+                        />
                     </div>
                 </div>
             );
