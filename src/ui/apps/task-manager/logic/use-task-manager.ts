@@ -14,12 +14,7 @@ import { taskKey } from "./task-key";
  * per host, why `oneShot` apps are excluded from the running-task scan,
  * why spawned pids aren't tracked via `useAddChildPid`, etc).
  */
-export function useTaskManager(
-    React: any,
-    apps: ManagedAppDefinition[],
-    runnableApps: ManagedAppDefinition[],
-    appByScript: Record<string, ManagedAppDefinition>
-) {
+export function useTaskManager(React: any, apps: ManagedAppDefinition[], runnableApps: ManagedAppDefinition[]) {
     const ns = useQueuedNs();
     const addChildPid = useAddChildPid();
     const homeRam = useHomeRam();
@@ -56,14 +51,24 @@ export function useTaskManager(
         }
     }
 
+    // Scans each candidate host's process list once (`ns.ps`) rather than
+    // calling `ns.isRunning(script, host, ...args)` per app — the latter
+    // requires an exact args match, which breaks for an app like
+    // `flooder.app.js` whose args (`buildArgs`, see `../logic/types.ts`)
+    // change at spawn time and can't be predicted here. Matching by
+    // filename alone, and capturing each match's real PID, is also what
+    // lets `killTask`/`tailTask` below address the process directly
+    // (`ns.kill(pid)`/`ns.ui.openTail(pid)`) instead of needing to guess
+    // the args it was actually launched with.
     async function refreshTasks(cloud: CloudServerRow[]) {
         const candidateHosts = ["home", ...cloud.map((c) => c.hostname)];
+        const runnableScripts = new Set(runnableApps.map((a) => a.script));
         const found: Task[] = [];
-        for (const app of runnableApps) {
-            const args = app.args ?? [];
-            for (const host of candidateHosts) {
-                if (await ns.isRunning(app.script, host, ...args)) {
-                    found.push({ script: app.script, host });
+        for (const host of candidateHosts) {
+            const processes = await ns.ps(host);
+            for (const p of processes) {
+                if (runnableScripts.has(p.filename)) {
+                    found.push({ script: p.filename, host, pid: p.pid });
                 }
             }
         }
@@ -118,12 +123,16 @@ export function useTaskManager(
     }
 
     async function spawnTask(app: ManagedAppDefinition, host: string) {
-        const args = app.args ?? [];
+        // `buildArgs` (see `../logic/types.ts`) is only consulted here, at
+        // the moment of spawning — never for run-detection/kill/tail, which
+        // are PID-based and don't need to know a task's args at all.
+        const args = [...(app.args ?? []), ...(app.buildArgs ? await app.buildArgs(ns) : [])];
         setError(null);
         setSpawnBusy((prev: Set<string>) => new Set(prev).add(app.script));
         try {
+            let pid: number;
             if (host === "home") {
-                const pid = await ns.exec(app.script, "home", app.threads ?? 1, ...args);
+                pid = await ns.exec(app.script, "home", app.threads ?? 1, ...args);
                 if (pid === 0) {
                     throw new Error(`Couldn't start ${app.script} on home — enough free RAM?`);
                 }
@@ -132,9 +141,10 @@ export function useTaskManager(
                 if (!result.ok || !result.pid) {
                     throw new Error(result.error ?? `Couldn't start ${app.script} on ${host}.`);
                 }
+                pid = result.pid;
             }
             if (!app.oneShot) {
-                setTasks((prev: Task[]) => [...prev, { script: app.script, host }]);
+                setTasks((prev: Task[]) => [...prev, { script: app.script, host, pid }]);
             }
             await refreshCloudServers();
         } catch (err) {
@@ -149,13 +159,11 @@ export function useTaskManager(
     }
 
     async function killTask(task: Task) {
-        const app = appByScript[task.script];
-        const args = app?.args ?? [];
         const key = taskKey(task);
         setError(null);
         setTaskBusy((prev: Set<string>) => new Set(prev).add(key));
         try {
-            await ns.kill(task.script, task.host, ...args);
+            await ns.kill(task.pid);
             setTasks((prev: Task[]) => prev.filter((t) => taskKey(t) !== key));
             await refreshCloudServers();
         } catch (err) {
@@ -170,9 +178,7 @@ export function useTaskManager(
     }
 
     async function tailTask(task: Task) {
-        const app = appByScript[task.script];
-        const args = app?.args ?? [];
-        await ns.ui.openTail(task.script, task.host, ...args);
+        await ns.ui.openTail(task.pid);
     }
 
     const homePct = homeRam.max > 0 ? Math.min(100, (homeRam.used / homeRam.max) * 100) : 0;

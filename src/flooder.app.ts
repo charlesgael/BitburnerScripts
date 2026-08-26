@@ -147,6 +147,41 @@ export async function main(ns: NS) {
     const bankFilter = (s: Server) => s.moneyMax || -1 > 0;
     let nextBankIndex = 0;
 
+    // Hosts to never touch as a bank or bot — passed in as script args by
+    // the Programs app, populated with whichever servers are currently
+    // designated as "slave nodes" (see `ui/utils/slave-nodes.ts`) so this
+    // doesn't killall/hijack a server the player deliberately carved out
+    // for Programs/XP Farm/Share. Computed once at launch, not re-read
+    // live like `cloudHostnames` below: picking up a newly-designated slave
+    // node just means restarting flooder from the Programs app, which
+    // recomputes this list fresh every time it spawns (see
+    // `programs/index.ts`'s `buildArgs`).
+    const ignoredHostnames = new Set(ns.args.map(String));
+
+    // Every hostname this daemon has ever launched hack/grow/weaken scripts
+    // on (banks and bots alike — see the three `touchedHosts.add(...)`
+    // call sites below), so it can be cleaned up on exit. A plain Set
+    // rather than reconstructing from `flooded`/`bots`/`weakeningHosts` at
+    // exit time: a host moves between those over its lifetime (weakening ->
+    // flooded, cloud/slave-node reclassification splicing it back out,
+    // ...), so tracking "ever touched" directly is simpler and can't miss
+    // one that's mid-transition.
+    const touchedHosts = new Set<string>();
+
+    // Registered once, up front, so it's armed for the whole run —
+    // `ns.kill`'d from the Programs app (see `ui/apps/task-manager/`) or
+    // exiting on its own both trigger it. Stops every hack/grow/weaken loop
+    // this daemon ever started, on every host it ever touched, so nothing
+    // keeps running unmanaged once there's no daemon left to retarget it
+    // when its bank dries up or gets deleted. `touchedHosts` is read at
+    // call time via closure, not snapshotted here, so it reflects whatever
+    // this daemon had actually claimed by the time it died.
+    ns.atExit(() => {
+        for (const hostname of touchedHosts) {
+            if (ns.serverExists(hostname)) ns.killall(hostname);
+        }
+    }, `flooder-cleanup`);
+
     while (true) {
         // Ground truth for which hosts are cloud servers, straight from the
         // Cloud API rather than relying on known-servers.json.txt's cached
@@ -160,11 +195,11 @@ export async function main(ns: NS) {
         const cloudHostnames = new Set(ns.cloud.getServerNames());
         for (const list of [flooded, bots]) {
             for (let i = list.length - 1; i >= 0; i--) {
-                if (cloudHostnames.has(list[i].hostname)) list.splice(i, 1);
+                if (cloudHostnames.has(list[i].hostname) || ignoredHostnames.has(list[i].hostname)) list.splice(i, 1);
             }
         }
         for (let i = weakeningHosts.length - 1; i >= 0; i--) {
-            if (cloudHostnames.has(weakeningHosts[i])) weakeningHosts.splice(i, 1);
+            if (cloudHostnames.has(weakeningHosts[i]) || ignoredHostnames.has(weakeningHosts[i])) weakeningHosts.splice(i, 1);
         }
 
         const servers: Server[] = [];
@@ -173,6 +208,7 @@ export async function main(ns: NS) {
                 !s.hasAdminRights ||
                 s.hostname === `home` ||
                 cloudHostnames.has(s.hostname) || // never bot/target the player's own purchased ("cloud") servers
+                ignoredHostnames.has(s.hostname) || // never bot/target a designated slave node either
                 flooded.findIndex((s2) => s2.hostname === s.hostname) >= 0 ||
                 bots.findIndex((s2) => s2.hostname === s.hostname) >= 0
             ) {
@@ -209,6 +245,7 @@ export async function main(ns: NS) {
                         ns.killall(server.hostname);
                         await execGrowth(ns, server);
                         weakeningHosts.push(server.hostname);
+                        touchedHosts.add(server.hostname);
                     }
                     ns.print(`${server.hostname} (Bank) - Weakening`);
                     continue;
@@ -224,6 +261,7 @@ export async function main(ns: NS) {
 
                 await execHGW(ns, server);
                 flooded.push(server);
+                touchedHosts.add(server.hostname);
             } catch (e) {
                 await logError(
                     ns,
@@ -244,6 +282,7 @@ export async function main(ns: NS) {
                     );
                     ns.killall(server.hostname);
                     await execHGW(ns, server, target);
+                    touchedHosts.add(server.hostname);
                 } catch (e) {
                     await logError(
                         ns,

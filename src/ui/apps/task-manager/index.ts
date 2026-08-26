@@ -31,14 +31,19 @@ export type { ManagedAppDefinition };
  * per-program-row version of this app did.
  *
  * The running-task list only ever tracks instances of the scripts in
- * `apps` — not a general `ps` across every process on every host — found
- * by scanning `ns.isRunning(script, host, ...args)` across `home` plus
+ * `apps` — filtered out of a plain `ns.ps(host)` scan across `home` plus
  * every non-reserved cloud server, for every non-`oneShot` app, each time
- * this window opens or a spawn/kill happens. A `oneShot` app (e.g. a report
- * that prints and exits) is excluded from that scan and the task list
- * entirely — by the time a re-render could show it as a task, the script
- * has usually already exited, so tracking it would either never show
- * anything or show a stale task that can no longer actually be killed.
+ * this window opens or a spawn/kill happens. Matched by filename alone
+ * (not `ns.isRunning(script, host, ...args)`, which needs an exact args
+ * match) since an app's args aren't always fixed up front — see
+ * `logic/types.ts`'s `buildArgs` — and each match's real PID is what
+ * `killTask`/`tailTask` then address directly (`ns.kill(pid)`/
+ * `ns.ui.openTail(pid)`) instead of reconstructing whatever args it was
+ * actually launched with. A `oneShot` app (e.g. a report that prints and
+ * exits) is excluded from that scan and the task list entirely — by the
+ * time a re-render could show it as a task, the script has usually already
+ * exited, so tracking it would either never show anything or show a stale
+ * task that can no longer actually be killed.
  *
  * Spawning on `home` uses a direct `ns.exec` (the script's already there,
  * deployed by Viteburner); spawning on a cloud server goes through

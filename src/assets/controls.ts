@@ -79,6 +79,35 @@ export const controlsStyle = `
     font-size: 10px;
 }
 
+/* Tab strip (currently just the Cloud Servers app's Purchased/Slave Nodes
+   split): plain-text buttons in a row, the active one underlined in the
+   theme's primary color. */
+.bb-tabs {
+    display: flex;
+    gap: 4px;
+}
+
+.bb-tab {
+    background: transparent;
+    color: var(--bb-theme-primary, #0f0);
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 6px 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    opacity: 0.65;
+}
+
+.bb-tab:hover {
+    opacity: 0.9;
+}
+
+.bb-tab--active {
+    border-bottom-color: var(--bb-theme-primary, #0f0);
+    opacity: 1;
+}
+
 .bb-field {
     background: var(--bb-theme-well, #0b0f0b);
     color: var(--bb-theme-primary, #0f0);

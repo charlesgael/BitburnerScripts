@@ -19,7 +19,7 @@ export function TaskManagerBody({
     runnableApps: ManagedAppDefinition[];
     appByScript: Record<string, ManagedAppDefinition>;
 }) {
-    const tm = useTaskManager(React, apps, runnableApps, appByScript);
+    const tm = useTaskManager(React, apps, runnableApps);
 
     const ramBar = (
         <div style={{ marginBottom: "12px" }}>

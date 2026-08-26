@@ -10,6 +10,12 @@ import {
     sortByHostname,
 } from "../../../utils/cloud-list";
 import { pickCloudServerName } from "../../../utils/cloud-names";
+import {
+    SlaveNodeHost,
+    fetchSlaveNodeHosts,
+    readSlaveNodes,
+    writeSlaveNodes,
+} from "../../../utils/slave-nodes";
 import { ActionResult } from "./types";
 
 const DAEMON_HOST = "home";
@@ -45,10 +51,28 @@ export function useCloudServers(React: any) {
     const [deleteBusyHost, setDeleteBusyHost]: [string | null, (v: string | null) => void] = React.useState(null);
     const [deleteError, setDeleteError]: [string | null, (v: string | null) => void] = React.useState(null);
 
+    // --- Slave nodes (see `ui/utils/slave-nodes.ts`) ---
+    // `slaveHosts` is every rooted/non-purchased/non-home host on the
+    // network — the full checklist, independent of which are currently
+    // designated (that's cross-referenced against `slaveServers` below).
+    const [slaveHosts, setSlaveHosts]: [SlaveNodeHost[], (v: SlaveNodeHost[]) => void] = React.useState([]);
+    const [slaveHostsLoading, setSlaveHostsLoading] = React.useState(true);
+    const [slaveHostsError, setSlaveHostsError]: [string | null, (v: string | null) => void] = React.useState(null);
+    const [toggleSlaveBusyHost, setToggleSlaveBusyHost]: [string | null, (v: string | null) => void] =
+        React.useState(null);
+    const [toggleSlaveError, setToggleSlaveError]: [string | null, (v: string | null) => void] = React.useState(null);
+
     const [daemonRam, setDaemonRam] = React.useState({ list: 0, buy: 0, delete: 0 });
 
     const busy = listLoading || buyBusy || deleteBusyHost != null;
     const freeRam = homeRam.max - homeRam.used;
+    // Purchased servers vs. slave nodes are the same `servers` snapshot
+    // (see `daemons/cloud-list.daemon.ts`'s header comment on why they're
+    // merged) split back out here purely for display/limit purposes — the
+    // server-count/limit shown to the player, and `atServerLimit` below,
+    // only ever refer to actual purchases.
+    const cloudServers = servers.filter((s) => !s.isSlave);
+    const slaveServers = servers.filter((s) => s.isSlave);
 
     async function refreshList() {
         setListLoading(true);
@@ -82,6 +106,35 @@ export function useCloudServers(React: any) {
         }
     }
 
+    // Refreshes the full slave-node checklist: every rooted, non-purchased,
+    // non-`home` host found by walking the whole network (see
+    // `daemons/slave-node-hosts.daemon.ts` — a separate one-shot script from
+    // `refreshList`'s `cloud-list.daemon.ts` since the latter has no reason
+    // to reference `ns.scan`/`ns.getServer` at all).
+    async function refreshSlaveHosts() {
+        setSlaveHostsLoading(true);
+        setSlaveHostsError(null);
+        try {
+            setSlaveHosts(sortByHostname(await fetchSlaveNodeHosts(ns, addChildPid, DAEMON_HOST)));
+        } catch (err) {
+            setSlaveHostsError(err instanceof Error ? err.message : String(err));
+        } finally {
+            setSlaveHostsLoading(false);
+        }
+    }
+
+    // Refreshes both the purchased/slave server list and the full slave-node
+    // checklist together — what the header's Refresh button, and the
+    // initial mount below, actually trigger. A network re-scan is the
+    // expensive-ish half of this (walks every host), so `toggleSlave` below
+    // deliberately skips it and only re-runs `refreshList` — toggling a
+    // designation never changes which hosts are *eligible*, only which are
+    // checked, and that's already re-derived from `refreshList`'s own
+    // result.
+    async function refreshAll() {
+        await Promise.all([refreshList(), refreshSlaveHosts()]);
+    }
+
     // This component remounts every time the window is opened — fetch
     // everything fresh rather than trusting stale state.
     React.useEffect(() => {
@@ -95,7 +148,7 @@ export function useCloudServers(React: any) {
             if (cancelled) return;
             setDaemonRam({ list: listRam, buy: buyRam_, delete: deleteRam });
         })();
-        void refreshList();
+        void refreshAll();
         return () => {
             cancelled = true;
         };
@@ -169,23 +222,61 @@ export function useCloudServers(React: any) {
         }
     }
 
+    // Flips one host's checkbox in the Slave Nodes tab: designates it if it
+    // wasn't already, releases it if it was. Unlike deleting a purchased
+    // server, un-designating a slave node doesn't touch the server itself —
+    // it's not player-owned to delete — so there's no confirm step and no
+    // "must be idle first" guard: anything still running there keeps
+    // running, it's just no longer offered as a spawn target to
+    // Programs/XP Farm/Share. Only re-runs `refreshList` afterward, not the
+    // network re-scan — see `refreshAll`'s comment for why that's safe.
+    async function toggleSlave(hostname: string) {
+        setToggleSlaveError(null);
+        setToggleSlaveBusyHost(hostname);
+        try {
+            const current = await readSlaveNodes(ns);
+            const next = current.includes(hostname)
+                ? current.filter((h) => h !== hostname)
+                : [...current, hostname];
+            await writeSlaveNodes(ns, next);
+            await refreshList();
+        } catch (err) {
+            setToggleSlaveError(err instanceof Error ? err.message : String(err));
+        } finally {
+            setToggleSlaveBusyHost(null);
+        }
+    }
+
     const ramTiers = Object.keys(costByRam)
         .map(Number)
         .sort((a, b) => a - b);
     const selectedCost = costByRam[buyRam] ?? 0;
-    const atServerLimit = servers.length >= serverLimit && serverLimit > 0;
+    // Only actual purchases count against the purchased-server limit —
+    // slave nodes ride along in the same `servers` snapshot (see
+    // `daemons/cloud-list.daemon.ts`) but aren't purchases.
+    const atServerLimit = cloudServers.length >= serverLimit && serverLimit > 0;
     const insufficientMoney = selectedCost > moneyAvailable;
     const buyDisabled = buyBusy || atServerLimit || insufficientMoney;
 
     return {
         servers,
+        cloudServers,
+        slaveServers,
         moneyAvailable,
         serverLimit,
         costByRam,
         listLoading,
         listError,
         refreshList,
+        refreshAll,
         busy,
+
+        slaveHosts,
+        slaveHostsLoading,
+        slaveHostsError,
+        toggleSlaveBusyHost,
+        toggleSlaveError,
+        toggleSlave,
 
         buyHostname,
         setBuyHostname,

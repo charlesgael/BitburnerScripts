@@ -23,7 +23,26 @@ type Promisify<T> = {
             : T[K];
 };
 
-export type QueuedNS = Promisify<NS>;
+/**
+ * A handful of NS methods are declared with multiple overloads where
+ * `Promisify` above only keeps the LAST one — a mapped type's
+ * `T[K] extends (...args: infer A) => infer R ? ... : ...` conditional,
+ * applied to a multi-signature function type, infers `A`/`R` from just the
+ * final overload, silently dropping the rest. `ns.kill` is one:
+ * `NetscriptDefinitions.d.ts` declares both `kill(pid: number): boolean`
+ * and `kill(filename: string, host?: string, ...args): boolean`, but only
+ * the latter survives into `Promisify<NS>["kill"]`. `ui/apps/task-manager/`
+ * needs the PID form specifically (see its header comment on why
+ * script+host+args matching doesn't work for an app with dynamic args), so
+ * it's patched back in here as an intersected extra call signature — safer
+ * than reworking `Promisify` itself, which would risk subtly changing every
+ * other already-working call site's inferred type.
+ */
+type QueuedNsOverloadFixups = {
+    kill(pid: number): Promise<boolean>;
+};
+
+export type QueuedNS = Promisify<NS> & QueuedNsOverloadFixups;
 
 /**
  * Wraps an `NsQueue` in a Proxy that reads exactly like calling `ns`

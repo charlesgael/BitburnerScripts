@@ -15,6 +15,16 @@ export interface CloudServerRow {
     hostname: string;
     ram: number;
     usedRam: number;
+    /** True for a player-designated "slave node" (see `ui/utils/slave-nodes.ts`)
+     * — a rooted, non-purchased server the player has opted into the same
+     * worker role a purchased server plays — false/absent for an actual
+     * purchased server. `daemons/cloud-list.daemon.ts` sets this on every row
+     * it returns; every consumer of that snapshot (Share, XP Farm, Programs'
+     * task manager, and the Cloud Servers app's own list) can treat the two
+     * uniformly except where this flag says otherwise (e.g. it can't be
+     * `ns.cloud.deleteServer`'d, and doesn't count against the purchased
+     * server limit). */
+    isSlave?: boolean;
 }
 
 export interface CloudListResult {

@@ -36,10 +36,9 @@ async function installBackdoor(ns: NS, hostname: string) {
 
     await ns.singularity.installBackdoor();
 
-    // for (let i = path.length - 2; i >= 0; i--) {
-    //     ns.singularity.connect(path[i]);
-    // }
-    ns.singularity.connect("home");
+    for (let i = path.length - 2; i >= 0; i--) {
+        ns.singularity.connect(path[i]);
+    }
 
     return true;
 }

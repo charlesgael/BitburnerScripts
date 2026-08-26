@@ -23,6 +23,18 @@ import { CloudServersContent } from "./components/cloud-servers-content";
  * instead of this app polling ns.getServerUsedRam/getServerMaxRam on its
  * own timer.
  *
+ * Also has a second tab, "Slave Nodes", letting the player check off
+ * already-rooted, non-purchased servers on the network as stand-ins for a
+ * purchased server — handy early game before the player can afford a real
+ * one. See `ui/utils/slave-nodes.ts`'s header comment for the full design:
+ * the short version is that `daemons/cloud-list.daemon.ts` folds designated
+ * slave nodes straight into the same `CloudServerRow[]` snapshot purchased
+ * servers already flow through, so Share/XP Farm/Programs treat the two
+ * uniformly with no changes of their own. The checklist itself — every
+ * rooted, non-purchased host on the network, not just currently-designated
+ * ones — comes from its own daemon, `daemons/slave-node-hosts.daemon.ts`,
+ * for the same RAM-footprint reason as everything else here.
+ *
  * All state/behavior lives in `logic/use-cloud-servers.ts`; `components/`
  * is plain presentational JSX driven off that hook's return value.
  */
