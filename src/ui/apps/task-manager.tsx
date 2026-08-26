@@ -314,13 +314,13 @@ export function createTaskManagerApp(id: string, label: string, icon: string, ap
             const homeOption = options.find((o) => o.host === "home");
             const cloudOptions = options.filter((o) => o.host !== "home");
             const alreadyOnHome = tasks.some((t) => t.script === app.script && t.host === "home");
-            const isBusy = spawnBusy.has(app.script);
-            const homeDisabled = isBusy || loading || !homeOption;
+            const isOccupied = spawnBusy.has(app.script);
+            const homeDisabled = isOccupied || loading || !homeOption;
             const hasCloudOption = cloudOptions.length > 0;
             const menuOpen = openMenuFor === app.script;
 
             const runLabel = app.oneShot ? "Run" : "Spawn";
-            const mainLabel = isBusy ? "..." : alreadyOnHome ? "Running" : !homeOption ? "No RAM" : runLabel;
+            const mainLabel = isOccupied ? "..." : alreadyOnHome ? "Running" : !homeOption ? "No RAM" : runLabel;
             const mainTitle = alreadyOnHome
                 ? "Already running on home — see Running Tasks below"
                 : !homeOption
@@ -372,7 +372,7 @@ export function createTaskManagerApp(id: string, label: string, icon: string, ap
                 >
                     <button
                         onClick={() => setOpenMenuFor(menuOpen ? null : app.script)}
-                        disabled={isBusy}
+                        disabled={isOccupied}
                         title="Spawn on a cloud server instead"
                         style={{
                             boxSizing: "border-box",
@@ -383,7 +383,7 @@ export function createTaskManagerApp(id: string, label: string, icon: string, ap
                             padding: "0 6px",
                             fontFamily: "inherit",
                             fontSize: "10px",
-                            cursor: isBusy ? "default" : "pointer",
+                            cursor: isOccupied ? "default" : "pointer",
                         }}
                     >
                         ▾
@@ -468,7 +468,7 @@ export function createTaskManagerApp(id: string, label: string, icon: string, ap
         const taskRows = tasks.map((task) => {
             const app = appByScript[task.script];
             const key = taskKey(task);
-            const isBusy = taskBusy.has(key);
+            const isOccupied = taskBusy.has(key);
             const ram = (appRam[task.script] ?? 0) * (app?.threads ?? 1);
 
             return (
@@ -489,14 +489,14 @@ export function createTaskManagerApp(id: string, label: string, icon: string, ap
                     <div style={{ display: "flex", gap: "6px" }}>
                         <button
                             onClick={() => void tailTask(task)}
-                            disabled={isBusy}
+                            disabled={isOccupied}
                             title="Open this task's log window"
                             style={buttonStyle()}
                         >
                             📃
                         </button>
-                        <button onClick={() => void killTask(task)} disabled={isBusy} style={buttonStyle(true)}>
-                            {isBusy ? "..." : "Kill"}
+                        <button onClick={() => void killTask(task)} disabled={isOccupied} style={buttonStyle(true)}>
+                            {isOccupied ? "..." : "Kill"}
                         </button>
                     </div>
                 </div>

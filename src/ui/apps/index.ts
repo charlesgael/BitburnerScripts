@@ -5,6 +5,7 @@ import { TrainerApp } from "./trainer";
 import { CloudServersApp } from "./cloud-servers";
 import { ShareApp } from "./share";
 import { XpFarmApp } from "./xp-farm";
+import { FileExplorerApp } from "./file-explorer";
 
 /**
  * The actual sidebar-launchable "Programs" app — which .js files it can
@@ -32,4 +33,5 @@ export const APPS: AppDefinition[] = [
     /*TrainerApp, */ CloudServersApp,
     ShareApp,
     XpFarmApp,
+    FileExplorerApp,
 ];

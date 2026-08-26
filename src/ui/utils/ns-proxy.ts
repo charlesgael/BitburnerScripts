@@ -36,14 +36,14 @@ export type QueuedNS = Promisify<NS>;
  * Every property access returns a further proxy — so nested namespaces
  * like `ns.hacknet.*` or `ns.stock.*` resolve correctly without this code
  * needing to know NS's shape up front — and calling the result queues
- * exactly one `nsQueue.run(...)` task that invokes the matching method on
- * the real `ns` and resolves with its return value.
+ * exactly one `nsQueue.enqueue(...)` task that invokes the matching method
+ * on the real `ns` and resolves with its return value.
  *
  * Caveat — atomicity: each call through this proxy is its own queue entry,
  * so another queued task can be interleaved between two calls made back to
  * back (e.g. `await ns.getServerMoneyAvailable(...)` then, separately,
  * `await ns.purchaseServer(...)`). For anything that must run as a single
- * uninterrupted step, use `nsQueue.run(ns => { ...multiple calls... })`
+ * uninterrupted step, use `nsQueue.enqueue(ns => { ...multiple calls... })`
  * directly instead of chaining proxy calls.
  *
  * Caveat — methods only: this can only wrap function calls. A handful of
@@ -68,7 +68,7 @@ function makeNsProxy(queue: NsQueue, path: string[]): any {
             return makeNsProxy(queue, [...path, prop]);
         },
         apply(_target, _thisArg, args) {
-            return queue.run((ns) => {
+            return queue.enqueue((ns) => {
                 let receiver: any = ns;
                 for (let i = 0; i < path.length - 1; i++) {
                     receiver = receiver[path[i]];
