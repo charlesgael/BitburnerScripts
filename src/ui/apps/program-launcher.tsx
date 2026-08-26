@@ -5,6 +5,7 @@ import { useHomeRam } from "../context/home-ram-context";
 import { theme, wrapText } from "../utils/theme";
 import { fetchCloudList, CloudServerRow } from "../utils/cloud-list";
 import { spawnRemote } from "../utils/spawn-remote";
+import { readXpFarmHosts } from "../utils/xp-farm-config";
 
 /**
  * One script a `createProgramLauncherApp` instance can spawn/kill. This is
@@ -64,7 +65,12 @@ type RamUsage = { used: number; max: number };
  * capacity comes from `daemons/cloud-list.daemon.js` (via `ui/utils/cloud-list.ts`),
  * the same mechanism the Cloud Servers app uses, so this file never
  * references `ns.cloud.*` (or `ns.scp`) directly — see those utils' header
- * comments for why. Since a program can now be running on a cloud server
+ * comments for why. Cloud servers dedicated to XP farming (`ui/apps/xp-farm.tsx`,
+ * tracked in `xp-farm-config.txt` via `readXpFarmHosts`) are filtered out of
+ * that list entirely before it's used for anything below — `daemons/xp-farm.daemon.ts`
+ * has exclusive control of those hosts and `ns.killall`s them the moment it
+ * claims one, so offering them here would just mean whatever got spawned
+ * gets killed out from under it. Since a program can now be running on a cloud server
  * instead of its configured host, the "is it running" check also scans
  * every cloud server (not just the configured host) so Kill still works
  * after reopening this window.
@@ -129,9 +135,11 @@ export function createProgramLauncherApp(
         // running on a cloud server" scan below won't find anything either.
         async function refreshCloudServers(): Promise<CloudServerRow[]> {
             try {
-                const result = await fetchCloudList(ns, addChildPid);
-                setCloudServers(result.servers);
-                return result.servers;
+                const [result, xpFarmHosts] = await Promise.all([fetchCloudList(ns, addChildPid), readXpFarmHosts(ns)]);
+                const dedicated = new Set(xpFarmHosts);
+                const available = result.servers.filter((s) => !dedicated.has(s.hostname));
+                setCloudServers(available);
+                return available;
             } catch {
                 setCloudServers([]);
                 return [];

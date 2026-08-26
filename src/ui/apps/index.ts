@@ -4,6 +4,7 @@ import { createProgramLauncherApp } from "./program-launcher";
 import { TrainerApp } from "./trainer";
 import { CloudServersApp } from "./cloud-servers";
 import { ShareApp } from "./share";
+import { XpFarmApp } from "./xp-farm";
 
 /**
  * The actual sidebar-launchable "Programs" app — which .js files it can
@@ -24,4 +25,9 @@ const ProgramsApp = createProgramLauncherApp("programs", "Programs", "🚀", [
  * `ui/components/app-grid.tsx`). To add a new app: create a file next to
  * `hello-world.tsx` exporting an `AppDefinition`, then list it here.
  */
-export const APPS: AppDefinition[] = [/*HelloWorldApp, */ProgramsApp, /*TrainerApp, */CloudServersApp, ShareApp];
+export const APPS: AppDefinition[] = [
+    /*HelloWorldApp, */ ProgramsApp,
+    /*TrainerApp, */ CloudServersApp,
+    ShareApp,
+    XpFarmApp,
+];
