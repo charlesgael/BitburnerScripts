@@ -1,6 +1,6 @@
 /**
  * Per-extension unicode icon + capability rules for the File Explorer app
- * (`ui/apps/file-explorer.tsx`). The capability predicates encode real
+ * (`ui/apps/file-explorer/`). The capability predicates encode real
  * Netscript API restrictions — see each function's doc comment in
  * `NetscriptDefinitions.d.ts` — not arbitrary UI choices:
  *   - `ns.read`/`ns.write` take NO host parameter at all: they always

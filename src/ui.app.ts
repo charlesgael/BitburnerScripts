@@ -25,16 +25,16 @@
  */
 
 import { NS } from "@ns";
-import { getReactGlobals } from "./ui/utils/react-globals";
-import { ensureAssetsLoaded } from "./ui/utils/ensure-assets";
-import { mountContainer, unmountContainer, reattachIfDetached } from "./ui/utils/mount";
-import { createNsQueue } from "./ui/utils/ns-queue";
-import { createQueuedNs } from "./ui/utils/ns-proxy";
-import { createStatusPanel } from "./ui/components/status-panel";
+import { APPS } from "./ui/apps";
 import { createAppGrid } from "./ui/components/app-grid";
 import { createOverviewStats } from "./ui/components/overview-stats";
+import { createStatusPanel } from "./ui/components/status-panel";
+import { ensureAssetsLoaded } from "./ui/utils/ensure-assets";
 import { createHomeRamPoller } from "./ui/utils/home-ram-poller";
-import { APPS } from "./ui/apps";
+import { mountContainer, reattachIfDetached, unmountContainer } from "./ui/utils/mount";
+import { createQueuedNs } from "./ui/utils/ns-proxy";
+import { createNsQueue } from "./ui/utils/ns-queue";
+import { getReactGlobals } from "./ui/utils/react-globals";
 
 // This file's own deployed name — used below to spot another already-
 // running copy of itself. Hardcoded rather than read via

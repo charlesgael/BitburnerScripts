@@ -1,6 +1,6 @@
-import { AppComponentProps, AppDefinition } from "../types";
-import { useQueuedNs } from "../context/ns-queue-context";
-import { theme } from "../utils/theme";
+import { AppComponentProps } from "../../../types";
+import { useQueuedNs } from "../../../context/ns-queue-context";
+import { theme } from "../../../utils/theme";
 
 /**
  * Proofing app: says hello, and proves the `useQueuedNs` context hook works
@@ -8,7 +8,7 @@ import { theme } from "../utils/theme";
  * just like calling `ns` directly, but the call is queued and serialized
  * against the script's main loop instead of racing it.
  */
-function HelloWorldContent({ React }: AppComponentProps) {
+export function HelloWorldContent({ React }: AppComponentProps) {
     const ns = useQueuedNs();
     const [hostname, setHostname] = React.useState(null);
 
@@ -37,10 +37,3 @@ function HelloWorldContent({ React }: AppComponentProps) {
         </div>
     );
 }
-
-export const HelloWorldApp: AppDefinition = {
-    id: "hello-world",
-    icon: "👋",
-    label: "Hello World",
-    Content: HelloWorldContent,
-};

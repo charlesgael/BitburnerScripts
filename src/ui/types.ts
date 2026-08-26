@@ -95,6 +95,6 @@ export interface AppAvailabilityContext {
      * `ns.singularity.*` also works without owning SF4 yet while playing
      * inside BitNode 4 itself (the "Singularity" BitNode), which a plain
      * `minSourceFile: { n: 4, lvl: 1 }` can't express — see
-     * `ui/apps/trainer.tsx`. */
+     * `ui/apps/trainer/`. */
     currentNode: number;
 }

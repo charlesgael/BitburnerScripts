@@ -16,7 +16,7 @@ export default function (env: ConfigEnv): ViteBurnerUserConfig {
         },
     };
 
-    if (env.command === "build") {
+    if (env?.command === "build") {
         // viteburner's own plugin only `apply`s in "serve" mode, so the
         // `viteburner` config below is inert here — this path is plain
         // Vite/Rollup, producing dist/setup.js instead of a live push. See

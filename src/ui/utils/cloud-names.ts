@@ -3,7 +3,7 @@
  * Android's candy codenames or Ubuntu's animal ones — used by the Cloud
  * Servers app when the player leaves the hostname field blank instead of
  * refusing to buy. Pure data/client logic, no `ns.*` calls, so it's free to
- * import into `ui.app.js`'s reachable code (see `ui/apps/cloud-servers.tsx`'s
+ * import into `ui.app.js`'s reachable code (see `ui/apps/cloud-servers/`'s
  * header comment on why that distinction matters here).
  */
 const CANDY_NAMES = [

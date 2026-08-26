@@ -1,0 +1,20 @@
+import { AppComponentProps } from "../../../types";
+import { useQueuedNs } from "../../../context/ns-queue-context";
+import { useAddChildPid } from "../../../context/child-pids-context";
+import { useFileExplorer } from "../logic/use-file-explorer";
+import { EditScreen } from "./edit-screen";
+import { BrowseScreen } from "./browse-screen";
+
+/** Root component: wires up `useFileExplorer` and switches between the
+ * browse and edit screens. See `../index.ts`'s header comment for what
+ * this app does and why. */
+export function FileExplorerContent({ React }: AppComponentProps) {
+    const ns = useQueuedNs();
+    const addChildPid = useAddChildPid();
+    const fx = useFileExplorer(React, ns, addChildPid);
+
+    if (fx.mode === "edit" && fx.editingPath) {
+        return <EditScreen React={React} fx={fx} />;
+    }
+    return <BrowseScreen React={React} fx={fx} />;
+}

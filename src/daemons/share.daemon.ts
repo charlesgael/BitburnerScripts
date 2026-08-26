@@ -4,7 +4,7 @@ import { NS } from "@ns";
  * Repeatedly calls ns.share() to boost reputation gain from faction work
  * (applies to all factions, for as long as this keeps running).
  *
- * Split out of the sidebar Share app (`ui/apps/share.tsx`) for the same
+ * Split out of the sidebar Share app (`ui/apps/share/`) for the same
  * reason as `daemons/train.daemon.ts`: Bitburner charges a script for every ns.*
  * function it merely *references*, whether or not that code path ever
  * runs. ns.share() alone is 2.4GB — folding it into ui.app.ts (always

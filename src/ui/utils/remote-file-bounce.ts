@@ -2,7 +2,7 @@ import { QueuedNS } from "./ns-proxy";
 import { isMovable } from "./file-types";
 
 /**
- * Lets the File Explorer app (`ui/apps/file-explorer.tsx`) View/Edit a file
+ * Lets the File Explorer app (`ui/apps/file-explorer/`) View/Edit a file
  * that lives on a server other than `home`, despite `ns.read`/`ns.write`
  * having no host parameter at all — they only ever touch the calling
  * script's own server (`home`, since `ui.app.ts` always runs there — see

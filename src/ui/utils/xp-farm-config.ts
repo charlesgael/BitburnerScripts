@@ -3,7 +3,7 @@ import { QueuedNS } from "./ns-proxy";
 /**
  * Shared constants/types for the XP Farm feature: the player dedicates a
  * purchased ("cloud") server to grinding hacking XP via continuous grow()/
- * weaken() loops against a picked target (see `ui/apps/xp-farm.tsx` and
+ * weaken() loops against a picked target (see `ui/apps/xp-farm/` and
  * `daemons/xp-farm.daemon.ts`).
  *
  * The two sides only ever talk through two plain files:
@@ -19,7 +19,7 @@ import { QueuedNS } from "./ns-proxy";
  * status, the app is the sole writer of config, and both are single JSON
  * blobs rewritten wholesale (`"w"` mode), never appended to.
  *
- * ns.read/ns.write are 0 GB (see `ui/apps/cloud-servers.tsx`'s header
+ * ns.read/ns.write are 0 GB (see `ui/apps/cloud-servers/`'s header
  * comment for why), so the app can touch these files directly through the
  * queued ns below without any RAM concern — same as the daemon touching
  * them directly through the real ns.
@@ -32,7 +32,7 @@ export const XP_FARM_DAEMON_HOST = "home";
 /** The two loop scripts the daemon launches on every managed host, and the
  * fixed "delay between calls" arg (0 — back-to-back forever) it always
  * launches them with. Shared here — rather than each side hardcoding its
- * own copy — so `ui/apps/xp-farm.tsx` can open a specific loop's own tail
+ * own copy — so `ui/apps/xp-farm/` can open a specific loop's own tail
  * window (`ns.ui.openTail(script, host, target, XP_FARM_LOOP_DELAY)`) using
  * the exact same filename+args the daemon actually exec'd it with; a
  * mismatch here would mean openTail finds nothing. */
