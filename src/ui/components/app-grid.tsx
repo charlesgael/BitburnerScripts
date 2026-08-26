@@ -187,7 +187,7 @@ export function createAppGrid(
                 }}
             >
                 <span style={{ fontSize: "18px", lineHeight: 1 }}>{app.icon}</span>
-                <span style={{ fontSize: "9px", opacity: 0.85, textAlign: "center" }}>{app.label}</span>
+                <span style={{ fontSize: "11px", opacity: 0.85, textAlign: "center" }}>{app.label}</span>
             </button>
         ));
 
