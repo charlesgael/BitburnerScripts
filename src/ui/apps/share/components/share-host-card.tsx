@@ -15,6 +15,8 @@ export function ShareHostCard({
     onUsedRamChange: (hostname: string, usedRam: number) => void;
 }) {
     const card = useShareHostCard(React, ns, host, onUsedRamChange);
+    const usedPct = host.maxRam > 0 ? (host.usedRam / host.maxRam) * 100 : 0;
+    const reservedPct = host.isHome && host.maxRam > 0 ? (card.reservedRam / host.maxRam) * 100 : 0;
 
     return (
         <div className="bb-card">
@@ -32,12 +34,14 @@ export function ShareHostCard({
                     {host.usedRam.toFixed(1)} / {host.maxRam.toFixed(1)} GB
                 </span>
             </div>
-            {/* Thin per-server RAM usage bar. */}
+            {/* Thin per-server RAM usage bar, with a blue band marking the
+                reserve zone kept off-limits to sharing on `home`. */}
             <div className="bb-progress bb-progress--thin">
                 <div
-                    className={`bb-progress-fill${host.usedRam > 90 ? " bb-progress-fill--danger" : ""}`}
-                    style={{ width: `${host.usedRam}%` }}
+                    className={`bb-progress-fill${usedPct > 90 ? " bb-progress-fill--danger" : ""}`}
+                    style={{ width: `${usedPct}%` }}
                 />
+                {host.isHome ? <div className="bb-progress-guard" style={{ width: `${reservedPct}%` }} /> : null}
             </div>
 
             {host.isHome ? (

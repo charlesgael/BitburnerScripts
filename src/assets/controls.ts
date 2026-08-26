@@ -133,6 +133,22 @@ export const controlsStyle = `
     background: var(--bb-theme-error, #f55);
 }
 
+/* Reserve-zone marker overlaid on a .bb-progress track (currently just
+   home's card in the Share app): a translucent blue band pinned to the
+   right edge of the bar, from wherever the reserve starts through 100%.
+   Sits in DOM order after .bb-progress-fill so it stays visible (via alpha)
+   even when usage is high enough that the fill already reaches into the
+   reserved zone underneath it. Position/width are set inline per-render
+   (a live percentage), same as .bb-progress-fill's width. */
+.bb-progress-guard {
+    position: absolute;
+    inset: 0 0 0 auto;
+    background: rgba(51, 170, 255, 0.85);
+    mix-blend-mode: screen;
+    border-left: 1px solid rgba(180, 225, 255, 0.9);
+    pointer-events: none;
+}
+
 /* The small server/host card used by the Cloud Servers, Share, and XP Farm
    apps: hostname + stat line, an optional .bb-progress--thin usage bar,
    and (Cloud Servers/XP Farm) an action button. */

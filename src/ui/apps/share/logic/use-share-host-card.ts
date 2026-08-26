@@ -7,10 +7,12 @@ const DAEMON_SCRIPT = "daemons/share.daemon.js";
 
 /** `home` RAM below `max(MIN_RESERVED_RAM_GB, RESERVED_RAM_FRACTION * home's
  * max RAM)` is never offered to the share daemon, so there's always headroom
- * left for everything else that runs there. Scaling the reserve with
- * `home`'s own max RAM (rather than a flat GB amount) means it keeps pace as
- * `home` gets upgraded — a flat reserve sized for a small early-game `home`
- * would be pointlessly small once `home` is in the multi-TB range. */
+ * left for everything else that runs there — on top of whatever `home` has
+ * already used, since that reserve comes out of `freeRam` (max minus used),
+ * not out of max RAM directly. Scaling the reserve with `home`'s own max RAM
+ * (rather than a flat GB amount) means it keeps pace as `home` gets
+ * upgraded — a flat reserve sized for a small early-game `home` would be
+ * pointlessly small once `home` is in the multi-TB range. */
 const MIN_RESERVED_RAM_GB = 5;
 const RESERVED_RAM_FRACTION = 0.2;
 
