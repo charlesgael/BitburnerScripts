@@ -7,13 +7,20 @@ import { CloudServersState } from "../logic/use-cloud-servers";
  * snapshot — see `ui/utils/slave-nodes.ts`'s header comment for the full
  * design). Ticking a box designates/releases that host immediately — no
  * separate Add/Save step. */
-export function SlaveNodeChecklist({ React, cs }: { React: any; cs: CloudServersState }) {
+export function SlaveNodeChecklist({
+    React,
+    cs,
+}: {
+    React: any;
+    cs: CloudServersState;
+}) {
     const designated = new Set(cs.slaveServers.map((s) => s.hostname));
 
     if (cs.slaveHosts.length === 0 && !cs.slaveHostsLoading) {
         return (
             <div style={{ fontSize: "12px", opacity: 0.7 }}>
-                No rooted servers found yet — crack a few with the Programs app first.
+                No rooted servers found yet — crack a few with the Programs app
+                first.
             </div>
         );
     }
@@ -26,6 +33,15 @@ export function SlaveNodeChecklist({ React, cs }: { React: any; cs: CloudServers
                 gap: "6px",
             }}
         >
+            <div
+                className="bb-text-warning"
+                style={{
+                    fontSize: 12,
+                    marginBottom: 8,
+                }}
+            >
+                ⚠ When changing slaves, remember to restart Flooder program.
+            </div>
             {cs.slaveHosts.map((h) => {
                 const checked = designated.has(h.hostname);
                 const busy = cs.toggleSlaveBusyHost === h.hostname;
@@ -40,7 +56,14 @@ export function SlaveNodeChecklist({ React, cs }: { React: any; cs: CloudServers
                             cursor: busy ? "default" : "pointer",
                         }}
                     >
-                        <span style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+                        <span
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                                minWidth: 0,
+                            }}
+                        >
                             <input
                                 type="checkbox"
                                 checked={checked}
@@ -51,7 +74,11 @@ export function SlaveNodeChecklist({ React, cs }: { React: any; cs: CloudServers
                                 {h.hostname} ({h.ram} GB)
                             </span>
                         </span>
-                        {busy ? <span style={{ fontSize: "11px", opacity: 0.7 }}>...</span> : null}
+                        {busy ? (
+                            <span style={{ fontSize: "11px", opacity: 0.7 }}>
+                                ...
+                            </span>
+                        ) : null}
                     </label>
                 );
             })}

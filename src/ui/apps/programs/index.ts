@@ -1,6 +1,7 @@
 import { AppDefinition } from "../../types";
-import { createTaskManagerApp } from "../task-manager";
+import { singularityAvailable } from "../../utils/singularity-availability";
 import { readSlaveNodes } from "../../utils/slave-nodes";
+import { createTaskManagerApp } from "../task-manager";
 
 /**
  * The actual sidebar-launchable "Programs" app — which .js files it can
@@ -14,14 +15,56 @@ import { readSlaveNodes } from "../../utils/slave-nodes";
  * hijacks a server the player has designated for Programs/XP Farm/Share,
  * and that list can change at any time from the Cloud Servers app — a
  * fixed `args` array baked in here could only ever reflect whatever it was
- * at build time.
+ * at build time. It's also `singleInstance`: it floods every reachable
+ * server it can see from wherever it runs, so a second instance elsewhere
+ * would just fight the first one over the same targets.
+ *
+ * `cracker.app.js`, `flooder.app.js`, `backdoor.lite.app.js`,
+ * `backdoor.app.js`, and `next-targets.app.js` all `requires:
+ * ["netmapper.app.js"]` — they each read `known-servers.json.txt`, which
+ * only exists on a host where `netmapper.app.js` is (or has been) running,
+ * so the task manager won't offer a host as a spawn target for any of them
+ * until Netmapper is already running there too (see
+ * `../task-manager/logic/use-task-manager.ts`'s `hostOptions`).
+ *
+ * `backdoor.app.js` also sets `isAvailable: singularityAvailable` (see
+ * `ui/utils/singularity-availability.ts`) — it's entirely
+ * `ns.singularity.connect`/`installBackdoor` calls under the hood, same
+ * Source-File-4-or-BitNode-4 gate as the Trainer app, so it's left out of
+ * the Spawn list entirely without that access rather than offered and
+ * failing at spawn time.
  */
 export const ProgramsApp: AppDefinition = createTaskManagerApp("programs", "Programs", "🚀", [
     { script: "netmapper.app.js", label: "Netmapper" },
-    { script: "cracker.app.js", label: "Cracker" },
-    { script: "flooder.app.js", label: "Flooder", buildArgs: readSlaveNodes },
-    { script: "backdoor.lite.app.js", label: "List Backdoors", oneShot: true },
-    { script: "backdoor.app.js", label: "Backdoor Installer" },
-    { script: "next-targets.app.js", label: "Next Targets", oneShot: true },
-    { script: "hacknet.app.js", label: "Hacknet" },
+    { script: "cracker.app.js", label: "Cracker", requires: ["netmapper.app.js"] },
+    {
+        script: "flooder.app.js",
+        label: "Flooder",
+        buildArgs: readSlaveNodes,
+        singleInstance: true,
+        requires: ["netmapper.app.js"],
+    },
+    {
+        script: "backdoor.lite.app.js",
+        label: "Backdoor Lister",
+        oneShot: true,
+        requires: ["netmapper.app.js"],
+        // Inverted from `singularityAvailable`: this row is the point when
+        // you *don't* have Singularity yet (backdoor.app.js below covers
+        // the case where you do). `!singularityAvailable(ctx)` doesn't work
+        // for this — its return type is `true | string`, and a non-empty
+        // reason string is truthy, so negating it is `false` in both the
+        // available and unavailable case. Comparing against `=== true`
+        // instead reads the tri-state value correctly.
+        isAvailable: (ctx) =>
+            singularityAvailable(ctx) === true ? "Use Backdoor Installer instead — Singularity is available." : true,
+    },
+    {
+        script: "backdoor.app.js",
+        label: "Backdoor Installer",
+        requires: ["netmapper.app.js"],
+        isAvailable: singularityAvailable,
+    },
+    { script: "next-targets.app.js", label: "Next Targets", oneShot: true, requires: ["netmapper.app.js"] },
+    { script: "hacknet.app.js", label: "Hacknet", singleInstance: true },
 ]);

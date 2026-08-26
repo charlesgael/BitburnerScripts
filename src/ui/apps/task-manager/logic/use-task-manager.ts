@@ -4,8 +4,19 @@ import { useHomeRam } from "../../../context/home-ram-context";
 import { fetchCloudList, CloudServerRow } from "../../../utils/cloud-list";
 import { spawnRemote } from "../../../utils/spawn-remote";
 import { readXpFarmHosts } from "../../../utils/xp-farm-config";
+import { checkIsAvailable } from "../../../utils/app-availability";
 import { ManagedAppDefinition, Task } from "./types";
 import { taskKey } from "./task-key";
+import { resolveDependencyChain } from "./dependency-chain";
+
+// Plain JS timer, not `ns.sleep` — spacing out an auto-launched dependency
+// chain (see `spawnTask` below) doesn't need `ns` at all, and routing it
+// through `ns.sleep` would tie up the shared queue (see `ns-queue.ts`) for
+// the full second, stalling every other queued ns.* call (another button's
+// click, the main loop's own idle-tick work) until it resolves.
+function delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /**
  * All state/behavior for one `createTaskManagerApp` instance. See
@@ -18,6 +29,9 @@ export function useTaskManager(React: any, apps: ManagedAppDefinition[], runnabl
     const ns = useQueuedNs();
     const addChildPid = useAddChildPid();
     const homeRam = useHomeRam();
+    // Used to walk `requires` chains (see `./dependency-chain.ts`) — cheap
+    // to rebuild each render, `apps` is a small fixed catalog.
+    const appByScript = Object.fromEntries(apps.map((a) => [a.script, a]));
 
     const [appRam, setAppRam] = React.useState(() => Object.fromEntries(apps.map((a) => [a.script, 0])));
     const [cloudServers, setCloudServers]: [CloudServerRow[], (v: CloudServerRow[]) => void] = React.useState([]);
@@ -31,6 +45,11 @@ export function useTaskManager(React: any, apps: ManagedAppDefinition[], runnabl
     const [taskBusy, setTaskBusy] = React.useState(() => new Set());
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState(null as string | null);
+    // Fetched once alongside `appRam` below (see that effect) — an app's
+    // `isAvailable` (see `logic/types.ts`) needs `ownedSF`/`currentNode`,
+    // which only `ns.getResetInfo()` can supply; neither can change without
+    // a reset that kills this script too, so no poller is needed.
+    const [resetInfo, setResetInfo] = React.useState({ ownedSF: new Map() as Map<number, number>, currentNode: 0 });
 
     // Non-fatal on failure (e.g. not enough free RAM on home to launch
     // the list daemon right now — fetchCloudList itself falls back to a
@@ -89,11 +108,13 @@ export function useTaskManager(React: any, apps: ManagedAppDefinition[], runnabl
         let cancelled = false;
         (async () => {
             setLoading(true);
-            const ramEntries = await Promise.all(
-                apps.map(async (a) => [a.script, await ns.getScriptRam(a.script, "home")] as const)
-            );
+            const [ramEntries, info] = await Promise.all([
+                Promise.all(apps.map(async (a) => [a.script, await ns.getScriptRam(a.script, "home")] as const)),
+                ns.getResetInfo(),
+            ]);
             if (cancelled) return;
             setAppRam(Object.fromEntries(ramEntries));
+            setResetInfo({ ownedSF: info.ownedSF, currentNode: info.currentNode });
             await refreshAll();
             if (!cancelled) setLoading(false);
         })();
@@ -103,49 +124,107 @@ export function useTaskManager(React: any, apps: ManagedAppDefinition[], runnabl
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // Whether `app.isAvailable` (see `logic/types.ts`) passes for the
+    // current player — `undefined` (no rule declared) always passes. Used
+    // by `../components/task-manager-body.tsx` to leave an unavailable
+    // entry out of the Spawn list entirely, same "hide, don't disable"
+    // treatment `ui/utils/app-availability.ts`'s `isAppVisible` gives a
+    // regular `AppDefinition`.
+    function appAvailable(app: ManagedAppDefinition): boolean {
+        return checkIsAvailable(app.isAvailable, { homeRam, ...resetInfo });
+    }
+
+    // A `requires` app (see `logic/types.ts`) no longer has to already be
+    // running on a candidate host — `spawnTask` below auto-launches any
+    // missing link in the chain first (see `./dependency-chain.ts`), so a
+    // host only needs enough combined free RAM for that chain plus `app`
+    // itself. `dependencyChainFor` exposes the same resolution for
+    // `../components/spawn-row.tsx` to describe what a click will do.
+    function dependencyChainFor(app: ManagedAppDefinition, host: string): ManagedAppDefinition[] | null {
+        return resolveDependencyChain(app, host, appByScript, tasks);
+    }
+
     // Hosts this app could spawn on right now: `home` plus every
-    // non-reserved cloud server that isn't already running this
-    // specific app and has enough free RAM for it.
+    // non-reserved cloud server that isn't already running this specific
+    // app and has enough free RAM for it *and* whatever missing `requires`
+    // chain would need to be auto-launched alongside it there. A
+    // `singleInstance` app (e.g. `flooder.app.js`) short-circuits to no
+    // options at all, on any host, once it's running anywhere; a host whose
+    // chain is unsatisfiable (`dependencyChainFor` returns `null` — see its
+    // own comment) is excluded the same as one without enough RAM.
     function hostOptions(app: ManagedAppDefinition): { host: string; freeRam: number }[] {
-        const required = (appRam[app.script] ?? 0) * (app.threads ?? 1);
+        if (app.singleInstance && tasks.some((t) => t.script === app.script)) return [];
+        const ownRam = (appRam[app.script] ?? 0) * (app.threads ?? 1);
         const runningHosts = new Set(tasks.filter((t) => t.script === app.script).map((t) => t.host));
         const options: { host: string; freeRam: number }[] = [];
-        if (!runningHosts.has("home")) {
-            const freeRam = homeRam.max - homeRam.used;
-            if (freeRam >= required) options.push({ host: "home", freeRam });
-        }
-        for (const cs of cloudServers) {
-            if (runningHosts.has(cs.hostname)) continue;
-            const freeRam = cs.ram - cs.usedRam;
-            if (freeRam >= required) options.push({ host: cs.hostname, freeRam });
-        }
+        const consider = (host: string, freeRam: number) => {
+            if (runningHosts.has(host)) return;
+            const chain = dependencyChainFor(app, host);
+            if (chain === null) return;
+            const chainRam = chain.reduce((sum, a) => sum + (appRam[a.script] ?? 0) * (a.threads ?? 1), 0);
+            if (freeRam >= ownRam + chainRam) options.push({ host, freeRam });
+        };
+        consider("home", homeRam.max - homeRam.used);
+        for (const cs of cloudServers) consider(cs.hostname, cs.ram - cs.usedRam);
         return options;
     }
 
-    async function spawnTask(app: ManagedAppDefinition, host: string) {
+    // Actually launches one app on `host` — `ns.exec` on `home`,
+    // `spawnRemote` (which `ns.scp`'s the script over first) elsewhere —
+    // and records it as a task unless it's `oneShot`. Split out of
+    // `spawnTask` below so both a direct spawn and an auto-launched
+    // dependency-chain step (also `spawnTask`) share the same launch logic
+    // without duplicating it.
+    async function launchOne(app: ManagedAppDefinition, host: string): Promise<void> {
         // `buildArgs` (see `../logic/types.ts`) is only consulted here, at
         // the moment of spawning — never for run-detection/kill/tail, which
         // are PID-based and don't need to know a task's args at all.
         const args = [...(app.args ?? []), ...(app.buildArgs ? await app.buildArgs(ns) : [])];
+        let pid: number;
+        if (host === "home") {
+            pid = await ns.exec(app.script, "home", app.threads ?? 1, ...args);
+            if (pid === 0) {
+                throw new Error(`Couldn't start ${app.script} on home — enough free RAM?`);
+            }
+        } else {
+            const result = await spawnRemote(ns, addChildPid, app.script, host, app.threads ?? 1, args);
+            if (!result.ok || !result.pid) {
+                throw new Error(result.error ?? `Couldn't start ${app.script} on ${host}.`);
+            }
+            pid = result.pid;
+        }
+        if (!app.oneShot) {
+            setTasks((prev: Task[]) => [...prev, { script: app.script, host, pid }]);
+        }
+    }
+
+    // Spawns `app` on `host` — first auto-launching, one at a time and 1s
+    // apart, whatever `requires` chain isn't already running there (see
+    // `./dependency-chain.ts`; `hostOptions` above only ever offers `host`
+    // once there's enough combined RAM for that whole chain plus `app`
+    // itself). Each chain step gets marked busy under its own script too —
+    // if that dependency has its own spawn row (e.g. Netmapper, while
+    // Cracker's row triggers this), it visibly shows "..." while its turn
+    // in the chain runs.
+    async function spawnTask(app: ManagedAppDefinition, host: string) {
         setError(null);
         setSpawnBusy((prev: Set<string>) => new Set(prev).add(app.script));
         try {
-            let pid: number;
-            if (host === "home") {
-                pid = await ns.exec(app.script, "home", app.threads ?? 1, ...args);
-                if (pid === 0) {
-                    throw new Error(`Couldn't start ${app.script} on home — enough free RAM?`);
+            const chain = dependencyChainFor(app, host) ?? [];
+            for (const depApp of chain) {
+                setSpawnBusy((prev: Set<string>) => new Set(prev).add(depApp.script));
+                try {
+                    await launchOne(depApp, host);
+                } finally {
+                    setSpawnBusy((prev: Set<string>) => {
+                        const next = new Set(prev);
+                        next.delete(depApp.script);
+                        return next;
+                    });
                 }
-            } else {
-                const result = await spawnRemote(ns, addChildPid, app.script, host, app.threads ?? 1, args);
-                if (!result.ok || !result.pid) {
-                    throw new Error(result.error ?? `Couldn't start ${app.script} on ${host}.`);
-                }
-                pid = result.pid;
+                await delay(1000);
             }
-            if (!app.oneShot) {
-                setTasks((prev: Task[]) => [...prev, { script: app.script, host, pid }]);
-            }
+            await launchOne(app, host);
             await refreshCloudServers();
         } catch (err) {
             setError(err instanceof Error ? err.message : String(err));
@@ -195,6 +274,8 @@ export function useTaskManager(React: any, apps: ManagedAppDefinition[], runnabl
         loading,
         error,
         hostOptions,
+        dependencyChainFor,
+        appAvailable,
         spawnTask,
         killTask,
         tailTask,

@@ -13,25 +13,69 @@ import { TaskManagerState } from "../logic/use-task-manager";
  * choice as loop apps instead of being locked to `home`. Since `tasks`
  * never contains a one-shot app's script, `hostOptions` naturally never
  * excludes a host for one-shot apps as "already running" — only the RAM
- * check applies. */
-export function SpawnRow({ React, tm, app }: { React: any; tm: TaskManagerState; app: ManagedAppDefinition }) {
+ * (and `requires`) checks apply.
+ *
+ * `app.singleInstance` (e.g. `flooder.app.js`) narrows `hostOptions` down to
+ * nothing once it's running anywhere. `app.requires` (e.g. `cracker.app.js`
+ * needing `netmapper.app.js` on the same host — see `logic/types.ts`)
+ * doesn't gate a host at all any more — clicking Spawn auto-launches any
+ * missing link in the chain first, one at a time, 1s apart (see
+ * `useTaskManager`'s `spawnTask`); `hostOptions` only requires enough
+ * combined free RAM for that chain plus `app` itself. This row surfaces
+ * that chain (via `dependencyChainFor`) in the button's tooltip so a click
+ * isn't a surprise.
+ *
+ * Two small badges after the label/RAM text flag an app's catalog-level
+ * traits at a glance, independent of current run state: 🔗 for one that
+ * declares `requires` at all (its full list, not just what's currently
+ * missing — that's the button's own tooltip's job), and 1️⃣ for
+ * `singleInstance`. */
+export function SpawnRow({
+    React,
+    tm,
+    app,
+    appByScript,
+}: {
+    React: any;
+    tm: TaskManagerState;
+    app: ManagedAppDefinition;
+    appByScript: Record<string, ManagedAppDefinition>;
+}) {
     const required = (tm.appRam[app.script] ?? 0) * (app.threads ?? 1);
     const options = tm.hostOptions(app);
     const homeOption = options.find((o) => o.host === "home");
     const cloudOptions = options.filter((o) => o.host !== "home");
-    const alreadyOnHome = tm.tasks.some((t) => t.script === app.script && t.host === "home");
+    const alreadyRunning = app.singleInstance
+        ? tm.tasks.some((t) => t.script === app.script)
+        : tm.tasks.some((t) => t.script === app.script && t.host === "home");
+    // `null` (see `./dependency-chain.ts`) means the chain is unsatisfiable
+    // on home at all — currently unreachable (nothing `requires`-able is
+    // also `singleInstance`), treated the same as "no RAM" below.
+    const homeChain = tm.dependencyChainFor(app, "home");
     const isOccupied = tm.spawnBusy.has(app.script);
     const homeDisabled = isOccupied || tm.loading || !homeOption;
     const hasCloudOption = cloudOptions.length > 0;
     const menuOpen = tm.openMenuFor === app.script;
 
     const runLabel = app.oneShot ? "Run" : "Spawn";
-    const mainLabel = isOccupied ? "..." : alreadyOnHome ? "Running" : !homeOption ? "No RAM" : runLabel;
-    const mainTitle = alreadyOnHome
-        ? "Already running on home — see Running Tasks below"
+    const mainLabel = isOccupied
+        ? "..."
+        : alreadyRunning
+        ? "Running"
         : !homeOption
-          ? "Not enough free RAM on home"
-          : undefined;
+        ? "No RAM"
+        : runLabel;
+    const mainTitle = alreadyRunning
+        ? app.singleInstance
+            ? "Already running — see Running Tasks below"
+            : "Already running on home — see Running Tasks below"
+        : !homeOption
+        ? "Not enough free RAM on home"
+        : homeChain && homeChain.length > 0
+        ? `Will also launch ${homeChain
+              .map((a) => a.label)
+              .join(", ")} on home first, 1s apart`
+        : undefined;
 
     const mainButton = (
         <button
@@ -97,6 +141,27 @@ export function SpawnRow({ React, tm, app }: { React: any; tm: TaskManagerState;
         </div>
     ) : null;
 
+    const requiresBadge =
+        app.requires && app.requires.length > 0 ? (
+            <span
+                title={`Requires ${app.requires
+                    .map((s) => appByScript[s]?.label ?? s)
+                    .join(", ")} on the same host`}
+                style={{ marginLeft: "4px", cursor: "help" }}
+            >
+                🔗
+            </span>
+        ) : null;
+
+    const singleInstanceBadge = app.singleInstance ? (
+        <span
+            title="Single instance"
+            style={{ marginLeft: "4px", cursor: "help" }}
+        >
+            ➊
+        </span>
+    ) : null;
+
     return (
         <div
             className="bb-divider-bottom"
@@ -110,6 +175,8 @@ export function SpawnRow({ React, tm, app }: { React: any; tm: TaskManagerState;
         >
             <span className="bb-wrap" style={{ fontSize: "12px" }}>
                 {app.label} ({required.toFixed(2)} GB)
+                {requiresBadge}
+                {singleInstanceBadge}
             </span>
             <div style={{ display: "flex" }}>
                 {mainButton}

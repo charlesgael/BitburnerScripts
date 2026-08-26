@@ -214,6 +214,10 @@ export const controlsStyle = `
     color: var(--bb-theme-error, #f55);
 }
 
+.bb-text-warning {
+    color: var(--bb-theme-warning, #cc0);
+}
+
 /* Popup menu (the copy-to-host list, the spawn-on-cloud-server list): a
    small floating box anchored off a button, one action per row. Position/
    anchor (top vs bottom, margin, width) stay inline per call site since

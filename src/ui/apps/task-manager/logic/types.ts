@@ -1,3 +1,4 @@
+import { AppAvailabilityContext } from "../../../types";
 import { QueuedNS } from "../../../utils/ns-proxy";
 
 /**
@@ -34,6 +35,38 @@ export interface ManagedAppDefinition {
      * running-task list entirely and its button always reads "Run" instead
      * of "Spawn" (see `../index.ts`'s header comment). Defaults to false. */
     oneShot?: boolean;
+    /** True to cap this app at one running instance total, across every
+     * host — not just per-host like the default (which only stops
+     * re-spawning on a host already running it). `flooder.app.js` sets
+     * this: it floods every reachable server's port with junk files from
+     * wherever it runs, so a second instance anywhere else would just
+     * fight the first one over the same targets. Once any instance is
+     * detected running (any host), `hostOptions` (see
+     * `use-task-manager.ts`) returns no spawn targets at all — home or
+     * cloud — until it's killed. Defaults to false (per-host only). */
+    singleInstance?: boolean;
+    /** Scripts (by filename, matching `Task.script`) that must already be
+     * running on the *same host* before this app can spawn there. E.g.
+     * `cracker.app.js`/`flooder.app.js`/`backdoor.lite.app.js`/
+     * `backdoor.app.js`/`next-targets.app.js` all read
+     * `known-servers.json.txt`, which only exists on a host where
+     * `netmapper.app.js` is (or has been) running — so they all set
+     * `requires: ["netmapper.app.js"]`. Checked per-candidate-host in
+     * `hostOptions`: a host is only offered once every required script
+     * has a matching `Task` on that same host. Defaults to no
+     * requirements. */
+    requires?: string[];
+    /** Same escape hatch as `AppDefinition.isAvailable` (`ui/types.ts`) —
+     * gates this catalog entry on in-game player state beyond RAM/hosts,
+     * e.g. `backdoor.app.js` sets `isAvailable: singularityAvailable` (see
+     * `ui/utils/singularity-availability.ts`) since it's entirely
+     * `ns.singularity.*` calls under the hood, same gate as the Trainer
+     * app. Checked once per window-open in `use-task-manager.ts` (it needs
+     * `ns.getResetInfo()`, fetched there) — an app failing it is left out
+     * of the Spawn list entirely, the same "hide, don't disable" treatment
+     * `ui/utils/app-availability.ts`'s `isAppVisible` gives a regular app.
+     * Defaults to always available. */
+    isAvailable?: (ctx: AppAvailabilityContext) => true | string;
 }
 
 /** One currently-running instance of a non-`oneShot` managed app: which

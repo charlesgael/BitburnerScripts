@@ -23,6 +23,32 @@ export function ramShortfallReason(app: AppDefinition, ctx: AppAvailabilityConte
 }
 
 /**
+ * Runs an optional `isAvailable` check against `ctx` — the shape shared by
+ * `AppDefinition.isAvailable` (`ui/types.ts`) and
+ * `ManagedAppDefinition.isAvailable` (`ui/apps/task-manager/logic/types.ts`,
+ * e.g. `ui/apps/programs/index.ts`'s Backdoor Installer entry gating on
+ * `singularityAvailable`). `undefined` always passes — declaring no rule
+ * means always available. Pure and 0 GB, same as everything else here.
+ *
+ * The check's return type is deliberately `true | string`, not
+ * `boolean | string` — a lambda that inverts another `true | string` check
+ * (e.g. "show this row only when Singularity *isn't* available") can't just
+ * `!`-negate the result: a non-empty reason string is truthy, so
+ * `!checkThatFailed` is `false` in both the pass and fail case, and the row
+ * silently never shows. Keeping the parameter type strict to `true | string`
+ * makes that mistake a compile error instead — compare the wrapped check's
+ * result `=== true` and return `true`/a reason string from that, don't
+ * negate it. See `ui/apps/programs/index.ts`'s "Backdoor Lister" entry for
+ * the fixed pattern.
+ */
+export function checkIsAvailable(
+    isAvailable: ((ctx: AppAvailabilityContext) => true | string) | undefined,
+    ctx: AppAvailabilityContext
+): boolean {
+    return !isAvailable || isAvailable(ctx) === true;
+}
+
+/**
  * Checks an app's `minSourceFile`/`isAvailable` (see `ui/types.ts`) against
  * `ctx` — both AND'd together, true only if every declared rule passes (an
  * app declaring neither is always visible). Unlike `ramShortfallReason`
@@ -39,6 +65,5 @@ export function isAppVisible(app: AppDefinition, ctx: AppAvailabilityContext): b
         const { n, lvl } = app.minSourceFile;
         if ((ctx.ownedSF.get(n) ?? 0) < lvl) return false;
     }
-    if (app.isAvailable && app.isAvailable(ctx) !== true) return false;
-    return true;
+    return checkIsAvailable(app.isAvailable, ctx);
 }

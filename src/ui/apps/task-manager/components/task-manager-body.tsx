@@ -20,6 +20,11 @@ export function TaskManagerBody({
     appByScript: Record<string, ManagedAppDefinition>;
 }) {
     const tm = useTaskManager(React, apps, runnableApps);
+    // Left out of the Spawn list entirely when its `isAvailable` (see
+    // `logic/types.ts`) fails — e.g. `backdoor.app.js` needs Singularity
+    // access — same "hide, don't disable" treatment a regular app gets in
+    // `ui/components/app-grid.tsx`.
+    const spawnableApps = apps.filter(tm.appAvailable);
 
     const ramBar = (
         <div style={{ marginBottom: "12px" }}>
@@ -57,8 +62,8 @@ export function TaskManagerBody({
             {ramBar}
 
             <div style={{ fontSize: "12px", fontWeight: "bold", marginBottom: "4px" }}>Spawn</div>
-            {apps.map((app) => (
-                <SpawnRow key={app.script} React={React} tm={tm} app={app} />
+            {spawnableApps.map((app) => (
+                <SpawnRow key={app.script} React={React} tm={tm} app={app} appByScript={appByScript} />
             ))}
 
             <div style={{ fontSize: "12px", fontWeight: "bold", margin: "14px 0 4px" }}>

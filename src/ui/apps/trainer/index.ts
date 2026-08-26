@@ -1,6 +1,6 @@
 import { AppDefinition } from "../../types";
 import { TrainerContent } from "./components/trainer-content";
-import { trainerAvailable } from "./logic/trainer-available";
+import { singularityAvailable } from "../../utils/singularity-availability";
 
 /**
  * This app is a thin launcher — it never calls ns.singularity.* itself.
@@ -23,5 +23,5 @@ export const TrainerApp: AppDefinition = {
     label: "Trainer",
     Content: TrainerContent,
     minRam: 90.1,
-    isAvailable: trainerAvailable,
+    isAvailable: singularityAvailable,
 };
