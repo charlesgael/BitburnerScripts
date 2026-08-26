@@ -16,28 +16,3 @@ export function ensureStyleElement(doc: any, id: string): any {
     }
     return el;
 }
-
-/**
- * Runs `source` as a real `<script>` tag in `<head>`, once per distinct
- * `id`.
- *
- * Unlike `ensureStyleElement`, this can't just reuse-and-update an existing
- * element: per the HTML spec, mutating an already-inserted `<script>`'s
- * `textContent` does not re-run it — only *inserting* a freshly created
- * script element executes it. So instead of reusing, any previous element
- * with this `id` is removed and a brand new one is created and appended in
- * its place, forcing the code to actually (re-)run. Still idempotent in
- * effect: `source` is expected to be a self-contained library whose global
- * assignment (e.g. `var Notyf = ...`) is deterministic, so re-running it —
- * e.g. after editing the vendored copy — just redefines the same global
- * again rather than accumulating anything.
- */
-export function runScriptOnce(doc: any, id: string, source: string): void {
-    const existing = doc.getElementById(id);
-    if (existing) existing.remove();
-
-    const el = doc.createElement("script");
-    el.id = id;
-    el.textContent = source;
-    doc.head.appendChild(el);
-}

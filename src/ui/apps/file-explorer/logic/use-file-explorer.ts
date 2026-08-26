@@ -329,7 +329,7 @@ export function useFileExplorer(React: any, ns: any, addChildPid: (pid: number) 
         try {
             const ok = await ns.scp(path, destHost, selectedHost);
             if (!ok) throw new Error(`Copy to ${destHost} failed.`);
-            notifySuccess(`Copied ${path} to ${destHost}`);
+            notifySuccess(ns, `Copied ${path} to ${destHost}`);
         } catch (err) {
             setActionError(err instanceof Error ? err.message : String(err));
         } finally {

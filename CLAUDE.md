@@ -116,35 +116,27 @@ object (`{ filename: "..." }`), not a bare string: internally, a string return i
 override instead of a filename one, which breaks uploads for every file, not just `.tsx` ones (see that override's
 own comment in `vite.config.ts` for the exact mechanism).
 
-## `assets.app.ts` — custom CSS + vendored-library injector
+## `assets.app.ts` — custom CSS injector
 
-Unrelated one-shot script (not React): injects this project's own page assets into the live game window, and the
-third-party ones it depends on. Safe to re-run any time (e.g. after editing a style chunk, or updating a vendored
-library) — nothing needs to keep running afterward, since a `<style>`/`<script>` element lives in the DOM
-independent of any script's process. Two things live here:
+Unrelated one-shot script (not React): injects this project's own CSS into the live game window. Creates/reuses a
+`<style id="custom-styles">` element in `<head>` and fills it from the chunks in `src/assets/` (listed in
+`assets/index.ts`). Existing chunks: `ui-scale.ts` (global `zoom` to shrink/grow the whole game UI — `zoom`, not
+`font-size` or `transform: scale`, because most of the game's own layout is fixed-px, and only `zoom` actually
+reflows to reclaim the freed space), `overview.ts` (restyles the game's default character-overview table, which has
+no id/class of its own — scoped via `table:has(#overview-hp-hook)` instead, and per-stat XP bar colors are matched
+by fixed row position since CSS has no "previous sibling" selector to look back at a labeled row from its bar row),
+`scrollbar.ts` (thin theme-colored scrollbars, scoped to the app grid/floating windows only), and `controls.ts` (the
+`.bb-btn`/`.bb-field`/`.bb-card`/`.bb-progress`/... classes every app under `ui/apps/` and `ui/components/` uses
+instead of computing its own inline `style` object — see that file's own header comment for the full class list).
+Safe to re-run any time (e.g. after editing a style chunk) — nothing needs to keep running afterward, since a
+`<style>` element lives in the DOM independent of any script's process.
 
-- **This project's own CSS**: creates/reuses a `<style id="custom-styles">` element in `<head>` and fills it from
-  the chunks in `src/assets/` (listed in `assets/index.ts`). Existing chunks: `ui-scale.ts` (global `zoom` to
-  shrink/grow the whole game UI — `zoom`, not `font-size` or `transform: scale`, because most of the game's own
-  layout is fixed-px, and only `zoom` actually reflows to reclaim the freed space), `overview.ts` (restyles the
-  game's default character-overview table, which has no id/class of its own — scoped via
-  `table:has(#overview-hp-hook)` instead, and per-stat XP bar colors are matched by fixed row position since CSS has
-  no "previous sibling" selector to look back at a labeled row from its bar row), `scrollbar.ts` (thin
-  theme-colored scrollbars, scoped to the app grid/floating windows only), and `controls.ts` (the `.bb-btn`/
-  `.bb-field`/`.bb-card`/`.bb-progress`/... classes every app under `ui/apps/` and `ui/components/` uses instead of
-  computing its own inline `style` object — see that file's own header comment for the full class list).
-- **The vendored `notyf` toast library** (`src/assets/vendor/notyf-lib.ts` — a verbatim copy of npm `notyf`'s
-  minified JS/CSS, MIT licensed, embedded as plain strings since this project has no bundling step for a real npm
-  dependency): its CSS goes into its own `<style id="notyf-styles">` element, and its JS is run as a real inserted
-  `<script id="notyf-lib">` tag (not `eval`, which would only give it the calling module's strict-mode scope instead
-  of the true global scope its `var Notyf = ...` assignment needs — see `runScriptOnce`'s comment in
-  `assets/utils/inject-element.ts`), defining `window.Notyf`.
-
-**All app-visible notifications/toasts must go through `notyf`** — via `ui/utils/notify.ts`'s
-`notifySuccess`/`notifyError` helpers, which lazily grab `window.Notyf` — rather than a hand-rolled self-dismissing
-banner. `file-explorer.tsx`'s post-action toasts (e.g. after Copy to) are the example to follow. `notify.ts` only
-touches `window`/DOM, no `ns.*` calls, so it's free to import directly into any React app's reachable code and to
-call straight from an event handler without the queued `ns` proxy.
+**All app-visible notifications/toasts must go through Bitburner's own `ns.toast(msg, variant, duration)`** — via
+`ui/utils/notify.ts`'s `notifySuccess`/`notifyError` helpers — rather than a hand-rolled self-dismissing banner or a
+vendored third-party toast library. `file-explorer.tsx`'s post-action toasts (e.g. after Copy to) are the example to
+follow. `ns.toast` is a real `ns.*` call (0 GB RAM cost, but still subject to the same-script overlap rule), so
+`notify.ts`'s helpers take the queued `ns` proxy as a parameter and must be called from code that already has one —
+never call them with a raw `ns`.
 
 ## Everything else under `src/`
 
