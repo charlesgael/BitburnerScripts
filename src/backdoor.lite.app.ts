@@ -23,6 +23,6 @@ export async function main(ns: NS) {
         ns.tprint(`None — everything rooted is already backdoored.`);
     }
     for (let server of needsBackdoor) {
-        ns.tprint(server.hostname);
+        ns.tprint(needsBackdoor.join(" "));
     }
 }
