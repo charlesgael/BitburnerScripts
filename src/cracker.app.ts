@@ -18,7 +18,8 @@ export async function main(ns: NS) {
         new Program(`FTPCrack.exe`, (host) => ns.ftpcrack(host)),
         new Program(`HTTPWorm.exe`, (host) => ns.httpworm(host)),
     ];
-    while (true) {
+    const repeat = !ns.args.includes("once")
+    do {
         const servers: Server[] = JSON.parse(ns.read(serverFile));
         ns.print(`\nReloaded ${serverFile}`);
         const playerSkill = ns.getHackingLevel();
@@ -81,5 +82,5 @@ export async function main(ns: NS) {
             ).toLocaleTimeString(undefined, { hour12: false })}.`
         );
         await ns.sleep(tenMinutes);
-    }
+    } while (repeat);
 }

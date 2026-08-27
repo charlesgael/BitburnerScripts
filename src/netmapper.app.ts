@@ -27,6 +27,8 @@ export async function main(ns: NS) {
     const tenMinutes = 1000 * 60 * 10;
     const servers: Server[] = [];
 
+    const repeat = !ns.args.includes("once")
+
     if (ns.fileExists(filename)) {
         ns.rm(filename);
         ns.print(`Deleted existing ${filename}`);
@@ -34,7 +36,7 @@ export async function main(ns: NS) {
 
     let lastServerCount = servers.length;
 
-    while (true) {
+    do {
         ns.print(`\nSearching for new servers...`);
         findServers(ns, ns.getServer(`home`), servers);
 
@@ -50,5 +52,5 @@ export async function main(ns: NS) {
             ).toLocaleTimeString(undefined, { hour12: false })}.`
         );
         await ns.sleep(tenMinutes);
-    }
+    } while (repeat);
 }
