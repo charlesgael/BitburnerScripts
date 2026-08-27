@@ -1,16 +1,14 @@
 import { useAddChildPid } from "../../../context/child-pids-context";
 import { useQueuedNs } from "../../../context/ns-queue-context";
 import { useCgdActions } from "../../../context/cgd-actions-context";
+import { useXpFarmStatus } from "../../../context/xp-farm-status-context";
 import { CloudServerRow, fetchCloudList, sortByHostname } from "../../../utils/cloud-list";
 import {
     readXpFarmHosts,
-    readXpFarmStatus,
-    writeXpFarmHosts, XpFarmStatus, XP_FARM_DAEMON_HOST,
+    writeXpFarmHosts, XP_FARM_DAEMON_HOST,
     XP_FARM_DAEMON_SCRIPT,
     XP_FARM_LOOP_DELAY
 } from "../../../utils/xp-farm-config";
-
-const STATUS_POLL_MS = 3000;
 
 /**
  * All XP Farm state and behavior. See `../index.ts`'s header comment for
@@ -22,10 +20,13 @@ export function useXpFarm(React: any) {
     const ns = useQueuedNs();
     const addChildPid = useAddChildPid();
     const callAction = useCgdActions();
+    // Live, pushed straight from cgd.store the instant the daemon reports a
+    // new cycle — no polling needed (see xp-farm-status-context.ts's header
+    // comment for why this replaced a setInterval reading xp-farm-status.txt).
+    const status = useXpFarmStatus();
 
     const [servers, setServers]: [CloudServerRow[], (v: CloudServerRow[]) => void] = React.useState([]);
     const [enabled, setEnabled]: [Set<string>, (v: Set<string>) => void] = React.useState(() => new Set());
-    const [status, setStatus]: [XpFarmStatus, (v: XpFarmStatus) => void] = React.useState({});
     const [daemonRunning, setDaemonRunning] = React.useState(false);
     const [daemonBusy, setDaemonBusy] = React.useState(false);
     const [loading, setLoading] = React.useState(true);
@@ -36,15 +37,13 @@ export function useXpFarm(React: any) {
         setLoading(true);
         setError(null);
         try {
-            const [cloudList, hosts, latestStatus, running] = await Promise.all([
+            const [cloudList, hosts, running] = await Promise.all([
                 fetchCloudList(callAction),
                 readXpFarmHosts(ns),
-                readXpFarmStatus(ns),
                 ns._isRunning(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST),
             ]);
             setServers(sortByHostname(cloudList.servers));
             setEnabled(new Set(hosts));
-            setStatus(latestStatus);
             setDaemonRunning(running);
         } catch (err) {
             setError(err instanceof Error ? err.message : String(err));
@@ -54,19 +53,19 @@ export function useXpFarm(React: any) {
     }
 
     // This component remounts every time the window is opened — fetch
-    // everything fresh rather than trusting stale state.
+    // everything fresh rather than trusting stale state. `status` isn't
+    // fetched here — it comes live from `useXpFarmStatus()` above.
     React.useEffect(() => {
         void refresh();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // While open, keep the per-host target/thread display current — cheap
-    // (ns.read is 0 GB) and mirrors the Share app's own poll for noticing
-    // state that changed for reasons outside this window (there, a daemon
-    // that exited on its own; here, the daemon picking a new/better target).
+    // Whether the orchestrator process itself is alive isn't in cgd.store
+    // (only what it reports once running is) — keep polling that one thing
+    // while the window's open, same as before.
+    const STATUS_POLL_MS = 3000;
     React.useEffect(() => {
         const interval = setInterval(() => {
-            readXpFarmStatus(ns).then(setStatus).catch(() => {});
             ns._isRunning(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST).then(setDaemonRunning).catch(() => {});
         }, STATUS_POLL_MS);
         return () => clearInterval(interval);
@@ -146,13 +145,9 @@ export function useXpFarm(React: any) {
                     return;
                 }
             }
-            // Give the daemon a moment to pick up the change and report
-            // status before polling it — not required for correctness (the
-            // interval above will catch up regardless), just avoids a beat
-            // of stale/empty status right after enabling.
-            setTimeout(() => {
-                readXpFarmStatus(ns).then(setStatus).catch(() => {});
-            }, 500);
+            // No manual re-fetch needed here anymore: `status` comes live
+            // from cgd.store, so it updates on its own the moment the
+            // daemon's next cycle reports the change.
         } catch (err) {
             setError(err instanceof Error ? err.message : String(err));
         } finally {

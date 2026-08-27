@@ -109,6 +109,20 @@ export interface CgdDaemon {
     _stop(): void;
 }
 
+/** One host's current XP Farm assignment, as last reported by
+ * `daemons/xp-farm.daemon.ts` — see `CgdStoreState.xpFarmStatus`. Lives here
+ * (rather than in `ui/utils/xp-farm-config.ts`, which used to own it back
+ * when the two sides only talked through `xp-farm-status.txt`) so both the
+ * daemon (`cgd/` side) and the app (`ui/` side) import the same shape from
+ * one place instead of the daemon reaching into a `ui/` file. */
+export interface XpFarmAssignment {
+    target: string;
+    growThreads: number;
+    weakenThreads: number;
+}
+
+export type XpFarmStatus = Record<string, XpFarmAssignment>;
+
 /** `cgd.store`'s data shape. `homeRam` is broken out from the generic
  * `stats` record (rather than being just another entry in it) because
  * `ui/utils/app-availability.ts`'s `ramShortfallReason` needs the raw
@@ -116,10 +130,22 @@ export interface CgdDaemon {
  * `docs/epic-cgd-namespace.md`'s "Store lifecycle"/"Stat rendering"
  * sections. `stats` is replaced wholesale (not merged) on every push, so a
  * stat no longer produced after a tier downgrade disappears cleanly rather
- * than going stale — see the design doc's tier-downgrade note. */
+ * than going stale — see the design doc's tier-downgrade note.
+ *
+ * `xpFarmStatus` is a top-level sibling for the same reason `homeRam` is,
+ * not a `stats` entry: unlike `stats`, which every tier's own stat-push
+ * replaces wholesale each cycle (see `stat-push.ts`), `xpFarmStatus` is
+ * pushed by `daemons/xp-farm.daemon.ts` — a separate, non-tiered process
+ * that doesn't go through `stat-push.ts` at all — so nesting it inside
+ * `stats` would mean the next tiered daemon's routine stat push (every 2s)
+ * wipes it out from under XP Farm's own, independent update cycle. As a
+ * sibling field, `store.ts`'s shallow top-level merge leaves it untouched by
+ * every push that doesn't explicitly set it — see the design doc's "Store
+ * lifecycle" section. */
 export interface CgdStoreState {
     homeRam: { used: number; max: number };
     stats: Record<string, StatValue>;
+    xpFarmStatus: XpFarmStatus;
 }
 
 /** Hand-rolled, dependency-free vanilla store at `window.cgd.store` — see

@@ -3,6 +3,7 @@ import { CgdNamespace, CgdStore, CgdStoreState } from "./types";
 const INITIAL_STATE: CgdStoreState = {
     homeRam: { used: 0, max: 0 },
     stats: {},
+    xpFarmStatus: {},
 };
 
 /**

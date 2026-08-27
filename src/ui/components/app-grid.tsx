@@ -2,6 +2,7 @@ import { AppDefinition, ReactGlobals } from "../types";
 import { initNsQueueContext } from "../context/ns-queue-context";
 import { initChildPidsContext } from "../context/child-pids-context";
 import { initHomeRamContext, HomeRam } from "../context/home-ram-context";
+import { initXpFarmStatusContext } from "../context/xp-farm-status-context";
 import { initDaemonTierContext } from "../context/daemon-tier-context";
 import { initCgdActionsContext } from "../context/cgd-actions-context";
 import { QueuedNS } from "../utils/ns-proxy";
@@ -57,6 +58,7 @@ export function createAppGrid(
     const NsQueueContext = initNsQueueContext(React);
     const ChildPidsContext = initChildPidsContext(React);
     const HomeRamContext = initHomeRamContext(React);
+    const XpFarmStatusContext = initXpFarmStatusContext(React);
     const DaemonTierContext = initDaemonTierContext(React);
     const CgdActionsContext = initCgdActionsContext(React);
 
@@ -79,11 +81,19 @@ export function createAppGrid(
     // so HomeRamContext's consumers see every update the daemon pushes,
     // independent of whichever daemon generation currently produces it.
     let homeRam: HomeRam = cgdStore.getState().homeRam;
-    const unsubscribeHomeRam = cgdStore.subscribe(() => {
-        const next = cgdStore.getState().homeRam;
-        if (next === homeRam) return;
-        homeRam = next;
-        render();
+    let xpFarmStatus = cgdStore.getState().xpFarmStatus;
+    const unsubscribeCgdStore = cgdStore.subscribe(() => {
+        const state = cgdStore.getState();
+        let changed = false;
+        if (state.homeRam !== homeRam) {
+            homeRam = state.homeRam;
+            changed = true;
+        }
+        if (state.xpFarmStatus !== xpFarmStatus) {
+            xpFarmStatus = state.xpFarmStatus;
+            changed = true;
+        }
+        if (changed) render();
     });
     // `ownedSF`/`currentNode` themselves can't change without a BitNode/aug
     // reset, which kills this script too — but *fetching* them can't happen
@@ -413,16 +423,18 @@ export function createAppGrid(
             <NsQueueContext.Provider value={queuedNs}>
                 <ChildPidsContext.Provider value={addChildPid}>
                     <HomeRamContext.Provider value={homeRam}>
-                        <DaemonTierContext.Provider value={daemonTier}>
-                            <CgdActionsContext.Provider value={callAction}>
-                                <hr
-                                    className="MuiDivider-root MuiDivider-fullWidth css-8dakje"
-                                    style={{ margin: "0 -16px" }}
-                                />
-                                {grid}
-                                {windows}
-                            </CgdActionsContext.Provider>
-                        </DaemonTierContext.Provider>
+                        <XpFarmStatusContext.Provider value={xpFarmStatus}>
+                            <DaemonTierContext.Provider value={daemonTier}>
+                                <CgdActionsContext.Provider value={callAction}>
+                                    <hr
+                                        className="MuiDivider-root MuiDivider-fullWidth css-8dakje"
+                                        style={{ margin: "0 -16px" }}
+                                    />
+                                    {grid}
+                                    {windows}
+                                </CgdActionsContext.Provider>
+                            </DaemonTierContext.Provider>
+                        </XpFarmStatusContext.Provider>
                     </HomeRamContext.Provider>
                 </ChildPidsContext.Provider>
             </NsQueueContext.Provider>,
@@ -434,7 +446,7 @@ export function createAppGrid(
         doc.removeEventListener("keydown", onKeyDown);
         doc.removeEventListener("mousemove", onDragMove);
         doc.removeEventListener("mouseup", onDragEnd);
-        unsubscribeHomeRam();
+        unsubscribeCgdStore();
         clearInterval(tierPollId);
     }
 
