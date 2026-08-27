@@ -41,6 +41,7 @@ export const XpFarmApp: AppDefinition = {
     icon: "🏋️",
     label: "XP Farm",
     Content: XpFarmContent,
+    minDaemonTier: 2,
     // Wide enough to open already showing two ~260px server cards per row —
     // same reasoning as the Cloud Servers app's own preferredWidth.
     preferredWidth: 850,
