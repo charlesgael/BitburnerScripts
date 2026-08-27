@@ -24,9 +24,56 @@ Application scripts will persistently run in the background and continue operati
 
 -   [next-targets.app.ts](src/next-targets.app.ts) - Uses `known-servers.json.txt`. One-shot report of not-yet-rooted servers: the 3 closest to hack by required hacking level, and the 3 closest to hack by how many more port-opener programs are needed versus what's currently owned on `home`.
 
+## Sidebar UI (`ui.app.ts`)
+
+The scripts above predate, and run independently of, this repository's other major piece: a persistent sidebar UI
+mounted directly into the game's own React tree, plus a small daemon system that backs it. Start it with:
+
+```sh
+$ run start.js [TIER] [REMOTE]
+```
+
+`start.js` is the one command to run — it's idempotent, safe to rerun any time. It starts a persistent background
+daemon at the highest RAM tier `home` can currently afford (or a specific `TIER`/`REMOTE` host, if given), waits
+for it to come up, then launches `assets.app.js` (this project's own custom CSS) and `ui.app.js` (the sidebar
+itself).
+
+`ui.app.js` mounts its React tree once and exits rather than running continuously — every `ns.*` call any app needs
+is answered by the daemon instead, over a shared `window.cgd` namespace, which is what keeps `ui.app.js`'s own RAM
+footprint down near Bitburner's base script overhead regardless of how many apps it offers. The daemon's tier is a
+deliberate RAM/capability dial, not an implementation detail: tier 0 costs nothing beyond a few live stats in the
+game's own overview panel, tier 1 unlocks the core toolset every app below needs, tier 2 additionally unlocks
+cloud-server/slave-node management. See [CLAUDE.md](CLAUDE.md) and
+[docs/epic-cgd-namespace.md](docs/epic-cgd-namespace.md) for the full design and every tradeoff behind it.
+
+Apps available from the sidebar's icon grid (`src/ui/apps/`), opened into their own draggable, independently
+closable floating windows:
+
+-   **[Trainer](src/ui/apps/trainer)** - Trains a chosen stat toward a target level via Singularity actions.
+    Requires Source-File 4.
+-   **[Programs](src/ui/apps/programs)** - Spawns any of `cracker`/`flooder`/`backdoor`/`backdoor.lite`/
+    `next-targets`/`netmapper.app.js` on `home` or a cloud/slave server, with a live running-task list to
+    kill/tail each one.
+-   **[Cloud Servers](src/ui/apps/cloud-servers)** - Buy, list, and delete purchased servers, and designate
+    already-rooted network servers as "slave nodes" standing in for a purchased server before you can afford one.
+-   **[Share](src/ui/apps/share)** - Dedicates spare RAM on `home` or any cloud/slave server to `ns.share()` for
+    faster faction reputation gain while working for a faction.
+-   **[XP Farm](src/ui/apps/xp-farm)** - Dedicates cloud/slave servers to a self-managing grow/weaken loop against
+    whichever rooted server currently gives the most hacking XP per completed call.
+-   **[File Explorer](src/ui/apps/file-explorer)** - Browse, view/edit, run, rename, delete, and copy files across
+    `home` and every other known host.
+-   **[Hello World](src/ui/apps/hello-world)** - A minimal example app, mainly useful as a reference for the
+    queued-`ns` pattern every other app uses.
+
 ## Daemon Scripts
 
-Daemon scripts are application scripts that execute continuous hack, grow, or weaken calls against a hostname, waiting for a delay period between each call. If the delay is -1, the call will be executed once and the script will terminate.
+This section covers only the three generic hack/grow/weaken loops below — daemon scripts (in the sense meant here)
+are application scripts that execute continuous hack, grow, or weaken calls against a hostname, waiting for a delay
+period between each call. If the delay is -1, the call will be executed once and the script will terminate.
+
+`src/daemons/` also holds the tiered daemon backing the sidebar UI above (`lv0`/`lv1`/`lv2.daemon.ts`) and a few
+other worker/Singularity daemons apps launch on demand (`share`/`xp-farm`/`train.daemon.ts`) — see the Sidebar UI
+section and [CLAUDE.md](CLAUDE.md) for those.
 
 -   [hack.daemon.ts](src/daemons/hack.daemon.ts) - Executes hack against `HOST` waiting `DELAY` milliseconds between calls.
 
