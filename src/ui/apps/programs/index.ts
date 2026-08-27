@@ -36,7 +36,12 @@ import { createTaskManagerApp } from "../task-manager";
  */
 export const ProgramsApp: AppDefinition = createTaskManagerApp("programs", "Programs", "🚀", [
     { script: "netmapper.app.js", label: "Netmapper" },
-    { script: "cracker.app.js", label: "Cracker", requires: ["netmapper.app.js"] },
+    {
+        script: "cracker.app.js",
+        label: "Cracker",
+        requires: ["netmapper.app.js"],
+        singleInstance: true,
+    },
     {
         script: "flooder.app.js",
         label: "Flooder",
@@ -64,7 +69,17 @@ export const ProgramsApp: AppDefinition = createTaskManagerApp("programs", "Prog
         label: "Backdoor Installer",
         requires: ["netmapper.app.js"],
         isAvailable: singularityAvailable,
+        singleInstance: true,
     },
-    { script: "next-targets.app.js", label: "Next Targets", oneShot: true, requires: ["netmapper.app.js"] },
-    { script: "hacknet.app.js", label: "Hacknet", singleInstance: true },
+    {
+        script: "next-targets.app.js",
+        label: "Next Targets",
+        oneShot: true,
+        requires: ["netmapper.app.js"],
+    },
+    {
+        script: "hacknet.app.js",
+        label: "Hacknet",
+        singleInstance: true,
+    },
 ]);
