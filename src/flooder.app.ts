@@ -49,7 +49,7 @@ async function execGrowth(ns: NS, server: Server) {
     // by Viteburner. Without this, scp() defaults to copying from whatever
     // host flooder.app.ts itself happens to be running on, which silently
     // fails every time when that's not home (it never had these files).
-    const copied = await ns.scp(weakenScript, server.hostname, `home`);
+    const copied = ns.scp(weakenScript, server.hostname, `home`);
     if (!copied) {
         await logError(
             ns,
@@ -88,7 +88,7 @@ async function execHGW(ns: NS, server: Server, target: Server = server) {
     const hgw = getHGW(ns, server, target);
     const execDelay = 500;
 
-    const copied = await ns.scp(
+    const copied = ns.scp(
         hgw.map((h) => h.script),
         server.hostname,
         `home` // see execGrowth's comment on why this must be explicit
@@ -134,7 +134,6 @@ async function logError(ns: NS, message: string) {
         hour12: false,
     })}] ${message}`;
     ns.print(`ERROR: ${line}`);
-    await ns.write(`flooder-errors.log.txt`, `${line}\n`, `a`);
 }
 
 export async function main(ns: NS) {
