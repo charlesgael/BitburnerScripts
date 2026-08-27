@@ -4,188 +4,232 @@
  * A self-contained sidebar UI built with React, rendered via the game's
  * exposed React/ReactDOM globals. See `src/ui/` for the pieces:
  *  - `ui/utils/react-globals.ts` — grabs React/ReactDOM/document/window
- *  - `ui/utils/ensure-assets.ts` — makes sure `assets.app.js` (notyf, custom
- *                                  CSS) has run before anything else starts
- *  - `ui/utils/mount.ts`         — container create/cleanup helpers
+ *  - `ui/utils/mount.ts`         — container create/cleanup/reattach helpers
  *  - `ui/components/status-panel.tsx` — live status line + kill switch
  *  - `ui/components/app-grid.tsx`     — sidebar app icon grid + modal
  *  - `ui/apps/`                      — one file per app, registered in
  *                                      `ui/apps/index.ts`
  *
- * This entry point just wires those together and owns the cleanup path:
- * `ns.atExit` runs no matter how the script's process ends — falling off
- * the end of main(), a forced `kill`, a script error, or a restart — unlike
- * code placed after the main loop, which only runs on the cooperative path.
- * `main()` refuses to start at all if another instance is already running
- * (see the ns.ps check right at its top) — see that check's comment for why.
- * It also refuses to start if `assets.app.js` hasn't run and can't be
- * auto-launched (not enough free RAM) — see `ensureAssetsLoaded`.
+ * This script mounts once and exits — it does **not** keep a loop running.
+ * All `ns.*` access apps need happens through `window.cgd.daemon`'s queue
+ * (a separately-running, persistent daemon — see `daemons/lv*.daemon.ts`),
+ * not through this script's own (very short-lived) `ns`. See
+ * `docs/epic-cgd-namespace.md` for the full design this implements —
+ * particularly section 3, which this file is the execution of.
  *
- * Usage: run with `run ui.app.js`.
+ * Mounted React trees are tracked in `window.cgd.reactApps`, not this
+ * script's own state: a fresh launch dismounts whatever's already there
+ * (however it got there — a previous launch, possibly from a different
+ * build) before mounting its own, which is what makes running this
+ * repeatedly safe/idempotent instead of needing a "refuse a second
+ * instance" guard the way the old, always-running version needed. `run
+ * ui.app.js stop` unmounts and does nothing else.
+ *
+ * Requires a daemon to already be registered at `cgd.daemon` — this script
+ * doesn't start one itself (that's `start.ts`, a later phase); for now,
+ * run e.g. `daemons/lv1.daemon.js` first.
+ *
+ * Usage: `run ui.app.js` (mount/replace) or `run ui.app.js stop` (unmount).
  */
 
 import { NS } from "@ns";
-import { main as buildAssets } from "./assets.app";
 import { APPS } from "./ui/apps";
 import { createAppGrid } from "./ui/components/app-grid";
 import { createOverviewStats } from "./ui/components/overview-stats";
 import { createStatusPanel } from "./ui/components/status-panel";
-import { createHomeRamPoller } from "./ui/utils/home-ram-poller";
-import { mountContainer, reattachIfDetached, unmountContainer } from "./ui/utils/mount";
+import { mountContainer, startReattachGuardian, unmountContainer } from "./ui/utils/mount";
 import { createQueuedNs } from "./ui/utils/ns-proxy";
-import { createNsQueue } from "./ui/utils/ns-queue";
 import { getReactGlobals } from "./ui/utils/react-globals";
+import { getCgd } from "./cgd/window-cgd";
+import { CgdNamespace } from "./cgd/types";
 
-// This file's own deployed name — used below to spot another already-
-// running copy of itself. Hardcoded rather than read via
-// `ns.getScriptName()` since it's a fixed, known value (same reasoning as
-// the hardcoded daemon paths elsewhere in this file).
-const SELF_SCRIPT = "ui.app.js";
+/** Dismounts whatever's currently registered in `cgd.reactApps` (however it
+ * got there) and clears the registry. Each handle is fully self-contained
+ * — it closes over whatever `ReactDOM`/container/etc. it needs from its own
+ * creation context, so this function needs nothing beyond `cgd` itself; the
+ * handles work identically regardless of which script instance created
+ * them, the same way `eval("window")` itself resolves to the one real
+ * window no matter which script asks for it. */
+function unmountReactApps(cgd: CgdNamespace): void {
+    cgd.reactApps.launcher?.unmount();
+    cgd.reactApps.status?.unmount();
+    cgd.reactApps.overview?.unmount();
+    cgd.reactApps = {};
+}
 
 export async function main(ns: NS) {
-    // Refuse to start a second instance: this script mounts into the
-    // game's own sidebar hooks and owns the one cleanup path (ns.atExit
-    // below) for tearing them back down. Two instances would double-mount,
-    // race over the same DOM containers, and each try to kill the other's
-    // child scripts. RunOptions.preventDuplicates (see NetscriptDefinitions
-    // .d.ts) can't help here — it only guards a single ns.exec/ns.run call,
-    // not the player running `ui.app.js` again by hand from the terminal —
-    // so this checks ns.ps directly instead. ns.ps is already part of this
-    // file's footprint via the Trainer/Share apps it bundles, so this adds
-    // nothing new on top of that.
-    const others = (ns.ps("home")).filter((p) => p.filename === SELF_SCRIPT && p.pid !== ns.pid);
-    if (others.length > 0) {
-        ns.tprint(
-            `WARNING: ${SELF_SCRIPT} is already running (pid ${others[0].pid}) — not starting a second instance.`
-        );
-        return;
-    }
-
     ns.disableLog("ALL");
 
     const globals = getReactGlobals(ns);
     if (!globals) return;
     const { doc, win, ReactDOM } = globals;
 
-    buildAssets(ns)
+    const cgd = getCgd(win);
 
-    // --- Track anything we need to clean up on exit ---
-    const state = {
-        running: true,
-        restarting: false, // set by the Restart button; checked once the loop below stops
-        childPids: [] as number[], // e.g. push here if this script ns.exec's other scripts
-    };
-
-    // Provided to apps via ChildPidsContext (see ui/context/child-pids-context.ts)
-    // so an app that spawns a script can register the pid without needing
-    // access to `state` itself — ns.atExit below kills anything left in
-    // `state.childPids` on cleanup.
-    function addChildPid(pid: number) {
-        state.childPids.push(pid);
+    if (ns.args[0] === "stop") {
+        unmountReactApps(cgd);
+        return;
     }
 
-    // Waits for the game's own sidebar to have rendered these hooks first
-    // — see waitForElement in ui/utils/mount.ts — instead of assuming
-    // they're already there the instant this script starts.
+    if (!cgd.daemon) {
+        ns.tprint(
+            "ERROR: no cgd daemon is registered — start one first (e.g. `run daemons/lv1.daemon.js`), then run ui.app.js again. (A later phase adds start.ts to automate this.)"
+        );
+        return;
+    }
+    const daemon = cgd.daemon; // only used below for its _getTier() snapshot — see getDaemon's own comment
+    if (!cgd.store) {
+        // Shouldn't happen — every daemon ensures the store before
+        // registering itself (see cgd/daemon-core.ts) — stay defensive
+        // rather than dereference null below.
+        ns.tprint("ERROR: cgd.daemon is registered but cgd.store is missing — restart the daemon.");
+        return;
+    }
+    const store = cgd.store;
+
+    // Replace whatever's currently mounted rather than refusing to start a
+    // second instance: this script no longer keeps a process alive to
+    // refuse a duplicate the way the old always-running version did, so
+    // tearing down and remounting is now the only guard, and it's always
+    // safe/idempotent — see docs/epic-cgd-namespace.md section 3.
+    unmountReactApps(cgd);
+
+    // A live getter, not the `daemon` reference captured above: the daemon
+    // actually running can change after this script's already exited (a
+    // different tier taking over via the handoff protocol), without
+    // ui.app.ts itself relaunching. `createQueuedNs`/`createAppGrid`'s
+    // action dispatcher both re-resolve this on every call, so a background
+    // daemon swap gets picked up automatically instead of every subsequent
+    // call hanging forever against a dead queue — see `ns-proxy.ts`'s own
+    // comment for why that's not hypothetical (it happened).
+    const getDaemon = () => cgd.daemon;
+    const queuedNs = createQueuedNs(getDaemon);
+
     const statusContainer = await mountContainer(doc, "sidebar-extra-hook-3", "ui-app");
     const gridContainer = await mountContainer(doc, "sidebar-extra-hook-0", "ui-app-grid");
 
-    // --- Serializes ns.* calls made from React event handlers (e.g. an
-    // app's onClick) against this script's own main loop below, so they
-    // never run concurrently with each other — Bitburner throws a
-    // "concurrent calls" error if two ns calls overlap in one script.
-    // `queuedNs` is a Proxy over the queue that reads like `ns` itself
-    // (`await queuedNs.getHostname()`) — see `ui/utils/ns-proxy.ts`.
-    const nsQueue = createNsQueue();
-    const queuedNs = createQueuedNs(nsQueue);
+    function addChildPid(_pid: number) {
+        // Tracking child pids to kill-on-cleanup doesn't have a clean
+        // equivalent anymore: this script's own process exits almost
+        // immediately after mounting, and every app that spawns something
+        // does so from a React handler firing long after that — there's no
+        // live process left to hang a kill-on-exit off of the way the old
+        // ns.atExit-based cleanup did. Left as a no-op (rather than removed)
+        // so app code calling useAddChildPid() — file-explorer,
+        // cloud-servers, task-manager, programs — keeps compiling
+        // unchanged; those call sites go away on their own once they
+        // migrate off one-shot spawned daemons onto the tiered daemon's
+        // queue (see docs/epic-cgd-namespace.md section 5a).
+    }
 
-    // --- Button handler: ONLY flips the flag. The loop below notices this
-    // and returns naturally, which triggers the atExit cleanup below.
-    // (No DOM/React teardown and no ns.exit() directly in this handler —
-    // doing that from inside a React event handler races with React's own
-    // reconciliation and throws a concurrency error.)
     const statusPanel = createStatusPanel(
         globals,
         statusContainer,
+        getDaemon,
         () => {
-            state.running = false;
+            // Deferred, not called synchronously: unmounting the very tree
+            // this click handler's own component lives in, from inside the
+            // handler, races React's own reconciliation of the event
+            // currently firing — see this file's header and status-
+            // panel.tsx's own comment. A macrotask boundary (setTimeout 0)
+            // lets that event finish first.
+            setTimeout(() => {
+                try {
+                    unmountReactApps(cgd);
+                } catch (err) {
+                    // console.error, not ns.tprint: this callback's own
+                    // `ns` was captured from a main() call long since
+                    // returned by the time a button is clicked — plain
+                    // console output doesn't depend on whether Bitburner
+                    // still considers that reference live.
+                    console.error("ui.app.js stop failed:", err);
+                }
+            }, 0);
         },
         () => {
-            state.restarting = true;
-            state.running = false;
+            setTimeout(async () => {
+                try {
+                    unmountReactApps(cgd);
+                    // Goes through the daemon's queue, not a raw
+                    // ns.exec(...): this closure's own `ns` was captured
+                    // from this main() call, which has long since returned
+                    // by the time a button is actually clicked — whether
+                    // Bitburner still considers that `ns` reference live is
+                    // untested, unlike the daemon's own `ns`, which is
+                    // still genuinely in use by a running process. See
+                    // docs/epic-cgd-namespace.md's "Validated assumptions"
+                    // — this specific case (a captured `ns`, rather than a
+                    // plain closure/DOM handle, outliving its owning
+                    // script) was never actually tested, so this doesn't
+                    // rely on it. `exec` with an explicit host rather than
+                    // `run` (`ns.run` is just `ns.exec` with the host
+                    // implied) — `exec` was already needed on tier 1 for
+                    // other things, so this avoids growing the allow-list
+                    // for a one-off.
+                    await queuedNs._exec("ui.app.js", "home", 1);
+                } catch (err) {
+                    // Without this, a rejected queuedNs.exec(...) (no
+                    // daemon registered, tier disallows it, whatever) would
+                    // be an unhandled rejection inside a bare setTimeout
+                    // callback — easy to miss entirely, and the UI would
+                    // just stay unmounted with no visible explanation.
+                    console.error("ui.app.js restart failed:", err);
+                }
+            }, 0);
         }
     );
-    const appGrid = createAppGrid(globals, gridContainer, APPS, queuedNs, addChildPid);
-    // Feeds an app's `minSourceFile`/`isAvailable` check (see ui/utils/app-
-    // availability.ts) — fetched once, not polled: neither can change
-    // without a BitNode/aug reset, which kills this script too.
-    // ns.getResetInfo is a flat 1 GB (see NetscriptDefinitions.d.ts), cheap
-    // enough to reference directly here rather than needing its own daemon.
-    const resetInfo = ns.getResetInfo();
-    appGrid.setResetInfo(resetInfo.ownedSF, resetInfo.currentNode);
+    const appGrid = createAppGrid(
+        globals,
+        gridContainer,
+        APPS,
+        queuedNs,
+        addChildPid,
+        store,
+        daemon._getTier(),
+        getDaemon
+    );
+    // `ownedSF`/`currentNode` (feeding an app's `minSourceFile`/`isAvailable`
+    // check — see ui/utils/app-availability.ts) are fetched internally by
+    // `createAppGrid` now, not here: it needs to retry that fetch itself if
+    // the daemon starts at tier 0 (which would reject `_getResetInfo`, same
+    // as every other dispatch call) and only later gets replaced by a
+    // higher tier in the background — see `app-grid.tsx`'s
+    // `fetchResetInfoIfNeeded` for the fuller reasoning.
+
     const overviewStats = createOverviewStats();
-    // Feeds HomeRamContext (see ui/context/home-ram-context.ts) so every
-    // open app window sees home's live RAM without polling for itself.
-    const homeRamPoller = createHomeRamPoller((used, max) => appGrid.setHomeRam(used, max));
+    overviewStats.start(doc, store);
 
-    // --- The ONE guaranteed cleanup path. ---
-    ns.atExit(() => {
-        for (const pid of state.childPids) {
-            if (ns.isRunning(pid)) ns.kill(pid);
-        }
-        appGrid.destroy();
-        unmountContainer(ReactDOM, statusContainer);
-        unmountContainer(ReactDOM, gridContainer);
-        // overviewStats writes into the game's own #overview-extra-hook-0,
-        // not a container this script created — unmountContainer above
-        // doesn't touch it, so it needs its own explicit clear or the last
-        // stats/bars refresh wrote stay stuck on the overview panel forever.
-        overviewStats.destroy(doc);
-    }, "react-ui-template-cleanup");
+    const stopGridReattach = startReattachGuardian(doc, gridContainer, "sidebar-extra-hook-0");
+    const stopStatusReattach = startReattachGuardian(doc, statusContainer, "sidebar-extra-hook-3");
 
-    statusPanel.render("Initializing...");
+    statusPanel.render();
     appGrid.render();
 
-    // --- Main loop: drains one queued ns.* call per iteration (see
-    // nsQueue above) so only one is ever in flight; when the queue is
-    // empty, it uses the idle time to (1) re-attach the UI if the game's
-    // own React tree tore down and rebuilt the sidebar hooks it lives in
-    // — see reattachIfDetached in ui/utils/mount.ts — (2) refresh the
-    // overview panel's live stats (see ui/stats/registry.ts), and (3) poll
-    // home's RAM into HomeRamContext (see ui/utils/home-ram-poller.ts),
-    // before falling back to a plain heartbeat + ns.sleep. Both
-    // overviewStats.refresh and homeRamPoller.refresh take the real `ns`
-    // directly, not queuedNs — they're called from this same branch, the
-    // sole consumer draining nsQueue, so a *queued* call here would
-    // deadlock waiting on a drain that can't happen until it returns.
-    let tick = 0;
-    while (state.running) {
-        const ranTask = await nsQueue.drain(ns);
-        if (!ranTask) {
-            tick++;
-            reattachIfDetached(doc, statusContainer, "sidebar-extra-hook-3");
-            reattachIfDetached(doc, gridContainer, "sidebar-extra-hook-0");
-            statusPanel.render(`${new Date().toLocaleTimeString()}`);
-            await overviewStats.refresh(ns, doc, Date.now());
-            await homeRamPoller.refresh(ns, Date.now());
-            await ns.sleep(100);
-        }
-    }
+    cgd.reactApps = {
+        launcher: {
+            unmount: () => {
+                stopGridReattach();
+                appGrid.destroy();
+                unmountContainer(ReactDOM, gridContainer);
+            },
+        },
+        status: {
+            unmount: () => {
+                stopStatusReattach();
+                statusPanel.destroy();
+                unmountContainer(ReactDOM, statusContainer);
+            },
+        },
+        overview: {
+            unmount: () => {
+                overviewStats.destroy(doc);
+            },
+        },
+    };
 
-    // Restart: hands off to daemons/restart.daemon.ts (waits a couple seconds, then
-    // starts a fresh ui.app.js) rather than calling ns.spawn/ns.run here —
-    // see that file for why. Called directly on the real `ns`, not through
-    // nsQueue, since the loop above — the queue's only consumer — has
-    // already stopped. Deliberately not tracked via addChildPid: it needs
-    // to outlive this script, which is about to exit right below.
-    if (state.restarting) {
-        const pid = ns.exec("daemons/restart.daemon.js", "home", 1);
-        if (pid === 0) {
-            ns.tprint("WARNING: couldn't launch daemons/restart.daemon.js (not enough RAM?) — run ui.app.js manually.");
-        }
-    }
-
-    // No cleanup code needed here — the ns.atExit callback registered above
-    // fires automatically the moment this function returns (or the script
-    // is killed by any other means), so it's guaranteed to run exactly once.
+    // No loop, no ns.atExit — this function just returns here. Everything
+    // it mounted lives on independent of this process (real DOM/React
+    // state, and closures registered in cgd.reactApps for the next launch
+    // — or explicit `stop` — to tear back down), the same way
+    // `assets.app.ts` injects its <style> element and exits.
 }

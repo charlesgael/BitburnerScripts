@@ -52,7 +52,7 @@ export type XpFarmStatus = Record<string, XpFarmAssignment>;
 /** The set of hostnames currently dedicated to XP farming, or [] if the
  * config file doesn't exist yet / is empty / unparsable. */
 export async function readXpFarmHosts(ns: QueuedNS): Promise<string[]> {
-    const raw = await ns.read(XP_FARM_CONFIG_FILE);
+    const raw = await ns._read(XP_FARM_CONFIG_FILE);
     if (!raw) return [];
     try {
         const parsed = JSON.parse(raw);
@@ -65,13 +65,13 @@ export async function readXpFarmHosts(ns: QueuedNS): Promise<string[]> {
 /** Overwrites the config file with `hosts` — the only way the dedicated
  * list ever changes; the daemon only ever reads it. */
 export async function writeXpFarmHosts(ns: QueuedNS, hosts: string[]): Promise<void> {
-    await ns.write(XP_FARM_CONFIG_FILE, JSON.stringify(hosts), "w");
+    await ns._write(XP_FARM_CONFIG_FILE, JSON.stringify(hosts), "w");
 }
 
 /** The daemon's last-reported status, or {} if it hasn't written one yet
  * (e.g. it isn't running, or hasn't completed a cycle since it started). */
 export async function readXpFarmStatus(ns: QueuedNS): Promise<XpFarmStatus> {
-    const raw = await ns.read(XP_FARM_STATUS_FILE);
+    const raw = await ns._read(XP_FARM_STATUS_FILE);
     if (!raw) return {};
     try {
         return JSON.parse(raw);

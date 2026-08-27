@@ -1,5 +1,6 @@
 import { useAddChildPid } from "../../../context/child-pids-context";
 import { useQueuedNs } from "../../../context/ns-queue-context";
+import { useCgdActions } from "../../../context/cgd-actions-context";
 import { CloudServerRow, fetchCloudList, sortByHostname } from "../../../utils/cloud-list";
 import {
     readXpFarmHosts,
@@ -9,7 +10,6 @@ import {
     XP_FARM_LOOP_DELAY
 } from "../../../utils/xp-farm-config";
 
-const CLOUD_HOST = "home";
 const STATUS_POLL_MS = 3000;
 
 /**
@@ -21,6 +21,7 @@ const STATUS_POLL_MS = 3000;
 export function useXpFarm(React: any) {
     const ns = useQueuedNs();
     const addChildPid = useAddChildPid();
+    const callAction = useCgdActions();
 
     const [servers, setServers]: [CloudServerRow[], (v: CloudServerRow[]) => void] = React.useState([]);
     const [enabled, setEnabled]: [Set<string>, (v: Set<string>) => void] = React.useState(() => new Set());
@@ -36,10 +37,10 @@ export function useXpFarm(React: any) {
         setError(null);
         try {
             const [cloudList, hosts, latestStatus, running] = await Promise.all([
-                fetchCloudList(ns, addChildPid, CLOUD_HOST),
+                fetchCloudList(callAction),
                 readXpFarmHosts(ns),
                 readXpFarmStatus(ns),
-                ns.isRunning(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST),
+                ns._isRunning(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST),
             ]);
             setServers(sortByHostname(cloudList.servers));
             setEnabled(new Set(hosts));
@@ -66,14 +67,14 @@ export function useXpFarm(React: any) {
     React.useEffect(() => {
         const interval = setInterval(() => {
             readXpFarmStatus(ns).then(setStatus).catch(() => {});
-            ns.isRunning(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST).then(setDaemonRunning).catch(() => {});
+            ns._isRunning(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST).then(setDaemonRunning).catch(() => {});
         }, STATUS_POLL_MS);
         return () => clearInterval(interval);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     async function openLog() {
-        await ns.ui.openTail(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST);
+        await ns._ui._openTail(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST);
     }
 
     // Opens a specific dedicated host's own grow/weaken loop tail, from the
@@ -83,13 +84,13 @@ export function useXpFarm(React: any) {
     // why those come from `xp-farm-config.ts` rather than being hardcoded
     // here too.
     async function openLoopLog(script: string, host: string, target: string) {
-        await ns.ui.openTail(script, host, target, XP_FARM_LOOP_DELAY);
+        await ns._ui._openTail(script, host, target, XP_FARM_LOOP_DELAY);
     }
 
     async function ensureDaemonRunning(): Promise<string | null> {
-        const alreadyRunning = await ns.isRunning(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST);
+        const alreadyRunning = await ns._isRunning(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST);
         if (alreadyRunning) return null;
-        const pid = await ns.exec(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST, 1);
+        const pid = await ns._exec(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST, 1);
         if (pid === 0) {
             return `Couldn't launch ${XP_FARM_DAEMON_SCRIPT} — enough free RAM on ${XP_FARM_DAEMON_HOST}?`;
         }
@@ -112,7 +113,7 @@ export function useXpFarm(React: any) {
         setDaemonBusy(true);
         try {
             if (daemonRunning) {
-                await ns.kill(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST);
+                await ns._kill(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST);
                 setDaemonRunning(false);
             } else {
                 const launchError = await ensureDaemonRunning();

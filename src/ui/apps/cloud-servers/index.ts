@@ -8,32 +8,25 @@ import { CloudServersContent } from "./components/cloud-servers-content";
  * itself — Bitburner charges a script for every ns.* function it merely
  * *references* anywhere in its reachable code, whether or not that code
  * path runs, and since this file is always part of ui.app.js's bundle,
- * writing those here would permanently inflate its footprint (even
- * getServerMoneyAvailable's mere 0.1GB isn't worth paying for, since the
- * game's own overview panel already shows current money live). Instead
- * all of that work happens in three tiny one-shot scripts —
- * `daemons/cloud-list.daemon.ts`, `daemons/cloud-buy.daemon.ts`, `daemons/cloud-delete.daemon.ts`
- * — spawned via ns.exec and polled via ns.isRunning, the same pattern
- * `daemons/train.daemon.ts`/`daemons/restart.daemon.ts` use. Each daemon writes its result
- * as JSON to a fixed file, which this app reads back with ns.read (0 GB).
- * exec/kill/isRunning/getScriptRam are all already part of ui.app.js's
- * footprint via the Trainer/Programs apps, so using them here is free.
- * `home`'s used/max RAM (used below to gate launching the buy/delete
- * daemons) comes from `useHomeRam()` (see `ui/context/home-ram-context.ts`)
- * instead of this app polling ns.getServerUsedRam/getServerMaxRam on its
- * own timer.
+ * writing those here would permanently inflate its footprint. Instead all
+ * of that work happens through `window.cgd.daemon.queue.enqueueAction` —
+ * see `cgd/actions/cloud.ts` (`cloudList`/`cloudBuy`/`cloudDelete`) and
+ * `cgd/actions/slave-nodes.ts` (`slaveNodeHosts`), all gated at tier 2 —
+ * `minDaemonTier: 2` below keeps this app out of the grid entirely below
+ * that. `cloudList` lives at tier 2 despite being read-only (several other
+ * apps — Share, XP Farm, File Explorer, Programs — depend on it too, and
+ * degrade gracefully below tier 2 rather than being gated on it
+ * themselves) — see that action's own header comment for the measured RAM
+ * reason.
  *
  * Also has a second tab, "Slave Nodes", letting the player check off
  * already-rooted, non-purchased servers on the network as stand-ins for a
  * purchased server — handy early game before the player can afford a real
  * one. See `ui/utils/slave-nodes.ts`'s header comment for the full design:
- * the short version is that `daemons/cloud-list.daemon.ts` folds designated
- * slave nodes straight into the same `CloudServerRow[]` snapshot purchased
- * servers already flow through, so Share/XP Farm/Programs treat the two
- * uniformly with no changes of their own. The checklist itself — every
- * rooted, non-purchased host on the network, not just currently-designated
- * ones — comes from its own daemon, `daemons/slave-node-hosts.daemon.ts`,
- * for the same RAM-footprint reason as everything else here.
+ * the short version is that `cgd/actions/cloud.ts`'s `cloudListAction`
+ * folds designated slave nodes straight into the same `CloudServerRow[]`
+ * snapshot purchased servers already flow through, so Share/XP Farm/
+ * Programs treat the two uniformly with no changes of their own.
  *
  * All state/behavior lives in `logic/use-cloud-servers.ts`; `components/`
  * is plain presentational JSX driven off that hook's return value.
@@ -49,4 +42,5 @@ export const CloudServersApp: AppDefinition = {
     preferredWidth: 850,
     preferredHeight: 620,
     minWidth: 290,
+    minDaemonTier: 2,
 };

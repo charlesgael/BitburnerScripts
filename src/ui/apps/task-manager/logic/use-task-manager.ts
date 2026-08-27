@@ -1,6 +1,7 @@
 import { useQueuedNs } from "../../../context/ns-queue-context";
-import { useAddChildPid } from "../../../context/child-pids-context";
 import { useHomeRam } from "../../../context/home-ram-context";
+import { useDaemonTier } from "../../../context/daemon-tier-context";
+import { useCgdActions } from "../../../context/cgd-actions-context";
 import { fetchCloudList, CloudServerRow } from "../../../utils/cloud-list";
 import { spawnRemote } from "../../../utils/spawn-remote";
 import { readXpFarmHosts } from "../../../utils/xp-farm-config";
@@ -27,8 +28,9 @@ function delay(ms: number): Promise<void> {
  */
 export function useTaskManager(React: any, apps: ManagedAppDefinition[], runnableApps: ManagedAppDefinition[]) {
     const ns = useQueuedNs();
-    const addChildPid = useAddChildPid();
     const homeRam = useHomeRam();
+    const daemonTier = useDaemonTier();
+    const callAction = useCgdActions();
     // Used to walk `requires` chains (see `./dependency-chain.ts`) — cheap
     // to rebuild each render, `apps` is a small fixed catalog.
     const appByScript = Object.fromEntries(apps.map((a) => [a.script, a]));
@@ -51,15 +53,12 @@ export function useTaskManager(React: any, apps: ManagedAppDefinition[], runnabl
     // a reset that kills this script too, so no poller is needed.
     const [resetInfo, setResetInfo] = React.useState({ ownedSF: new Map() as Map<number, number>, currentNode: 0 });
 
-    // Non-fatal on failure (e.g. not enough free RAM on home to launch
-    // the list daemon right now — fetchCloudList itself falls back to a
-    // stale cached list when that happens, see its header comment) —
-    // only goes empty if there's no cached list either, in which case
-    // this app just offers "home" as the only spawn target and can't
-    // find any task running on a cloud server until the list recovers.
+    // Non-fatal on failure (e.g. no daemon registered, or it's at tier 0) —
+    // this app just offers "home" as the only spawn target and can't find
+    // any task running on a cloud server until a tier-1+ daemon is up.
     async function refreshCloudServers(): Promise<CloudServerRow[]> {
         try {
-            const [result, xpFarmHosts] = await Promise.all([fetchCloudList(ns, addChildPid), readXpFarmHosts(ns)]);
+            const [result, xpFarmHosts] = await Promise.all([fetchCloudList(callAction), readXpFarmHosts(ns)]);
             const dedicated = new Set(xpFarmHosts);
             const available = result.servers.filter((s) => !dedicated.has(s.hostname));
             setCloudServers(available);
@@ -84,7 +83,7 @@ export function useTaskManager(React: any, apps: ManagedAppDefinition[], runnabl
         const runnableScripts = new Set(runnableApps.map((a) => a.script));
         const found: Task[] = [];
         for (const host of candidateHosts) {
-            const processes = await ns.ps(host);
+            const processes = await ns._ps(host);
             for (const p of processes) {
                 if (runnableScripts.has(p.filename)) {
                     found.push({ script: p.filename, host, pid: p.pid });
@@ -109,8 +108,8 @@ export function useTaskManager(React: any, apps: ManagedAppDefinition[], runnabl
         (async () => {
             setLoading(true);
             const [ramEntries, info] = await Promise.all([
-                Promise.all(apps.map(async (a) => [a.script, await ns.getScriptRam(a.script, "home")] as const)),
-                ns.getResetInfo(),
+                Promise.all(apps.map(async (a) => [a.script, await ns._getScriptRam(a.script, "home")] as const)),
+                ns._getResetInfo(),
             ]);
             if (cancelled) return;
             setAppRam(Object.fromEntries(ramEntries));
@@ -131,7 +130,7 @@ export function useTaskManager(React: any, apps: ManagedAppDefinition[], runnabl
     // treatment `ui/utils/app-availability.ts`'s `isAppVisible` gives a
     // regular `AppDefinition`.
     function appAvailable(app: ManagedAppDefinition): boolean {
-        return checkIsAvailable(app.isAvailable, { homeRam, ...resetInfo });
+        return checkIsAvailable(app.isAvailable, { homeRam, daemonTier, ...resetInfo });
     }
 
     // A `requires` app (see `logic/types.ts`) no longer has to already be
@@ -182,12 +181,12 @@ export function useTaskManager(React: any, apps: ManagedAppDefinition[], runnabl
         const args = [...(app.args ?? []), ...(app.buildArgs ? await app.buildArgs(ns) : [])];
         let pid: number;
         if (host === "home") {
-            pid = await ns.exec(app.script, "home", app.threads ?? 1, ...args);
+            pid = await ns._exec(app.script, "home", app.threads ?? 1, ...args);
             if (pid === 0) {
                 throw new Error(`Couldn't start ${app.script} on home — enough free RAM?`);
             }
         } else {
-            const result = await spawnRemote(ns, addChildPid, app.script, host, app.threads ?? 1, args);
+            const result = await spawnRemote(ns, app.script, host, app.threads ?? 1, args);
             if (!result.ok || !result.pid) {
                 throw new Error(result.error ?? `Couldn't start ${app.script} on ${host}.`);
             }
@@ -242,7 +241,7 @@ export function useTaskManager(React: any, apps: ManagedAppDefinition[], runnabl
         setError(null);
         setTaskBusy((prev: Set<string>) => new Set(prev).add(key));
         try {
-            await ns.kill(task.pid);
+            await ns._kill(task.pid);
             setTasks((prev: Task[]) => prev.filter((t) => taskKey(t) !== key));
             await refreshCloudServers();
         } catch (err) {
@@ -257,7 +256,7 @@ export function useTaskManager(React: any, apps: ManagedAppDefinition[], runnabl
     }
 
     async function tailTask(task: Task) {
-        await ns.ui.openTail(task.pid);
+        await ns._ui._openTail(task.pid);
     }
 
     const homePct = homeRam.max > 0 ? Math.min(100, (homeRam.used / homeRam.max) * 100) : 0;

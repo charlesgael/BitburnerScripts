@@ -1,38 +1,44 @@
-import { NS } from "@ns";
-import { STAT_PROVIDERS, StatValue } from "../stats/registry";
+import { CgdStore } from "../../cgd/types";
+import { StatValue } from "../../cgd/stats";
 
 const HOOK_ID = "overview-extra-hook-0";
-const REFRESH_INTERVAL_MS = 2000;
 
 /**
- * Fills the overview panel's `#overview-extra-hook-0` cell with the
- * enabled stats from `ui/stats/registry.ts`, one per line — matching how
- * the rest of the overview shows each stat (Hack, Str, ...) as its own
- * row, with a thin progress bar directly underneath for the trainable
- * ones. `#overview-extra-hook-0` is one cell, not a way to add real table
+ * Fills the overview panel's `#overview-extra-hook-0` cell with whatever's
+ * currently in `cgd.store`'s `stats` slice — one line per entry, matching
+ * how the rest of the overview shows each stat (Hack, Str, ...) as its own
+ * row, with a thin progress bar directly underneath for the ones with a
+ * `pct`. `#overview-extra-hook-0` is one cell, not a way to add real table
  * rows, so this recreates that same rhythm (label+value line, bar line
  * right below it when there is one) inside that one cell instead.
  *
- * Call `refresh(ns, doc, now)` from the main loop's idle branch (see
- * `ui.app.ts`) — productive use of the time it'd otherwise spend just
- * sleeping. Takes the real `ns` directly, not the queued proxy: this runs
- * inside the same branch that's the sole consumer draining `nsQueue`, so a
- * provider awaiting a *queued* call here would deadlock — nothing would be
- * left to drain it until this same call returns.
+ * This component no longer computes anything itself — a tiered daemon does
+ * that now (see `cgd/stat-push.ts`) and pushes the result into the store;
+ * this just renders whatever's there and re-renders on `store.subscribe`.
+ * Deliberately still plain DOM (`doc.createElement`), not React, even
+ * though the store now supports exactly the kind of subscribe-based
+ * re-render a React rewrite was originally floated for: the plain-DOM
+ * approach gets the same "only re-render when the store actually changes"
+ * behavior for free via `subscribe`, with zero risk to
+ * `assets/overview.ts`'s CSS (which targets this cell's children by fixed
+ * DOM position, not id/class) — a JSX rewrite can still happen later if a
+ * concrete reason for it shows up, but isn't needed just to get live
+ * updates.
  *
- * Throttled to once every `REFRESH_INTERVAL_MS`, since idle ticks fire
- * every ~100ms and most of these stats don't change nearly that often.
+ * Renders in whatever order `Object.values` walks `stats`'s keys, which
+ * for string keys is insertion order — `stat-push.ts` inserts `home-ram`
+ * first, then each provider in `BASELINE_STAT_PROVIDERS`' listed order, so
+ * this doesn't need its own explicit ordering on top of that.
  *
- * This builds plain DOM (not React) — it's a single cell it's filling in,
- * not worth a whole extra ReactDOM.render root for. Unlike the containers
- * in `ui/utils/mount.ts`, `#overview-extra-hook-0` isn't a node this
- * component created — it's the game's own, just borrowed — so on exit call
- * `destroy(doc)` (from `ns.atExit`, alongside `unmountContainer`) to clear
- * the lines and inline style back out instead of leaving them behind for
- * whatever mounts into that hook next (or forever, if nothing does).
+ * Call `start(doc, store)` once, after mounting — immediately renders the
+ * store's current snapshot, then subscribes for future changes. Call
+ * `destroy(doc)` (from `ui.app.ts`'s explicit `stop` handling, or before
+ * remounting) to unsubscribe and clear the hook back to empty; unlike the
+ * containers in `ui/utils/mount.ts`, `#overview-extra-hook-0` isn't a node
+ * this component created — it's the game's own, just borrowed.
  */
 export function createOverviewStats() {
-    let lastRefresh = 0;
+    let unsubscribe: (() => void) | null = null;
 
     function renderLine(doc: any, value: StatValue): any {
         const line = doc.createElement("div");
@@ -68,39 +74,32 @@ export function createOverviewStats() {
         return line;
     }
 
-    async function refresh(ns: NS, doc: any, now: number) {
-        if (now - lastRefresh < REFRESH_INTERVAL_MS) return;
-        lastRefresh = now;
-
+    function renderAll(doc: any, stats: Record<string, StatValue>) {
         const el = doc.getElementById(HOOK_ID);
         if (!el) return; // overview panel not mounted (e.g. collapsed) right now
 
         el.style.cssText = "display: flex; flex-direction: column;";
-
-        const lines: any[] = [];
-        for (const provider of STAT_PROVIDERS) {
-            if (!provider.enabled) continue;
-            try {
-                lines.push(renderLine(doc, await provider.compute(ns)));
-            } catch {
-                // One provider failing (API not unlocked, etc.) shouldn't
-                // blank out the rest.
-            }
-        }
-
-        el.replaceChildren(...lines);
+        el.replaceChildren(...Object.values(stats).map((value) => renderLine(doc, value)));
     }
 
-    /** Clears the hook back to empty and drops the inline style `refresh`
-     * set on it. Safe to call even if `refresh` never ran (e.g. the
-     * overview panel was collapsed the whole session) or the hook is
-     * currently missing. */
+    function start(doc: any, store: CgdStore) {
+        renderAll(doc, store.getState().stats);
+        unsubscribe = store.subscribe(() => renderAll(doc, store.getState().stats));
+    }
+
+    /** Unsubscribes from the store and clears the hook back to empty,
+     * dropping the inline style `renderAll` set on it. Safe to call even if
+     * `start` never ran, or the hook is currently missing. */
     function destroy(doc: any) {
+        if (unsubscribe) {
+            unsubscribe();
+            unsubscribe = null;
+        }
         const el = doc.getElementById(HOOK_ID);
         if (!el) return;
         el.replaceChildren();
         el.style.cssText = "";
     }
 
-    return { refresh, destroy };
+    return { start, destroy };
 }

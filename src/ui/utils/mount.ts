@@ -73,6 +73,28 @@ export function reattachIfDetached(doc: any, container: any, parentId: string): 
 }
 
 /**
+ * Starts a plain `setInterval` (not `ns.sleep` — this isn't an ns.* call,
+ * costs nothing, and keeps firing via the browser's own event loop
+ * regardless of whether the script that started it is still "running" from
+ * Bitburner's perspective) that periodically calls `reattachIfDetached` for
+ * `container`. Replaces what used to be one branch of `ui.app.ts`'s own
+ * main loop, back when there was one — see `docs/epic-cgd-namespace.md`
+ * section 3: nothing here touches `ns`, so it never needed the daemon's
+ * queue in the first place, just something to keep calling it periodically
+ * now that there's no loop doing that as a side effect of draining a queue.
+ *
+ * Returns a stop function — call it as part of the same teardown that
+ * unmounts `container` (see `ui.app.ts`'s `cgd.reactApps` handles), or this
+ * would keep firing after an intentional `unmountContainer` removes
+ * `container` from the DOM and start "detecting" that removal as damage to
+ * repair, re-attaching a container that was deliberately torn down.
+ */
+export function startReattachGuardian(doc: any, container: any, parentId: string, intervalMs = 1000): () => void {
+    const id = setInterval(() => reattachIfDetached(doc, container, parentId), intervalMs);
+    return () => clearInterval(id);
+}
+
+/**
  * Unmounts the React tree in `container` (if any) and removes it from the
  * DOM. Safe to call multiple times or on an already-detached container.
  */

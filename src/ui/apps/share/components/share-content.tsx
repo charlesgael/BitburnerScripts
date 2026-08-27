@@ -3,9 +3,21 @@ import { useShare } from "../logic/use-share";
 import { ShareHostCard } from "./share-host-card";
 
 /** Root component: the refresh header and the per-host card grid. See
- * `../index.ts`'s header comment for what this app does and why. */
+ * `../index.ts`'s header comment for what this app does and why.
+ *
+ * The hook's return is named `shareState`, not `share` — Bitburner's RAM
+ * analyzer flags *any* identifier token that lexically matches a real
+ * `ns.*` method name, in any role at all (a call, a property access, or —
+ * as `const share = ...` was here — a bare local variable declaration with
+ * nothing to do with `ns`), not just literal `.methodName(` call syntax.
+ * That's what silently added `ns.share()`'s 2.4GB to `ui.app.js`'s measured
+ * cost despite this file never calling it — same root cause as
+ * `ns-queue.ts`'s original `run`→`enqueue` rename, just triggered by a
+ * declaration instead of a call this time. See
+ * `docs/epic-cgd-namespace.md`'s "Validated assumptions" for the fuller
+ * writeup. */
 export function ShareContent({ React }: AppComponentProps) {
-    const share = useShare(React);
+    const shareState = useShare(React);
 
     return (
         <div>
@@ -18,15 +30,15 @@ export function ShareContent({ React }: AppComponentProps) {
                 }}
             >
                 <button
-                    onClick={() => void share.refresh()}
-                    disabled={share.loading}
+                    onClick={() => void shareState.refresh()}
+                    disabled={shareState.loading}
                     className="bb-btn"
                 >
-                    {share.loading ? "..." : "Refresh"}
+                    {shareState.loading ? "..." : "Refresh"}
                 </button>
             </div>
 
-            {share.error ? (
+            {shareState.error ? (
                 <div
                     className="bb-text-error bb-wrap"
                     style={{
@@ -34,7 +46,7 @@ export function ShareContent({ React }: AppComponentProps) {
                         marginBottom: "8px",
                     }}
                 >
-                    {share.error}
+                    {shareState.error}
                 </div>
             ) : null}
 
@@ -45,13 +57,13 @@ export function ShareContent({ React }: AppComponentProps) {
                     gap: "8px",
                 }}
             >
-                {share.hosts.map((host) => (
+                {shareState.hosts.map((host) => (
                     <ShareHostCard
                         key={host.hostname}
                         React={React}
-                        ns={share.ns}
+                        ns={shareState.ns}
                         host={host}
-                        onUsedRamChange={share.updateCloudUsedRam}
+                        onUsedRamChange={shareState.updateCloudUsedRam}
                     />
                 ))}
             </div>

@@ -51,15 +51,15 @@ export function stagedPathFor(host: string, path: string): string {
 }
 
 async function withHomeBounce<T>(ns: QueuedNS, path: string, action: () => Promise<T>): Promise<T> {
-    const collided = await ns.fileExists(path, "home");
-    const backup = collided ? await ns.read(path) : null;
+    const collided = await ns._fileExists(path, "home");
+    const backup = collided ? await ns._read(path) : null;
     try {
         return await action();
     } finally {
         if (collided) {
-            await ns.write(path, backup ?? "", "w");
-        } else if (await ns.fileExists(path, "home")) {
-            await ns.rm(path, "home");
+            await ns._write(path, backup ?? "", "w");
+        } else if (await ns._fileExists(path, "home")) {
+            await ns._rm(path, "home");
         }
     }
 }
@@ -75,14 +75,14 @@ export async function pullRemoteFile(ns: QueuedNS, host: string, path: string): 
     }
     const staged = stagedPathFor(host, path);
     await withHomeBounce(ns, path, async () => {
-        const ok = await ns.scp(path, "home", host);
+        const ok = await ns._scp(path, "home", host);
         if (!ok) throw new Error(`Couldn't copy ${path} from ${host} — does it still exist?`);
-        if (await ns.fileExists(staged, "home")) {
-            await ns.rm(staged, "home");
+        if (await ns._fileExists(staged, "home")) {
+            await ns._rm(staged, "home");
         }
-        await ns.mv("home", path, staged);
+        await ns._mv("home", path, staged);
     });
-    return await ns.read(staged);
+    return await ns._read(staged);
 }
 
 /** Pushes `content` back to `path` on `host`, and refreshes the cache slot
@@ -95,9 +95,9 @@ export async function pushRemoteFile(ns: QueuedNS, host: string, path: string, c
         throw new Error(`Can't save ${path} back to another server.`);
     }
     await withHomeBounce(ns, path, async () => {
-        await ns.write(path, content, "w");
-        const ok = await ns.scp(path, host, "home");
+        await ns._write(path, content, "w");
+        const ok = await ns._scp(path, host, "home");
         if (!ok) throw new Error(`Couldn't copy ${path} to ${host}.`);
     });
-    await ns.write(stagedPathFor(host, path), content, "w");
+    await ns._write(stagedPathFor(host, path), content, "w");
 }

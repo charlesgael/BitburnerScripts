@@ -24,7 +24,7 @@ export interface NetworkHostRow {
 
 export async function readNetworkHosts(ns: QueuedNS): Promise<NetworkHostRow[]> {
     try {
-        const raw = await ns.read(KNOWN_SERVERS_FILE);
+        const raw = await ns._read(KNOWN_SERVERS_FILE);
         if (!raw) return [];
         const servers = JSON.parse(raw) as { hostname?: string; hasAdminRights?: boolean }[];
         if (!Array.isArray(servers)) return [];

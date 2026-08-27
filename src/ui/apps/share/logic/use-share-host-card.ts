@@ -1,5 +1,5 @@
-import { useAddChildPid } from "../../../context/child-pids-context";
 import { spawnRemote } from "../../../utils/spawn-remote";
+import { QueuedNS } from "../../../utils/ns-proxy";
 import { ShareHost } from "./types";
 import { threadTiers } from "./thread-tiers";
 
@@ -19,15 +19,19 @@ const RESERVED_RAM_FRACTION = 0.2;
 /** All state/behavior for one host's share card: detecting an already-
  * running `daemons/share.daemon.js`, picking a thread tier, and starting/
  * stopping it. See `../index.ts`'s header comment for the launch-path
- * reasoning (`ns.exec` on home, `spawnRemote` elsewhere). */
+ * reasoning (`ns.exec` on home, `spawnRemote` elsewhere).
+ *
+ * `ns` is typed `QueuedNS` (not `any`, as it was before) specifically so
+ * every call below has to go through its `_`-prefixed methods — see
+ * `ns-proxy.ts`'s header comment for why an untyped/loosely-typed `ns`
+ * parameter is exactly what let this file's calls silently inflate
+ * `ui.app.js`'s measured RAM cost without the compiler ever catching it. */
 export function useShareHostCard(
     React: any,
-    ns: any,
+    ns: QueuedNS,
     host: ShareHost,
     onUsedRamChange: (hostname: string, usedRam: number) => void
 ) {
-    const addChildPid = useAddChildPid();
-
     const [pid, setPid] = React.useState(null); // non-null while a share daemon is running here
     const [runningThreads, setRunningThreads] = React.useState(0);
     const [selectedThreads, setSelectedThreads] = React.useState(1);
@@ -53,11 +57,11 @@ export function useShareHostCard(
     React.useEffect(() => {
         let cancelled = false;
         (async () => {
-            const cost = await ns.getScriptRam(DAEMON_SCRIPT, "home");
+            const cost = await ns._getScriptRam(DAEMON_SCRIPT, "home");
             if (cancelled) return;
             setCostPerThread(cost);
 
-            const processes = await ns.ps(host.hostname);
+            const processes = await ns._ps(host.hostname);
             if (cancelled) return;
             const proc = processes.find((p: { filename: string }) => p.filename === DAEMON_SCRIPT);
             if (proc) {
@@ -93,7 +97,7 @@ export function useShareHostCard(
         if (pid == null) return;
         const interval = setInterval(() => {
             (async () => {
-                const stillRunning = await ns.isRunning(pid);
+                const stillRunning = await ns._isRunning(pid);
                 if (!stillRunning) {
                     setPid(null);
                     setRunningThreads(0);
@@ -118,7 +122,7 @@ export function useShareHostCard(
     async function syncUsedRam() {
         if (host.isHome) return;
         try {
-            const usedRam = await ns.getServerUsedRam(host.hostname);
+            const usedRam = await ns._getServerUsedRam(host.hostname);
             onUsedRamChange(host.hostname, usedRam);
         } catch {
             // Best-effort — a manual Refresh will still fix it if this fails.
@@ -130,7 +134,7 @@ export function useShareHostCard(
         setError(null);
         try {
             if (pid != null) {
-                await ns.kill(pid);
+                await ns._kill(pid);
                 setPid(null);
                 setRunningThreads(0);
                 await syncUsedRam();
@@ -150,14 +154,14 @@ export function useShareHostCard(
             }
 
             if (host.isHome) {
-                const newPid = await ns.exec(DAEMON_SCRIPT, host.hostname, selectedThreads);
+                const newPid = await ns._exec(DAEMON_SCRIPT, host.hostname, selectedThreads);
                 if (newPid === 0) {
                     setError(`Couldn't launch ${DAEMON_SCRIPT} — enough RAM? Is it deployed to ${host.hostname}?`);
                     return;
                 }
                 setPid(newPid);
             } else {
-                const result = await spawnRemote(ns, addChildPid, DAEMON_SCRIPT, host.hostname, selectedThreads, []);
+                const result = await spawnRemote(ns, DAEMON_SCRIPT, host.hostname, selectedThreads, []);
                 if (!result.ok || !result.pid) {
                     setError(result.error ?? `Couldn't launch ${DAEMON_SCRIPT} on ${host.hostname}.`);
                     return;

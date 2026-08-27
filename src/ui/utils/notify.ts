@@ -17,12 +17,12 @@ import { QueuedNS } from "./ns-proxy";
 
 /** Shows a brief success toast, e.g. after an action completes. */
 export function notifySuccess(ns: QueuedNS, message: string): void {
-    void ns.toast(message, "success");
+    void ns._toast(message, "success");
 }
 
 /** Shows a brief error toast. Most of this codebase instead keeps errors
  * pinned in an inline banner until the next action (see `file-explorer.tsx`'s
  * `actionError`) — reach for this only where a transient error is enough. */
 export function notifyError(ns: QueuedNS, message: string): void {
-    void ns.toast(message, "error");
+    void ns._toast(message, "error");
 }

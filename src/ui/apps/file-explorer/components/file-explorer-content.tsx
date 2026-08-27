@@ -1,6 +1,7 @@
 import { AppComponentProps } from "../../../types";
 import { useQueuedNs } from "../../../context/ns-queue-context";
 import { useAddChildPid } from "../../../context/child-pids-context";
+import { useCgdActions } from "../../../context/cgd-actions-context";
 import { useFileExplorer } from "../logic/use-file-explorer";
 import { EditScreen } from "./edit-screen";
 import { BrowseScreen } from "./browse-screen";
@@ -11,7 +12,8 @@ import { BrowseScreen } from "./browse-screen";
 export function FileExplorerContent({ React }: AppComponentProps) {
     const ns = useQueuedNs();
     const addChildPid = useAddChildPid();
-    const fx = useFileExplorer(React, ns, addChildPid);
+    const callAction = useCgdActions();
+    const fx = useFileExplorer(React, ns, addChildPid, callAction);
 
     if (fx.mode === "edit" && fx.editingPath) {
         return <EditScreen React={React} fx={fx} />;

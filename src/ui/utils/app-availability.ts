@@ -49,21 +49,33 @@ export function checkIsAvailable(
 }
 
 /**
- * Checks an app's `minSourceFile`/`isAvailable` (see `ui/types.ts`) against
- * `ctx` — both AND'd together, true only if every declared rule passes (an
- * app declaring neither is always visible). Unlike `ramShortfallReason`
- * above, `ui/components/app-grid.tsx` doesn't render the icon at all when
- * this is false, rather than showing it disabled: a missing Source-File
- * (or whatever an `isAvailable` lambda checks) isn't something the player
- * can fix mid-session the way freeing up RAM is, so surfacing it as a
- * locked icon would just be a permanent tease for most of a run.
+ * Checks an app's `minSourceFile`/`minDaemonTier`/`isAvailable` (see
+ * `ui/types.ts`) against `ctx` — all AND'd together, true only if every
+ * declared rule passes (an app declaring none is always visible). Unlike
+ * `ramShortfallReason` above, `ui/components/app-grid.tsx` doesn't render
+ * the icon at all when this is false, rather than showing it disabled: a
+ * missing Source-File, an under-tier daemon, or whatever an `isAvailable`
+ * lambda checks isn't something the player can fix mid-session the way
+ * freeing up RAM is, so surfacing it as a locked icon would just be a
+ * permanent tease for most of a run.
  *
  * Pure and 0 GB — same reasoning as `ramShortfallReason`.
+ *
+ * Tier 0 hides every app unconditionally, regardless of what it declares:
+ * tier 0 has zero caller-facing dispatch at all (see `cgd/dispatch.ts`'s
+ * `isPathAllowed`), so even an app with no `minDaemonTier` of its own —
+ * Trainer, say, gated only on SF4 via `isAvailable` — still needs tier 1's
+ * baseline `exec`/`kill`/`ps` just to spawn and monitor its own daemon
+ * script. Nothing works at tier 0 except the stats the daemon itself
+ * pushes into the store, so there's no per-app rule that would ever let one
+ * through here.
  */
 export function isAppVisible(app: AppDefinition, ctx: AppAvailabilityContext): boolean {
+    if (ctx.daemonTier <= 0) return false;
     if (app.minSourceFile != null) {
         const { n, lvl } = app.minSourceFile;
         if ((ctx.ownedSF.get(n) ?? 0) < lvl) return false;
     }
+    if (app.minDaemonTier != null && ctx.daemonTier < app.minDaemonTier) return false;
     return checkIsAvailable(app.isAvailable, ctx);
 }

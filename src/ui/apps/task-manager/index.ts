@@ -24,8 +24,8 @@ export type { ManagedAppDefinition };
  * here would just mean whatever got spawned is killed out from under it
  * moments later. This app never references `ns.cloud.*` itself to find
  * cloud servers — see `../cloud-servers/index.ts`'s header comment for why
- * — instead reading the same `daemons/cloud-list.daemon.js` snapshot the
- * Cloud Servers app uses (via `fetchCloudList`), which conveniently already
+ * — instead reading the same `cgd/actions/cloud.ts` `cloudList` snapshot
+ * the Cloud Servers app uses (via `fetchCloudList`), which conveniently already
  * reports each server's `ram`/`usedRam`, so this app has no need to poll
  * `ns.getServerUsedRam`/`getServerMaxRam` per host itself the way the old
  * per-program-row version of this app did.
@@ -47,9 +47,9 @@ export type { ManagedAppDefinition };
  *
  * Spawning on `home` uses a direct `ns.exec` (the script's already there,
  * deployed by Viteburner); spawning on a cloud server goes through
- * `daemons/spawn-remote.daemon.ts` (via `spawnRemote`), which `ns.scp`'s
- * the script over first since a cloud server never has it already — see
- * that daemon's header comment. Neither path registers the spawned pid via
+ * `ui/utils/spawn-remote.ts`'s `spawnRemote`, which `ns.scp`'s the script
+ * over first through the daemon queue since a cloud server never has it
+ * already. Neither path registers the spawned pid via
  * `useAddChildPid()`: these are meant to keep running in the background
  * across `ui.app.ts` restarts, not be torn down when the sidebar UI itself
  * restarts (only the short-lived one-shot orchestrator daemons —

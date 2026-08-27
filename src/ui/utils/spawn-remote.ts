@@ -1,34 +1,47 @@
 import { QueuedNS } from "./ns-proxy";
-import { runDaemon } from "./run-daemon";
 
 /**
- * Shared constants/types/helper for `daemons/spawn-remote.daemon.ts`, which copies
- * a script onto a purchased ("cloud") server and starts it there — see
- * that daemon's header comment for why a plain `ns.exec` on its own isn't
- * enough. Used by the Programs app's cloud-server dropdown.
+ * Copies `script` from `home` to `host` and starts it there — directly
+ * through the queue (`_scp` then `_exec`, both on tier 1's allow-list), not
+ * via a separately-spawned one-shot daemon the way this used to work
+ * (`daemons/spawn-remote.daemon.ts`, deleted — see its own header comment
+ * for why it existed pre-epic: `ns.scp`/`ns.exec` referenced directly would
+ * have permanently inflated `ui.app.js`, before this epic moved all of that
+ * behind the persistent daemon's queue instead).
+ *
+ * `ns.exec` requires the target file to already exist on the destination
+ * server (see `NetscriptDefinitions.d.ts`), and unlike `home` — which
+ * Viteburner deploys scripts to directly — a purchased ("cloud") server
+ * never has them until something `ns.scp`'s them over first. This is what
+ * actually makes the Programs app's cloud-server dropdown, and Share's
+ * cloud-host cards, work.
+ *
+ * No atomicity guarantee between the copy and the launch (see
+ * `ns-proxy.ts`'s own atomicity caveat) — fine here, nothing else contends
+ * over this exact script+host pair mid-call in practice.
  */
-export const SPAWN_REMOTE_SCRIPT = "daemons/spawn-remote.daemon.js";
-export const SPAWN_REMOTE_RESULT_FILE = "spawn-remote-result.txt";
-
 export interface SpawnRemoteResult {
     ok: boolean;
     pid?: number;
     error?: string;
 }
 
-/** Copies `script` from home to `host` and execs it there with `threads`/`args`. */
 export async function spawnRemote(
     ns: QueuedNS,
-    addChildPid: (pid: number) => void,
     script: string,
     host: string,
     threads: number,
     args: (string | number | boolean)[]
 ): Promise<SpawnRemoteResult> {
-    return runDaemon(ns, addChildPid, SPAWN_REMOTE_SCRIPT, "home", SPAWN_REMOTE_RESULT_FILE, [
-        script,
-        host,
-        threads,
-        ...args,
-    ]);
+    const copied = await ns._scp(script, host);
+    if (!copied) {
+        return { ok: false, error: `Couldn't copy ${script} to ${host} — does it exist on home?` };
+    }
+    const pid = await ns._exec(script, host, threads, ...args);
+    return pid !== 0
+        ? { ok: true, pid }
+        : {
+              ok: false,
+              error: `Couldn't start ${script} on ${host} — enough free RAM? Already running with different args?`,
+          };
 }

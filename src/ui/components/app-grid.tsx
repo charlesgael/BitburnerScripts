@@ -2,8 +2,11 @@ import { AppDefinition, ReactGlobals } from "../types";
 import { initNsQueueContext } from "../context/ns-queue-context";
 import { initChildPidsContext } from "../context/child-pids-context";
 import { initHomeRamContext, HomeRam } from "../context/home-ram-context";
+import { initDaemonTierContext } from "../context/daemon-tier-context";
+import { initCgdActionsContext } from "../context/cgd-actions-context";
 import { QueuedNS } from "../utils/ns-proxy";
 import { ramShortfallReason, isAppVisible } from "../utils/app-availability";
+import { CgdDaemon, CgdQueue, CgdStore, CgdTier } from "../../cgd/types";
 
 interface OpenWindow {
     id: string;
@@ -40,42 +43,109 @@ export function createAppGrid(
     container: any,
     apps: AppDefinition[],
     queuedNs: QueuedNS,
-    addChildPid: (pid: number) => void
+    addChildPid: (pid: number) => void,
+    cgdStore: CgdStore,
+    initialDaemonTier: CgdTier,
+    getDaemon: () => CgdDaemon | undefined
 ) {
     const { React, ReactDOM, doc } = globals;
 
-    // Provides the queued `ns` proxy, the child-pid tracker, and `home`'s
-    // live RAM to every app's Content component via context, so none of
-    // them need to be passed down as an explicit prop from here.
+    // Provides the queued `ns` proxy, the child-pid tracker, `home`'s live
+    // RAM, the running daemon's tier, and its compound-action dispatcher to
+    // every app's Content component via context, so none of them need to be
+    // passed down as an explicit prop from here.
     const NsQueueContext = initNsQueueContext(React);
     const ChildPidsContext = initChildPidsContext(React);
     const HomeRamContext = initHomeRamContext(React);
+    const DaemonTierContext = initDaemonTierContext(React);
+    const CgdActionsContext = initCgdActionsContext(React);
+
+    // Resolves against whichever daemon is *currently* registered on every
+    // call, not whatever was registered when this grid was created — same
+    // reasoning as `ns-proxy.ts`'s `createQueuedNs`: a fixed reference would
+    // keep pointing at a since-replaced daemon's dead queue and hang
+    // forever instead of failing (or succeeding against the new one).
+    const callAction: CgdQueue["enqueueAction"] = (name, args) => {
+        const daemon = getDaemon();
+        if (!daemon) {
+            return Promise.reject(new Error(`No cgd daemon is currently registered — can't run action "${name}".`));
+        }
+        return daemon.queue.enqueueAction(name, args);
+    };
 
     const state: { windows: OpenWindow[] } = { windows: [] };
-    // Updated by ui.app.ts's main loop via setHomeRam (see
-    // ui/utils/home-ram-poller.ts) — a fresh object each time so
-    // HomeRamContext's consumers see the change.
-    let homeRam: HomeRam = { used: 0, max: 0 };
-    // Set once via setResetInfo (see below) — ui.app.ts fetches this once at
-    // startup from ns.getResetInfo() (1 GB, safe to reference directly
-    // there) rather than polling it: neither can change without a BitNode/
-    // aug reset, which kills this script too.
+    // Sourced from cgd.store (see docs/epic-cgd-namespace.md's "Store
+    // lifecycle") rather than pushed in externally — subscribed just below
+    // so HomeRamContext's consumers see every update the daemon pushes,
+    // independent of whichever daemon generation currently produces it.
+    let homeRam: HomeRam = cgdStore.getState().homeRam;
+    const unsubscribeHomeRam = cgdStore.subscribe(() => {
+        const next = cgdStore.getState().homeRam;
+        if (next === homeRam) return;
+        homeRam = next;
+        render();
+    });
+    // `ownedSF`/`currentNode` themselves can't change without a BitNode/aug
+    // reset, which kills this script too — but *fetching* them can't happen
+    // until the daemon tier actually allows it (tier 0 rejects
+    // `_getResetInfo` outright, same as every other dispatch call — see
+    // `cgd/dispatch.ts`'s `isPathAllowed`), so `fetchResetInfoIfNeeded`
+    // below retries once the tier poller (further down) notices tier 0
+    // isn't the story anymore, instead of this being a pure one-shot.
     let ownedSF: Map<number, number> = new Map();
     let currentNode = 0;
+    let resetInfoFetched = false;
     let focusedId: string | null = null;
     let nextZ = 0;
+
+    // Mutable, not the plain parameter it started as: the daemon actually
+    // running can change in the background (a different tier taking over
+    // via the handoff protocol) without `ui.app.ts` itself relaunching to
+    // notice — found live, the hard way: switching from tier 0 to tier 1
+    // left the grid showing its tier-0 (empty) view forever until the next
+    // manual `ui.app.js` relaunch. The poller below (`getDaemon`, the same
+    // live getter `callAction`/`ns-proxy.ts` already use) catches that
+    // instead of trusting the tier this grid happened to be created with.
+    let daemonTier: CgdTier = initialDaemonTier;
+
+    /** Fetches `ownedSF`/`currentNode` through the queue once the tier
+     * actually allows it — called once eagerly below, and again by the
+     * tier poller whenever `daemonTier` changes, so a grid created at tier
+     * 0 (which skips this at `ui.app.ts` mount time — see that file) picks
+     * it up as soon as a real tier takes over, without needing a relaunch. */
+    async function fetchResetInfoIfNeeded() {
+        if (resetInfoFetched || daemonTier <= 0) return;
+        resetInfoFetched = true; // set eagerly — a concurrent tick shouldn't double-fetch
+        try {
+            const info = await queuedNs._getResetInfo();
+            ownedSF = info.ownedSF;
+            currentNode = info.currentNode;
+            render();
+        } catch {
+            resetInfoFetched = false; // let the next tier-poll tick (or app open) retry
+        }
+    }
+    void fetchResetInfoIfNeeded();
+
+    const TIER_POLL_MS = 1000;
+    const tierPollId = setInterval(() => {
+        const next = getDaemon()?._getTier() ?? 0;
+        if (next === daemonTier) return;
+        daemonTier = next;
+        render();
+        void fetchResetInfoIfNeeded();
+    }, TIER_POLL_MS);
 
     // Two different rules, two different treatments in the grid below (see
     // `ui/utils/app-availability.ts`'s own header comments for why they're
     // split): `minRam` shows the icon disabled with a reason (something the
-    // player can fix mid-session), while `minSourceFile`/`isAvailable`
-    // leaves the icon out of the grid entirely. Both re-evaluated on every
-    // render since `homeRam`/`ownedSF`/`currentNode` change live.
+    // player can fix mid-session), while `minSourceFile`/`minDaemonTier`/
+    // `isAvailable` leaves the icon out of the grid entirely.
     function ramReason(app: AppDefinition): string | null {
-        return ramShortfallReason(app, { homeRam, ownedSF, currentNode });
+        return ramShortfallReason(app, { homeRam, ownedSF, currentNode, daemonTier });
     }
     function visible(app: AppDefinition): boolean {
-        return isAppVisible(app, { homeRam, ownedSF, currentNode });
+        return isAppVisible(app, { homeRam, ownedSF, currentNode, daemonTier });
     }
 
     function openApp(id: string) {
@@ -133,25 +203,6 @@ export function createAppGrid(
         const win = state.windows.find((w) => w.id === id);
         if (!win) return;
         win.refreshCount++;
-        render();
-    }
-
-    // Called from ui.app.ts's main loop (via ui/utils/home-ram-poller.ts)
-    // whenever `home`'s used/max RAM changes — re-renders with a new
-    // HomeRamContext value, so every open app window reading useHomeRam()
-    // picks it up without polling for itself.
-    function setHomeRam(used: number, max: number) {
-        homeRam = { used, max };
-        render();
-    }
-
-    // Called once from ui.app.ts, right after ns.getResetInfo() resolves at
-    // startup (see that file) — no poller needed since neither piece can
-    // change without a reset that kills this script too (see `ownedSF`
-    // above).
-    function setResetInfo(sf: Map<number, number>, node: number) {
-        ownedSF = sf;
-        currentNode = node;
         render();
     }
 
@@ -362,12 +413,16 @@ export function createAppGrid(
             <NsQueueContext.Provider value={queuedNs}>
                 <ChildPidsContext.Provider value={addChildPid}>
                     <HomeRamContext.Provider value={homeRam}>
-                        <hr
-                            className="MuiDivider-root MuiDivider-fullWidth css-8dakje"
-                            style={{ margin: "0 -16px" }}
-                        />
-                        {grid}
-                        {windows}
+                        <DaemonTierContext.Provider value={daemonTier}>
+                            <CgdActionsContext.Provider value={callAction}>
+                                <hr
+                                    className="MuiDivider-root MuiDivider-fullWidth css-8dakje"
+                                    style={{ margin: "0 -16px" }}
+                                />
+                                {grid}
+                                {windows}
+                            </CgdActionsContext.Provider>
+                        </DaemonTierContext.Provider>
                     </HomeRamContext.Provider>
                 </ChildPidsContext.Provider>
             </NsQueueContext.Provider>,
@@ -379,7 +434,9 @@ export function createAppGrid(
         doc.removeEventListener("keydown", onKeyDown);
         doc.removeEventListener("mousemove", onDragMove);
         doc.removeEventListener("mouseup", onDragEnd);
+        unsubscribeHomeRam();
+        clearInterval(tierPollId);
     }
 
-    return { render, destroy, setHomeRam, setResetInfo };
+    return { render, destroy };
 }

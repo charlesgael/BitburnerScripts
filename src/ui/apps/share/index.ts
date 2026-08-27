@@ -27,10 +27,8 @@ import { ShareContent } from "./components/share-content";
  * Launching on `home` is a plain `ns.exec` (the script's already there,
  * deployed by Viteburner). Launching on a cloud server goes through
  * `spawnRemote` (`ui/utils/spawn-remote.ts`), which `ns.scp`'s the script
- * over first via `daemons/spawn-remote.daemon.ts` — same path the Programs
- * app's cloud-server dropdown uses, and for the same reason: a cloud server
- * never has the script until something copies it there, and `ns.scp` is too
- * RAM-heavy to reference directly here.
+ * over first through the daemon queue — same path the Programs app's
+ * cloud-server dropdown uses.
  *
  * Only `home` reserves RAM (see `logic/use-share-host-card.ts`'s
  * `MIN_RESERVED_RAM_GB`/`RESERVED_RAM_FRACTION`) — it's the one host running

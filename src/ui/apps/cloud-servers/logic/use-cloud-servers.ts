@@ -1,36 +1,20 @@
 import { useQueuedNs } from "../../../context/ns-queue-context";
-import { useAddChildPid } from "../../../context/child-pids-context";
-import { useHomeRam } from "../../../context/home-ram-context";
-import { runDaemon } from "../../../utils/run-daemon";
-import {
-    CLOUD_LIST_SCRIPT,
-    CLOUD_LIST_RESULT_FILE,
-    CloudListResult,
-    CloudServerRow,
-    sortByHostname,
-} from "../../../utils/cloud-list";
+import { useCgdActions } from "../../../context/cgd-actions-context";
+import { CloudListResult, CloudServerRow, fetchCloudList, sortByHostname } from "../../../utils/cloud-list";
 import { pickCloudServerName } from "../../../utils/cloud-names";
-import {
-    SlaveNodeHost,
-    fetchSlaveNodeHosts,
-    readSlaveNodes,
-    writeSlaveNodes,
-} from "../../../utils/slave-nodes";
+import { SlaveNodeHost, fetchSlaveNodeHosts, readSlaveNodes, writeSlaveNodes } from "../../../utils/slave-nodes";
 import { ActionResult } from "./types";
-
-const DAEMON_HOST = "home";
-const BUY_SCRIPT = "daemons/cloud-buy.daemon.js";
-const BUY_RESULT_FILE = "cloud-buy-result.txt";
-const DELETE_SCRIPT = "daemons/cloud-delete.daemon.js";
-const DELETE_RESULT_FILE = "cloud-delete-result.txt";
 
 /** All Cloud Servers state and behavior. See `../index.ts`'s header comment
  * for why this app never references `ns.cloud.*`/`ns.getServerMoneyAvailable`
- * itself and instead round-trips through the three cloud-*.daemon.ts scripts. */
+ * itself and instead goes through `cgd.daemon.queue.enqueueAction` (see
+ * `cgd/actions/cloud.ts`/`cgd/actions/slave-nodes.ts`) — no RAM-preflight
+ * checks needed here anymore either, unlike the pre-epic version: an action
+ * call doesn't launch a new script, so there's no per-call RAM allocation
+ * that could fail. */
 export function useCloudServers(React: any) {
     const ns = useQueuedNs();
-    const addChildPid = useAddChildPid();
-    const homeRam = useHomeRam();
+    const callAction = useCgdActions();
 
     const [servers, setServers]: [CloudServerRow[], (v: CloudServerRow[]) => void] = React.useState([]);
     const [moneyAvailable, setMoneyAvailable] = React.useState(0);
@@ -62,13 +46,10 @@ export function useCloudServers(React: any) {
         React.useState(null);
     const [toggleSlaveError, setToggleSlaveError]: [string | null, (v: string | null) => void] = React.useState(null);
 
-    const [daemonRam, setDaemonRam] = React.useState({ list: 0, buy: 0, delete: 0 });
-
     const busy = listLoading || buyBusy || deleteBusyHost != null;
-    const freeRam = homeRam.max - homeRam.used;
     // Purchased servers vs. slave nodes are the same `servers` snapshot
-    // (see `daemons/cloud-list.daemon.ts`'s header comment on why they're
-    // merged) split back out here purely for display/limit purposes — the
+    // (see `cgd/actions/cloud.ts`'s header comment on why they're merged)
+    // split back out here purely for display/limit purposes — the
     // server-count/limit shown to the player, and `atServerLimit` below,
     // only ever refer to actual purchases.
     const cloudServers = servers.filter((s) => !s.isSlave);
@@ -78,13 +59,7 @@ export function useCloudServers(React: any) {
         setListLoading(true);
         setListError(null);
         try {
-            const result: CloudListResult = await runDaemon(
-                ns,
-                addChildPid,
-                CLOUD_LIST_SCRIPT,
-                DAEMON_HOST,
-                CLOUD_LIST_RESULT_FILE
-            );
+            const result: CloudListResult = await fetchCloudList(callAction);
             setServers(sortByHostname(result.servers));
             setMoneyAvailable(result.moneyAvailable);
             setServerLimit(result.serverLimit);
@@ -108,14 +83,14 @@ export function useCloudServers(React: any) {
 
     // Refreshes the full slave-node checklist: every rooted, non-purchased,
     // non-`home` host found by walking the whole network (see
-    // `daemons/slave-node-hosts.daemon.ts` — a separate one-shot script from
-    // `refreshList`'s `cloud-list.daemon.ts` since the latter has no reason
-    // to reference `ns.scan`/`ns.getServer` at all).
+    // `cgd/actions/slave-nodes.ts` — a separate tier-2 action from
+    // `refreshList`'s tier-1 `cloudList` since the latter has no reason to
+    // reference `ns.scan`/`ns.getServer` at all).
     async function refreshSlaveHosts() {
         setSlaveHostsLoading(true);
         setSlaveHostsError(null);
         try {
-            setSlaveHosts(sortByHostname(await fetchSlaveNodeHosts(ns, addChildPid, DAEMON_HOST)));
+            setSlaveHosts(sortByHostname(await fetchSlaveNodeHosts(callAction)));
         } catch (err) {
             setSlaveHostsError(err instanceof Error ? err.message : String(err));
         } finally {
@@ -136,22 +111,14 @@ export function useCloudServers(React: any) {
     }
 
     // This component remounts every time the window is opened — fetch
-    // everything fresh rather than trusting stale state.
+    // everything fresh rather than trusting stale state. No daemon-RAM
+    // preflight fetch needed anymore (the pre-epic version checked
+    // `ns.getScriptRam` for each of the three one-shot daemon scripts
+    // before launching them) — actions run inside the already-running
+    // persistent daemon, so there's no new script launch, and therefore no
+    // new RAM allocation, to check for on any given call.
     React.useEffect(() => {
-        let cancelled = false;
-        (async () => {
-            const [listRam, buyRam_, deleteRam] = await Promise.all([
-                ns.getScriptRam(CLOUD_LIST_SCRIPT, DAEMON_HOST),
-                ns.getScriptRam(BUY_SCRIPT, DAEMON_HOST),
-                ns.getScriptRam(DELETE_SCRIPT, DAEMON_HOST),
-            ]);
-            if (cancelled) return;
-            setDaemonRam({ list: listRam, buy: buyRam_, delete: deleteRam });
-        })();
         void refreshAll();
-        return () => {
-            cancelled = true;
-        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -161,16 +128,9 @@ export function useCloudServers(React: any) {
         // the player to come up with one.
         const hostname = buyHostname.trim() || pickCloudServerName(servers.map((s) => s.hostname));
         setBuyError(null);
-        if (daemonRam.buy > freeRam) {
-            setBuyError(`Not enough free RAM to launch ${BUY_SCRIPT} (needs ${daemonRam.buy.toFixed(2)} GB).`);
-            return;
-        }
         setBuyBusy(true);
         try {
-            const result: ActionResult = await runDaemon(ns, addChildPid, BUY_SCRIPT, DAEMON_HOST, BUY_RESULT_FILE, [
-                hostname,
-                buyRam,
-            ]);
+            const result = (await callAction("cloudBuy", [hostname, buyRam])) as ActionResult;
             if (!result.ok) {
                 setBuyError(result.error ?? "Purchase failed.");
                 return;
@@ -181,8 +141,7 @@ export function useCloudServers(React: any) {
             setBuyError(err instanceof Error ? err.message : String(err));
         } finally {
             // No manual RAM refresh needed: HomeRamContext updates on its
-            // own schedule (see ui/utils/home-ram-poller.ts) regardless of
-            // what this app does.
+            // own schedule regardless of what this app does.
             setBuyBusy(false);
         }
     }
@@ -198,15 +157,9 @@ export function useCloudServers(React: any) {
     async function doDelete(hostname: string) {
         setConfirmDeleteHost(null);
         setDeleteError(null);
-        if (daemonRam.delete > freeRam) {
-            setDeleteError(`Not enough free RAM to launch ${DELETE_SCRIPT} (needs ${daemonRam.delete.toFixed(2)} GB).`);
-            return;
-        }
         setDeleteBusyHost(hostname);
         try {
-            const result: ActionResult = await runDaemon(ns, addChildPid, DELETE_SCRIPT, DAEMON_HOST, DELETE_RESULT_FILE, [
-                hostname,
-            ]);
+            const result = (await callAction("cloudDelete", [hostname])) as ActionResult;
             if (!result.ok) {
                 setDeleteError(result.error ?? "Delete failed.");
                 return;
@@ -216,8 +169,7 @@ export function useCloudServers(React: any) {
             setDeleteError(err instanceof Error ? err.message : String(err));
         } finally {
             // No manual RAM refresh needed: HomeRamContext updates on its
-            // own schedule (see ui/utils/home-ram-poller.ts) regardless of
-            // what this app does.
+            // own schedule regardless of what this app does.
             setDeleteBusyHost(null);
         }
     }
@@ -253,7 +205,7 @@ export function useCloudServers(React: any) {
     const selectedCost = costByRam[buyRam] ?? 0;
     // Only actual purchases count against the purchased-server limit —
     // slave nodes ride along in the same `servers` snapshot (see
-    // `daemons/cloud-list.daemon.ts`) but aren't purchases.
+    // `cgd/actions/cloud.ts`) but aren't purchases.
     const atServerLimit = cloudServers.length >= serverLimit && serverLimit > 0;
     const insufficientMoney = selectedCost > moneyAvailable;
     const buyDisabled = buyBusy || atServerLimit || insufficientMoney;

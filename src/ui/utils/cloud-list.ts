@@ -1,38 +1,30 @@
-import { QueuedNS } from "./ns-proxy";
-import { runDaemon } from "./run-daemon";
+import { CgdQueue } from "../../cgd/types";
+import { CloudListResult, CloudServerRow } from "../../cgd/actions/cloud";
+
+export type { CloudListResult, CloudServerRow };
 
 /**
- * Shared constants/types/helper for reading purchased-server inventory via
- * `daemons/cloud-list.daemon.ts` — used by both the Cloud Servers app (its own
- * list) and the Programs app (to offer spawning on a compatible cloud
- * server). Neither references `ns.cloud.*` directly — see
- * `ui/apps/cloud-servers/`'s header comment for why.
+ * Client-side helper for `cgd/actions/cloud.ts`'s `cloudListAction` —
+ * shared by the Cloud Servers app (its own list) and every other app that
+ * needs to know what cloud/slave servers exist (Share, XP Farm, File
+ * Explorer, Programs' spawn-target list). Registered at **tier 2**, despite
+ * being read-only — see that action's own header comment for the measured
+ * RAM reason. Every non-Cloud-Servers caller above degrades gracefully
+ * below tier 2 (an empty/unavailable cloud-server list) rather than being
+ * gated on it themselves.
+ *
+ * No stale-cache fallback the way the pre-epic version (spawning
+ * `daemons/cloud-list.daemon.ts` fresh each call) needed — that existed
+ * specifically for "not enough free RAM to launch even this tiny one-shot
+ * script right now," which doesn't apply once the persistent daemon is
+ * already running: a call through `enqueueAction` doesn't allocate any new
+ * RAM at all, it's just a queued request against a process that already
+ * exists. A rejection now means something more specific (no daemon
+ * registered, or its tier is below 2) and a cached value would just mask
+ * that instead of surfacing it.
  */
-export const CLOUD_LIST_SCRIPT = "daemons/cloud-list.daemon.js";
-export const CLOUD_LIST_RESULT_FILE = "cloud-list-result.txt";
-
-export interface CloudServerRow {
-    hostname: string;
-    ram: number;
-    usedRam: number;
-    /** True for a player-designated "slave node" (see `ui/utils/slave-nodes.ts`)
-     * — a rooted, non-purchased server the player has opted into the same
-     * worker role a purchased server plays — false/absent for an actual
-     * purchased server. `daemons/cloud-list.daemon.ts` sets this on every row
-     * it returns; every consumer of that snapshot (Share, XP Farm, Programs'
-     * task manager, and the Cloud Servers app's own list) can treat the two
-     * uniformly except where this flag says otherwise (e.g. it can't be
-     * `ns.cloud.deleteServer`'d, and doesn't count against the purchased
-     * server limit). */
-    isSlave?: boolean;
-}
-
-export interface CloudListResult {
-    servers: CloudServerRow[];
-    moneyAvailable: number;
-    serverLimit: number;
-    ramLimit: number;
-    costByRam: Record<number, number>;
+export async function fetchCloudList(enqueueAction: CgdQueue["enqueueAction"]): Promise<CloudListResult> {
+    return (await enqueueAction("cloudList", [])) as CloudListResult;
 }
 
 /**
@@ -42,35 +34,4 @@ export interface CloudListResult {
  */
 export function sortByHostname<T extends { hostname: string }>(rows: T[]): T[] {
     return [...rows].sort((a, b) => a.hostname.localeCompare(b.hostname));
-}
-
-/**
- * Runs `daemons/cloud-list.daemon.js` on `host` (default "home") and returns
- * its result. If that fails — most commonly because `host` has no free RAM
- * to spare for even this tiny daemon (e.g. it's fully loaded running other
- * scripts) — falls back to whatever the previous run last wrote to
- * `CLOUD_LIST_RESULT_FILE`, stale as it may be, instead of surfacing an
- * empty list. A stale hostname list is still correct for "is this program
- * running on any cloud server" detection (Programs' use of this), which is
- * what would otherwise silently go blind whenever `host` is busy — its own
- * RAM/money figures being momentarily out of date matters much less there
- * than losing track of what's actually running. Only rethrows if there's no
- * previous result to fall back on either.
- */
-export async function fetchCloudList(
-    ns: QueuedNS,
-    addChildPid: (pid: number) => void,
-    host = "home"
-): Promise<CloudListResult> {
-    try {
-        return await runDaemon(ns, addChildPid, CLOUD_LIST_SCRIPT, host, CLOUD_LIST_RESULT_FILE);
-    } catch (err) {
-        try {
-            const raw = await ns.read(CLOUD_LIST_RESULT_FILE);
-            if (raw) return JSON.parse(raw);
-        } catch {
-            // Fall through to rethrowing the original error below.
-        }
-        throw err;
-    }
 }

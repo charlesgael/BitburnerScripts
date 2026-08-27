@@ -3,6 +3,8 @@ import { fetchCloudList } from "../../../utils/cloud-list";
 import { readNetworkHosts } from "../../../utils/network-hosts";
 import { pullRemoteFile, pushRemoteFile } from "../../../utils/remote-file-bounce";
 import { isRunnable } from "../../../utils/file-types";
+import { CgdQueue } from "../../../../cgd/types";
+import { QueuedNS } from "../../../utils/ns-proxy";
 import { HostEntry, Entry } from "./types";
 import { computeEntries } from "./compute-entries";
 import { canViewFile } from "./can-view-file";
@@ -15,8 +17,19 @@ import { canViewFile } from "./can-view-file";
  * return value. See `../index.ts`'s header comment for the app's own
  * design notes (why everything goes through the queued `ns`, the
  * View/Edit host restrictions, etc).
+ *
+ * `ns` is typed `QueuedNS` (not `any`, as it was before) specifically so
+ * every call below has to go through its `_`-prefixed methods — see
+ * `ns-proxy.ts`'s header comment for why an untyped/loosely-typed `ns`
+ * parameter is exactly what let this file's calls silently inflate
+ * `ui.app.js`'s measured RAM cost without the compiler ever catching it.
  */
-export function useFileExplorer(React: any, ns: any, addChildPid: (pid: number) => void) {
+export function useFileExplorer(
+    React: any,
+    ns: QueuedNS,
+    addChildPid: (pid: number) => void,
+    callAction: CgdQueue["enqueueAction"]
+) {
     const [hosts, setHosts]: [HostEntry[], (v: HostEntry[]) => void] = React.useState([
         { hostname: "home", icon: "🏠" },
     ]);
@@ -61,7 +74,7 @@ export function useFileExplorer(React: any, ns: any, addChildPid: (pid: number) 
         const result: HostEntry[] = [{ hostname: "home", icon: "🏠" }];
         const seen = new Set(["home"]);
         try {
-            const cloud = await fetchCloudList(ns, addChildPid);
+            const cloud = await fetchCloudList(callAction);
             for (const s of cloud.servers) {
                 if (seen.has(s.hostname)) continue;
                 result.push({ hostname: s.hostname, icon: "🖥️" });
@@ -91,7 +104,7 @@ export function useFileExplorer(React: any, ns: any, addChildPid: (pid: number) 
         setFilesLoading(true);
         setFilesError(null);
         try {
-            const list = await ns.ls(host);
+            const list = await ns._ls(host);
             setFiles(list);
         } catch (err) {
             setFilesError(err instanceof Error ? err.message : String(err));
@@ -127,7 +140,7 @@ export function useFileExplorer(React: any, ns: any, addChildPid: (pid: number) 
             return;
         }
         (async () => {
-            const running = await ns.isRunning(selected, selectedHost);
+            const running = await ns._isRunning(selected, selectedHost);
             if (!cancelled) setSelectedRunning(running);
         })();
         return () => {
@@ -180,7 +193,7 @@ export function useFileExplorer(React: any, ns: any, addChildPid: (pid: number) 
         setEditError(null);
         setEditBusy(true);
         try {
-            const content = host === "home" ? await ns.read(path) : await pullRemoteFile(ns, host, path);
+            const content = host === "home" ? await ns._read(path) : await pullRemoteFile(ns, host, path);
             setEditContent(content);
             setEditDirty(false);
             setConfirmDiscardEditor(false);
@@ -206,7 +219,7 @@ export function useFileExplorer(React: any, ns: any, addChildPid: (pid: number) 
         setEditError(null);
         try {
             if (editingHost === "home") {
-                await ns.write(editingPath, editContent, "w");
+                await ns._write(editingPath, editContent, "w");
             } else {
                 await pushRemoteFile(ns, editingHost, editingPath, editContent);
             }
@@ -236,7 +249,7 @@ export function useFileExplorer(React: any, ns: any, addChildPid: (pid: number) 
         setActionBusy(true);
         setActionError(null);
         try {
-            const pid = await ns.exec(path, selectedHost, 1);
+            const pid = await ns._exec(path, selectedHost, 1);
             if (pid === 0) {
                 throw new Error(`Couldn't start ${path} on ${selectedHost} — enough free RAM, and root access?`);
             }
@@ -252,7 +265,7 @@ export function useFileExplorer(React: any, ns: any, addChildPid: (pid: number) 
         setActionBusy(true);
         setActionError(null);
         try {
-            await ns.kill(path, selectedHost);
+            await ns._kill(path, selectedHost);
             setSelectedRunning(false);
         } catch (err) {
             setActionError(err instanceof Error ? err.message : String(err));
@@ -262,7 +275,7 @@ export function useFileExplorer(React: any, ns: any, addChildPid: (pid: number) 
     }
 
     async function tailFile(path: string) {
-        await ns.ui.openTail(path, selectedHost);
+        await ns._ui._openTail(path, selectedHost);
     }
 
     function startRename(path: string) {
@@ -287,7 +300,7 @@ export function useFileExplorer(React: any, ns: any, addChildPid: (pid: number) 
         setActionBusy(true);
         setActionError(null);
         try {
-            await ns.mv(selectedHost, renaming, destination);
+            await ns._mv(selectedHost, renaming, destination);
             setRenaming(null);
             setSelected(destination);
             await loadFiles(selectedHost);
@@ -311,7 +324,7 @@ export function useFileExplorer(React: any, ns: any, addChildPid: (pid: number) 
         setActionBusy(true);
         setActionError(null);
         try {
-            const ok = await ns.rm(path, selectedHost);
+            const ok = await ns._rm(path, selectedHost);
             if (!ok) throw new Error("Delete failed — is the file currently running?");
             if (selected === path) setSelected(null);
             await loadFiles(selectedHost);
@@ -327,7 +340,7 @@ export function useFileExplorer(React: any, ns: any, addChildPid: (pid: number) 
         setActionBusy(true);
         setActionError(null);
         try {
-            const ok = await ns.scp(path, destHost, selectedHost);
+            const ok = await ns._scp(path, destHost, selectedHost);
             if (!ok) throw new Error(`Copy to ${destHost} failed.`);
             notifySuccess(ns, `Copied ${path} to ${destHost}`);
         } catch (err) {
@@ -345,10 +358,10 @@ export function useFileExplorer(React: any, ns: any, addChildPid: (pid: number) 
         setActionBusy(true);
         setActionError(null);
         try {
-            if (await ns.fileExists(fullPath, "home")) {
+            if (await ns._fileExists(fullPath, "home")) {
                 throw new Error(`${name} already exists.`);
             }
-            await ns.write(fullPath, "", "w");
+            await ns._write(fullPath, "", "w");
             setNewFileOpen(false);
             setNewFileName("");
             await loadFiles("home");

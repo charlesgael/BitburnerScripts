@@ -1,3 +1,5 @@
+import { CgdTier } from "../cgd/types";
+
 /**
  * Shared types for the ui/ tree.
  */
@@ -69,6 +71,19 @@ export interface AppDefinition {
      * against `ns.getResetInfo().ownedSF` — see
      * `ui/utils/app-availability.ts`. Omit for apps with no SF requirement. */
     minSourceFile?: { n: number; lvl: number };
+    /** Optional floor on the currently-running `cgd` daemon's tier (see
+     * `docs/epic-cgd-namespace.md`) — for an app whose actual capability is
+     * dispatched through `cgd.daemon.queue` at a tier higher than 1 (not:
+     * an app that merely needs Singularity/cloud access via its own
+     * independently-spawned script, which `minSourceFile`/`isAvailable`
+     * already cover correctly — see `ui/utils/app-availability.ts`'s header
+     * comment and `singularity-availability.ts` for why those two things
+     * are gated differently). Checked against the daemon tier `ui.app.ts`
+     * fetched once at mount time (`daemon._getTier()`) — like `minSourceFile`,
+     * this can't change without a fresh `ui.app.js` launch to notice, since
+     * nothing currently pushes daemon-tier-change notifications the way
+     * `cgd.store` does for stats. Omit for apps with no tier requirement. */
+    minDaemonTier?: CgdTier;
     /** Escape hatch for availability rules `minRam`/`minSourceFile` can't
      * express (e.g. OR-ing multiple conditions, or checking some other
      * player state entirely). Return `true` when the app should be
@@ -97,4 +112,11 @@ export interface AppAvailabilityContext {
      * `minSourceFile: { n: 4, lvl: 1 }` can't express — see
      * `ui/apps/trainer/`. */
     currentNode: number;
+    /** The currently-running `cgd` daemon's tier — see `minDaemonTier`
+     * above. Sourced from `useDaemonTier()` (`ui/context/daemon-tier-
+     * context.ts`) by whichever app assembles this context for its own
+     * `isAvailable` check (see `ui/apps/task-manager/logic/use-task-
+     * manager.ts`'s `appAvailable`), or threaded directly in `app-grid.tsx`
+     * for `AppDefinition.minDaemonTier`. */
+    daemonTier: CgdTier;
 }

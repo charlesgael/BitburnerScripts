@@ -1,12 +1,12 @@
 import { CloudServersState } from "../logic/use-cloud-servers";
 
 /** The Slave Nodes tab's body: every rooted, non-purchased, non-`home` host
- * on the network (`cs.slaveHosts`, from `daemons/slave-node-hosts.daemon.ts`)
- * as a checkbox row, checked against whichever of those are currently
- * designated (`cs.slaveServers`, from the merged `cloud-list.daemon.ts`
- * snapshot — see `ui/utils/slave-nodes.ts`'s header comment for the full
- * design). Ticking a box designates/releases that host immediately — no
- * separate Add/Save step. */
+ * on the network (`cs.slaveHosts`, from `cgd/actions/slave-nodes.ts`) as a
+ * checkbox row, checked against whichever of those are currently designated
+ * (`cs.slaveServers`, from the merged `cgd/actions/cloud.ts` snapshot — see
+ * `ui/utils/slave-nodes.ts`'s header comment for the full design). Ticking a
+ * box designates/releases that host immediately — no separate Add/Save
+ * step. */
 export function SlaveNodeChecklist({
     React,
     cs,

@@ -1,13 +1,10 @@
 import { useQueuedNs } from "../../../context/ns-queue-context";
 import { useAddChildPid } from "../../../context/child-pids-context";
 import { useHomeRam } from "../../../context/home-ram-context";
+import { useCgdActions } from "../../../context/cgd-actions-context";
 import { fetchCloudList, sortByHostname, CloudServerRow } from "../../../utils/cloud-list";
 import { readXpFarmHosts } from "../../../utils/xp-farm-config";
 import { ShareHost } from "./types";
-
-// Where daemons/cloud-list.daemon.js itself runs to produce the purchased-
-// server snapshot — same convention as the XP Farm/Programs apps.
-const CLOUD_LIST_HOST = "home";
 
 /** All state/behavior for the app's own card grid: the cloud-server list
  * (minus hosts XP Farm has dedicated — see `../index.ts`'s header comment)
@@ -17,6 +14,7 @@ export function useShare(React: any) {
     const ns = useQueuedNs();
     const addChildPid = useAddChildPid();
     const homeRam = useHomeRam();
+    const callAction = useCgdActions();
 
     const [cloudServers, setCloudServers]: [
         CloudServerRow[],
@@ -30,7 +28,7 @@ export function useShare(React: any) {
         setError(null);
         try {
             const [cloudList, xpFarmHosts] = await Promise.all([
-                fetchCloudList(ns, addChildPid, CLOUD_LIST_HOST),
+                fetchCloudList(callAction),
                 readXpFarmHosts(ns),
             ]);
             const dedicated = new Set(xpFarmHosts);

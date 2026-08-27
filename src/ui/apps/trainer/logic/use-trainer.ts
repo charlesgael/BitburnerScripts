@@ -54,13 +54,13 @@ export function useTrainer(React: any) {
     React.useEffect(() => {
         let cancelled = false;
         (async () => {
-            const player = await ns.getPlayer();
+            const player = await ns._getPlayer();
             if (cancelled) return;
             const nextLevels: Record<string, number> = {};
             for (const s of STATS) nextLevels[s.key] = player.skills[s.key];
             setLevels(nextLevels);
 
-            const processes = await ns.ps(DAEMON_HOST);
+            const processes = await ns._ps(DAEMON_HOST);
             if (cancelled) return;
             const proc = processes.find((p) => p.filename === DAEMON_SCRIPT);
             if (!proc) {
@@ -91,7 +91,7 @@ export function useTrainer(React: any) {
     React.useEffect(() => {
         let cancelled = false;
         (async () => {
-            const cost = await ns.getScriptRam(DAEMON_SCRIPT, DAEMON_HOST);
+            const cost = await ns._getScriptRam(DAEMON_SCRIPT, DAEMON_HOST);
             if (!cancelled) setDaemonRam(cost);
         })();
         return () => {
@@ -107,12 +107,12 @@ export function useTrainer(React: any) {
 
         const interval = setInterval(() => {
             (async () => {
-                const stillRunning = await ns.isRunning(pid);
+                const stillRunning = await ns._isRunning(pid);
                 if (!stillRunning) {
                     setPid(null);
                     return;
                 }
-                const player = await ns.getPlayer();
+                const player = await ns._getPlayer();
                 setLevels((prev: Record<string, number>) => ({
                     ...prev,
                     [selectedStat]: player.skills[selectedStat as StatKey],
@@ -128,7 +128,7 @@ export function useTrainer(React: any) {
         setError(null);
         try {
             if (pid != null) {
-                await ns.kill(pid);
+                await ns._kill(pid);
                 setPid(null);
                 return;
             }
@@ -150,7 +150,7 @@ export function useTrainer(React: any) {
                 return;
             }
 
-            const newPid = await ns.exec(DAEMON_SCRIPT, DAEMON_HOST, 1, selectedStat, targetLevel, focus);
+            const newPid = await ns._exec(DAEMON_SCRIPT, DAEMON_HOST, 1, selectedStat, targetLevel, focus);
             if (newPid === 0) {
                 setError(`Couldn't launch ${DAEMON_SCRIPT} — enough RAM? Is it deployed to ${DAEMON_HOST}?`);
                 return;
