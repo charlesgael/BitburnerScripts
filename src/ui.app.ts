@@ -154,6 +154,17 @@ export async function main(ns: NS) {
       setTimeout(async () => {
         try {
           unmountReactApps(cgd)
+          cgd.daemon?._stop()
+        }
+        catch (err) {
+          console.error('ui.app.js full stop failed:', err)
+        }
+      }, 0)
+    },
+    () => {
+      setTimeout(async () => {
+        try {
+          unmountReactApps(cgd)
           // Goes through the daemon's queue, not a raw
           // ns.exec(...): this closure's own `ns` was captured
           // from this main() call, which has long since returned

@@ -27,6 +27,7 @@ export function createStatusPanel(
   container: any,
   getDaemon: () => CgdDaemon | undefined,
   onStop: () => void,
+  onFullStop: () => void,
   onRestart: () => void,
 ) {
   const { React } = globals
@@ -40,14 +41,22 @@ export function createStatusPanel(
         <div style={{ marginBottom: '8px', fontWeight: 'bold' }}>Bitburner UI</div>
         <div style={{ marginBottom: '10px', opacity: 0.85 }}>
           Daemon: tier
+          {' '}
           {daemonTier}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <button onClick={onRestart} className="bb-btn">
-            Restart
-          </button>
+          {daemonTier
+            ? (
+                <button onClick={onRestart} className="bb-btn">
+                  Restart
+                </button>
+              )
+            : null}
           <button onClick={onStop} className="bb-btn bb-btn-danger">
             Quit
+          </button>
+          <button onClick={onFullStop} className="bb-btn bb-btn-danger">
+            Quit & Stop daemon
           </button>
         </div>
       </div>,
