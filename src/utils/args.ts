@@ -1,10 +1,16 @@
 import { NS, ScriptArg } from "@ns";
 
+type Value = string | number | boolean | string[];
+
 export interface BitburnerFlagSpec {
-    short: string;
+    short?: string;
     long: string;
-    defaultValue: string | number | boolean | string[]; // Native default overrides type functions
+    defaultValue: Value; // Native default overrides type functions
     description: string;
+}
+
+export function arg(long: string, defaultValue: Value, description: string, short?: string): BitburnerFlagSpec {
+    return { long, defaultValue, description, short };
 }
 
 type Expand<T> = { [K in keyof T]: T[K] } & {};
@@ -35,7 +41,7 @@ export function parseArgs<T extends readonly BitburnerFlagSpec[]>(
     customSchema: T
 ): ParsedFlags<T> {
     // Bitburner expects a native schema array of tuples: [["flagName", defaultValue]]
-    const nsSchema: [string, string | number | boolean | string[]][] = [];
+    const nsSchema: [string, Value][] = [];
     const helpTextRows: string[] = [];
 
     // Add help text row for the automatically injected help flags
@@ -44,7 +50,7 @@ export function parseArgs<T extends readonly BitburnerFlagSpec[]>(
     for (const item of customSchema) {
         // Bitburner maps options directly, but you can explicitly accept both long and short variants
         nsSchema.push([item.long, item.defaultValue]);
-        nsSchema.push([item.short, item.defaultValue]);
+        if (item.short) nsSchema.push([item.short, item.defaultValue]);
 
         // Format the data type symbol for your help text presentation
         let typeLabel = "";
@@ -78,17 +84,19 @@ export function parseArgs<T extends readonly BitburnerFlagSpec[]>(
     // RECONCILIATION STEP:
     // Look at every flag pair. If one was modified from the default, sync them both!
     for (const item of customSchema) {
-        const longValue = flags[item.long];
-        const shortValue = flags[item.short];
+        if (item.short) {
+            const longValue = flags[item.long];
+            const shortValue = flags[item.short];
 
-        // If either value does not match the original default fallback,
-        // it means the user modified it in the terminal.
-        if (JSON.stringify(longValue) !== JSON.stringify(item.defaultValue)) {
-            flags[item.short] = longValue;
-        } else if (
-            JSON.stringify(shortValue) !== JSON.stringify(item.defaultValue)
-        ) {
-            flags[item.long] = shortValue;
+            // If either value does not match the original default fallback,
+            // it means the user modified it in the terminal.
+            if (JSON.stringify(longValue) !== JSON.stringify(item.defaultValue)) {
+                flags[item.short] = longValue;
+            } else if (
+                JSON.stringify(shortValue) !== JSON.stringify(item.defaultValue)
+            ) {
+                flags[item.long] = shortValue;
+            }
         }
     }
 

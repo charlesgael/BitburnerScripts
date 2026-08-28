@@ -52,6 +52,7 @@ const THEME = {
     error: `var(--bb-theme-error, #f55)`,
     warning: `var(--bb-theme-warning, #cc0)`,
     hack: `var(--bb-theme-hack, #8ccf27)`,
+    int: `var(--bb-theme-int, #6495ed)`,
     green: `rgb(0, 255, 0)`,
     blue: `rgb(0, 0, 255)`,
     red: `rgb(255, 0, 0)`,
@@ -106,6 +107,11 @@ function parseDisplayFlags(ns: NS) {
             long: `cloud`,
             defaultValue: false,
             description: `Show owned cloud servers`,
+        },
+        {
+            long: "ram",
+            defaultValue: false,
+            description: "Show host amount of RAM",
         },
     ] as const);
 }
@@ -261,9 +267,8 @@ function Badge({ text, color }: BadgeProps) {
         <span
             style={{
                 display: `inline-block`,
-                padding: `0 6px`,
-                borderRadius: `999px`,
-                fontSize: `9px`,
+                padding: `1px 4px 0`,
+                fontSize: `11px`,
                 lineHeight: `11px`,
                 border: `1px solid ${color}`,
                 color,
@@ -345,6 +350,12 @@ function TreeRow({
                     path={node.path}
                     color={nodeColor(server, playerHackLevel, exploitCount)}
                 />
+                {flags.root && server.hasAdminRights ? (
+                    <Badge text="ROOT" color={THEME.primary} />
+                ) : null}
+                {flags.ram && server.maxRam ? (
+                    <Badge text={`${server.maxRam}GB`} color={THEME.int} />
+                ) : null}
                 {flags.level && server.requiredHackingSkill ? (
                     <Badge
                         text={`Lv ${server.requiredHackingSkill}`}
@@ -376,9 +387,6 @@ function TreeRow({
                         text={formatMoney(server.moneyAvailable)}
                         color={THEME.warning}
                     />
-                ) : null}
-                {flags.root && server.hasAdminRights ? (
-                    <Badge text="ROOT" color={THEME.primary} />
                 ) : null}
             </div>
             {node.children.map((child, index) => (
@@ -518,12 +526,7 @@ export async function main(ns: NS) {
 
     const playerHackLevel = ns.getHackingLevel();
 
-    const root = buildTree(
-        ns,
-        host,
-        findPathFromHome(ns, host),
-        flags.showCloud
-    );
+    const root = buildTree(ns, host, findPathFromHome(ns, host), flags.cloud);
 
     const dom = getDomContext(ns);
     if (!dom) {
