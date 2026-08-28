@@ -144,7 +144,7 @@ export async function main(ns: NS) {
   const serverFile = `known-servers.json.txt`
   const flooded: Server[] = []
   const bots: Server[] = []
-  const weakeningHosts = []
+  const weakeningHosts: string[] = []
   const bankFilter = (s: Server) => s.moneyMax || -1 > 0
   let nextBankIndex = 0
 

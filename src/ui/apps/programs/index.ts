@@ -45,7 +45,11 @@ export const ProgramsApp: AppDefinition = createTaskManagerApp('programs', 'Prog
   {
     script: 'flooder.app.js',
     label: 'Flooder',
-    buildArgs: readSlaveNodes,
+    buildArgs: async ns => [
+      ...(await readSlaveNodes(ns)),
+      // We do not want to kill the daemon
+      await ns._getHostname(),
+    ],
     singleInstance: true,
     requires: ['netmapper.app.js'],
   },
