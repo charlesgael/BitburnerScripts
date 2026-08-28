@@ -1,6 +1,6 @@
 import { NS } from "@ns";
-import arg from "arg";
 import { getCgd } from "./cgd/window-cgd";
+import { parseArgs } from "./utils/args";
 
 /**
  * One-shot bootstrap: ensures a tiered daemon is running (auto-picking the
@@ -69,29 +69,17 @@ function chooseTier(ns: NS, freeRam: number): { tier: number; script: string } |
 export async function main(ns: NS): Promise<void> {
     ns.disableLog("ALL");
 
-    const args = arg({
-        '--force': Boolean,
-        '--help': Boolean,
-
-        '-f': '--force',
-        '-h': '--help'
-    }, {
-        argv: ns.args.map(String)
-    });
+    const args = parseArgs(ns, [
+        {
+            short: 'f',
+            long: 'force',
+            defaultValue: false,
+            description: 'Force daemon replacement'
+        }
+    ]);
 
     const win = eval("window");
     const cgd = getCgd(win);
-
-    if (args['--help']) {
-        ns.tprint(`
-Usage: run start.js [options] [Daemon Tier [Target Host]]
-
-Options:
-  -f, --force  Force daemon replacement
-  -h, --help   Show this menu
-`)
-        return;
-    }
 
     const forcedTier = args._[0] !== undefined ? Number( args._[0]) : undefined;
     const remote =  args._[1] !== undefined ? String( args._[1]) : "home";

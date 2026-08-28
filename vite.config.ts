@@ -1,7 +1,5 @@
 /* eslint-env node */
 // import commonjs from "@rollup/plugin-commonjs";
-import commonjs from '@rollup/plugin-commonjs';
-import * as esbuild from 'esbuild';
 import { resolve } from "path";
 import type { ConfigEnv } from "vite";
 import type { ViteBurnerUserConfig } from "viteburner";
@@ -17,84 +15,6 @@ export default function (env: ConfigEnv): ViteBurnerUserConfig {
                 "/src": srcDir,
             },
         },
-        plugins: [
-            commonjs(), // Seamlessly translates CommonJS (module.exports) to ESM
-
-            // 2. The Universal Node Modules Resolver Plugin
-            {
-              name: 'force-compile-node-modules-inline',
-              // We use 'transform' which intercepts the exact file text right before viteburner syncs it
-              async transform(code, id) {
-                // Only target your local source script files
-                if (!id.match(/\.[jt]s$/) || id.includes('node_modules')) return null;
-
-                // Target: import arg from 'arg' or import anything from 'bare-package'
-                // Does NOT match local imports like './utils.js' or '../math.ts'
-                const importRegex = /import\s+([\w\s*{},]+)\s+from\s+['"]([^./][\w\-_/]+)['"];?/g;
-                let match;
-                let finalCode = code;
-
-                while ((match = importRegex.exec(code)) !== null) {
-                  const [fullMatch, variableName, packageName] = match;
-
-                  try {
-                    // Locate the exact file on your machine
-                    const resolvedPath = require.resolve(packageName);
-
-                    // Compile the library into a single self-contained variable using esbuild
-                    const result = await esbuild.build({
-                      entryPoints: [resolvedPath],
-                      bundle: true,
-                      format: 'iife',               // Wraps the code cleanly to prevent scope bleeding
-                      globalName: '__inlined_lib__', // Temporary internal attachment variable
-                      write: false,                 // Compiles directly to memory
-                      minify: false,
-                    });
-
-                    const bundleText = result.outputFiles[0].text;
-
-                    // Generate the code to replace the import line completely
-                    const inlineCode = `
-/* --- Inlined ${packageName} --- */
-const ${variableName.trim()} = (() => {
-    ${bundleText}
-    return typeof __inlined_lib__ !== 'undefined' && __inlined_lib__.default
-    ? __inlined_lib__.default
-    : __inlined_lib__;
-})();
-/* --- End Inlined ${packageName} --- */
-`;
-
-                    // Completely delete the 'import ...' line and replace it with our code block
-                    finalCode = finalCode.replace(fullMatch, inlineCode);
-
-                  } catch (e) {
-                    // Ignore game specific globals (like 'ns') or special aliases
-                    continue;
-                  }
-                }
-
-                return {
-                  code: finalCode,
-                  map: null
-                };
-              }
-            }
-        ],
-        build: {
-            rollupOptions: {
-                external(id) {
-                    // Keep your internal files separated inside Bitburner
-                    if (id.startsWith('.') || id.startsWith('/') || id.startsWith('@') || id.includes('src/')) {
-                      return true;
-                    }
-
-                    // Return false for any bare import (like 'arg', 'lodash', etc.)
-                    // This forces Vite to bundle them cleanly into your script!
-                    return false;
-                }
-            }
-        }
     };
 
     if (env?.command === "build") {

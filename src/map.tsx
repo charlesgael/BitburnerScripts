@@ -1,5 +1,6 @@
-import { NS, Server } from "@ns";
+import { NS, Server, ScriptArg } from "@ns";
 import arg from "arg";
+import { parseArgs } from "./utils/args";
 
 /**
  * `React` only exists as the game's `window.React` global (see
@@ -68,106 +69,48 @@ function formatMoney(amount: number): string {
     }).format(amount);
 }
 
-interface DisplayFlags {
-    showLevel: boolean;
-    showOrganization: boolean;
-    showMoney: boolean;
-    showRoot: boolean;
-    showExploits: boolean;
-    showCloud: boolean;
+function parseDisplayFlags(ns: NS) {
+    return parseArgs(ns, [
+        {
+            short: `l`,
+            long: `level`,
+            defaultValue: false,
+            description: `Show each host's required hacking skill`,
+        },
+        {
+            short: `o`,
+            long: `organization`,
+            defaultValue: false,
+            description: `Show each host's owning organization`,
+        },
+        {
+            short: `m`,
+            long: `money`,
+            defaultValue: false,
+            description: `Show each host's available money`,
+        },
+        {
+            short: `r`,
+            long: `root`,
+            defaultValue: false,
+            description: `Show a ROOT badge on hosts you have admin rights on`,
+        },
+        {
+            short: `e`,
+            long: `exploits`,
+            defaultValue: false,
+            description: `Show a badge indicating the number of exploits required`,
+        },
+        {
+            short: `c`,
+            long: `cloud`,
+            defaultValue: false,
+            description: `Show owned cloud servers`,
+        },
+    ] as const);
 }
 
-interface FlagSpec {
-    short: string;
-    long: string;
-    description: string;
-}
-
-/**
- * Single source of truth for every boolean flag this script accepts — named
- * so `parseDisplayFlags` can look each one up directly instead of indexing
- * into an array by position. Both the `ns.flags` schema and `printHelp`'s
- * listing are generated from `ALL_FLAGS`, so a new flag only needs adding
- * there to show up correctly in both places.
- */
-const LEVEL_FLAG: FlagSpec = {
-    short: `l`,
-    long: `level`,
-    description: `Show each host's required hacking skill`,
-};
-const ORGANIZATION_FLAG: FlagSpec = {
-    short: `o`,
-    long: `organization`,
-    description: `Show each host's owning organization`,
-};
-const MONEY_FLAG: FlagSpec = {
-    short: `m`,
-    long: `money`,
-    description: `Show each host's available money`,
-};
-const ROOT_FLAG: FlagSpec = {
-    short: `r`,
-    long: `root`,
-    description: `Show a ROOT badge on hosts you have admin rights on`,
-};
-const EXPLOITS_FLAG: FlagSpec = {
-    short: `e`,
-    long: `exploits`,
-    description: `Show a badge indicating the number of exploits required`,
-};
-const CLOUD_FLAG: FlagSpec = {
-    short: `c`,
-    long: `cloud`,
-    description: `Show owned cloud servers`,
-};
-const HELP_FLAG: FlagSpec = {
-    short: `h`,
-    long: `help`,
-    description: `Show this help and exit`,
-};
-
-const ALL_FLAGS: FlagSpec[] = [
-    LEVEL_FLAG,
-    ORGANIZATION_FLAG,
-    MONEY_FLAG,
-    ROOT_FLAG,
-    EXPLOITS_FLAG,
-    CLOUD_FLAG,
-    HELP_FLAG,
-];
-
-function printHelp(ns: NS) {
-    ns.tprint(`Usage: run map.js [flags] [hostname]`);
-    ns.tprint(
-        `Prints the network as a clickable tree of "connect" links, rooted at`
-    );
-    ns.tprint(`hostname (defaults to home).`);
-    ns.tprint(``);
-    ns.tprint(`Flags:`);
-    for (const spec of ALL_FLAGS) {
-        const names = `-${spec.short}, --${spec.long}`;
-        ns.tprint(`  ${names.padEnd(20)}${spec.description}`);
-    }
-}
-
-function parseDisplayFlags(ns: NS): DisplayFlags & { showHelp: boolean } {
-    const schema: [string, boolean][] = ALL_FLAGS.flatMap((spec) => [
-        [spec.short, false],
-        [spec.long, false],
-    ]);
-    const flags = ns.flags(schema);
-    const has = (spec: FlagSpec) => !!(flags[spec.short] || flags[spec.long]);
-
-    return {
-        showLevel: has(LEVEL_FLAG),
-        showOrganization: has(ORGANIZATION_FLAG),
-        showMoney: has(MONEY_FLAG),
-        showRoot: has(ROOT_FLAG),
-        showExploits: has(EXPLOITS_FLAG),
-        showCloud: has(CLOUD_FLAG),
-        showHelp: has(HELP_FLAG),
-    };
-}
+type DisplayFlags = ReturnType<typeof parseDisplayFlags>;
 
 interface TreeNode {
     host: string;
@@ -402,7 +345,7 @@ function TreeRow({
                     path={node.path}
                     color={nodeColor(server, playerHackLevel, exploitCount)}
                 />
-                {flags.showLevel && server.requiredHackingSkill ? (
+                {flags.level && server.requiredHackingSkill ? (
                     <Badge
                         text={`Lv ${server.requiredHackingSkill}`}
                         color={
@@ -412,7 +355,7 @@ function TreeRow({
                         }
                     />
                 ) : null}
-                {flags.showExploits && server.numOpenPortsRequired ? (
+                {flags.exploits && server.numOpenPortsRequired ? (
                     <Badge
                         text={`Ex ${server.numOpenPortsRequired}`}
                         color={
@@ -422,19 +365,19 @@ function TreeRow({
                         }
                     />
                 ) : null}
-                {flags.showOrganization && server.organizationName ? (
+                {flags.organization && server.organizationName ? (
                     <Badge
                         text={server.organizationName}
                         color={THEME.secondary}
                     />
                 ) : null}
-                {flags.showMoney && server.moneyAvailable ? (
+                {flags.money && server.moneyAvailable ? (
                     <Badge
                         text={formatMoney(server.moneyAvailable)}
                         color={THEME.warning}
                     />
                 ) : null}
-                {flags.showRoot && server.hasAdminRights ? (
+                {flags.root && server.hasAdminRights ? (
                     <Badge text="ROOT" color={THEME.primary} />
                 ) : null}
             </div>
@@ -523,16 +466,16 @@ function printPlainNode(
 
     const tags: string[] = [];
 
-    if (flags.showLevel && node.server.requiredHackingSkill) {
+    if (flags.level && node.server.requiredHackingSkill) {
         tags.push(node.server.requiredHackingSkill.toString());
     }
-    if (flags.showOrganization) {
+    if (flags.organization) {
         tags.push(node.server.organizationName);
     }
-    if (flags.showMoney && node.server.moneyAvailable) {
+    if (flags.money && node.server.moneyAvailable) {
         tags.push(formatMoney(node.server.moneyAvailable));
     }
-    if (flags.showRoot && node.server.hasAdminRights) {
+    if (flags.root && node.server.hasAdminRights) {
         tags.push(`$`);
     }
     const suffix = tags.length > 0 ? ` (${tags.join(` - `)})` : ``;
@@ -555,10 +498,6 @@ function printPlainNode(
 
 export async function main(ns: NS) {
     const flags = parseDisplayFlags(ns);
-    if (flags.showHelp) {
-        printHelp(ns);
-        return;
-    }
 
     let host = `home`;
     const args: string[] = ns.args.filter(
