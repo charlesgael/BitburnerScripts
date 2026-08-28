@@ -1,6 +1,7 @@
 import type { AppDefinition } from '../types'
 import { CloudServersApp } from './cloud-servers'
 import { FileExplorerApp } from './file-explorer'
+import { GoApp } from './go'
 import { ProgramsApp } from './programs'
 import { ShareApp } from './share'
 import { TrainerApp } from './trainer'
@@ -21,4 +22,5 @@ export const APPS: AppDefinition[] = [
   ShareApp,
   XpFarmApp,
   TrainerApp,
+  GoApp,
 ]
