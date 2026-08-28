@@ -1,4 +1,5 @@
 import { NS } from "@ns";
+import arg from "arg";
 import { getCgd } from "./cgd/window-cgd";
 
 /**
@@ -68,16 +69,37 @@ function chooseTier(ns: NS, freeRam: number): { tier: number; script: string } |
 export async function main(ns: NS): Promise<void> {
     ns.disableLog("ALL");
 
+    const args = arg({
+        '--force': Boolean,
+        '--help': Boolean,
+
+        '-f': '--force',
+        '-h': '--help'
+    }, {
+        argv: ns.args.map(String)
+    });
+
     const win = eval("window");
     const cgd = getCgd(win);
 
-    const forcedTier = ns.args[0] !== undefined ? Number(ns.args[0]) : undefined;
-    const remote = ns.args[1] !== undefined ? String(ns.args[1]) : "home";
+    if (args['--help']) {
+        ns.tprint(`
+Usage: run start.js [options] [Daemon Tier [Target Host]]
+
+Options:
+  -f, --force  Force daemon replacement
+  -h, --help   Show this menu
+`)
+        return;
+    }
+
+    const forcedTier = args._[0] !== undefined ? Number( args._[0]) : undefined;
+    const remote =  args._[1] !== undefined ? String( args._[1]) : "home";
 
     const currentTier = cgd.daemon?._getTier();
     const needsDaemon = !cgd.daemon || (forcedTier !== undefined && forcedTier !== currentTier);
 
-    if (needsDaemon) {
+    if (needsDaemon || args['--force']) {
         let target: { tier: number; script: string } | null;
         if (forcedTier !== undefined) {
             target = AVAILABLE_TIERS.find((t) => t.tier === forcedTier) ?? null;
