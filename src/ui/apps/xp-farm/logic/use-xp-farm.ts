@@ -1,14 +1,16 @@
 import type { CloudServerRow } from '../../../utils/cloud-list'
+import type { XpFarmStatus } from '../../../utils/xp-farm-config'
 import { useCgdActions } from '../../../context/cgd-actions-context'
 import { useQueuedNs } from '../../../context/ns-queue-context'
-import { useXpFarmStatus } from '../../../context/xp-farm-status-context'
 import { fetchCloudList, sortByHostname } from '../../../utils/cloud-list'
 import {
   readXpFarmHosts,
   writeXpFarmHosts,
   XP_FARM_DAEMON_HOST,
   XP_FARM_DAEMON_SCRIPT,
+  XP_FARM_GROW_SCRIPT,
   XP_FARM_LOOP_DELAY,
+  XP_FARM_WEAKEN_SCRIPT,
 } from '../../../utils/xp-farm-config'
 
 /**
@@ -20,18 +22,47 @@ import {
 export function useXpFarm(React: any) {
   const ns = useQueuedNs()
   const callAction = useCgdActions()
-  // Live, pushed straight from cgd.store the instant the daemon reports a
-  // new cycle — no polling needed (see xp-farm-status-context.ts's header
-  // comment for why this replaced a setInterval reading xp-farm-status.txt).
-  const status = useXpFarmStatus()
 
   const [servers, setServers]: [CloudServerRow[], (v: CloudServerRow[]) => void] = React.useState([])
   const [enabled, setEnabled]: [Set<string>, (v: Set<string>) => void] = React.useState(() => new Set())
+  // What each dedicated host's grow/weaken loops are actually doing right
+  // now — read straight off `ns.ps(host)` (see fetchStatus below) rather
+  // than trusted from a value the daemon last pushed into cgd.store. The
+  // old store-push channel (every 15s, and only on the daemon's own cycle
+  // boundary) wasn't reactive enough — a toggle could sit unreflected for a
+  // full cycle, and it sometimes never resolved into a render at all. Tier
+  // 1 already allow-lists `ps` (see `daemons/lv1.daemon.ts`), so this needs
+  // nothing beyond what XP Farm's own `minDaemonTier: 2` already requires.
+  const [status, setStatus]: [XpFarmStatus, (v: XpFarmStatus) => void] = React.useState({})
   const [daemonRunning, setDaemonRunning] = React.useState(false)
   const [daemonBusy, setDaemonBusy] = React.useState(false)
   const [loading, setLoading] = React.useState(true)
   const [busyHost, setBusyHost]: [string | null, (v: string | null) => void] = React.useState(null)
   const [error, setError]: [string | null, (v: string | null) => void] = React.useState(null)
+
+  // Reads the grow/weaken processes actually running on each `hosts` entry
+  // and derives an assignment from them — `ns.ps` reports real threads/args
+  // for whatever's genuinely running, so a host with no matching process
+  // yet (still starting) is simply omitted, same as the old "undefined ⇒
+  // starting…" case the components already handle.
+  async function fetchStatus(hosts: string[]): Promise<XpFarmStatus> {
+    const lists = await Promise.all(hosts.map(host => ns._ps(host)))
+    const next: XpFarmStatus = {}
+    lists.forEach((processes, i) => {
+      const host = hosts[i]
+      const grow = processes.find(p => p.filename === XP_FARM_GROW_SCRIPT)
+      const weaken = processes.find(p => p.filename === XP_FARM_WEAKEN_SCRIPT)
+      const target = (grow?.args[0] ?? weaken?.args[0]) as string | undefined
+      if (target === undefined)
+        return
+      next[host] = {
+        target,
+        growThreads: grow?.threads ?? 0,
+        weakenThreads: weaken?.threads ?? 0,
+      }
+    })
+    return next
+  }
 
   async function refresh() {
     setLoading(true)
@@ -45,6 +76,7 @@ export function useXpFarm(React: any) {
       setServers(sortByHostname(cloudList.servers))
       setEnabled(new Set(hosts))
       setDaemonRunning(running)
+      setStatus(await fetchStatus(hosts))
     }
     catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -55,24 +87,29 @@ export function useXpFarm(React: any) {
   }
 
   // This component remounts every time the window is opened — fetch
-  // everything fresh rather than trusting stale state. `status` isn't
-  // fetched here — it comes live from `useXpFarmStatus()` above.
+  // everything fresh rather than trusting stale state.
   React.useEffect(() => {
     void refresh()
     // eslint-disable-next-line react/exhaustive-deps
   }, [])
 
-  // Whether the orchestrator process itself is alive isn't in cgd.store
-  // (only what it reports once running is) — keep polling that one thing
-  // while the window's open, same as before.
+  // Neither "is the orchestrator process itself alive" nor "what are its
+  // managed hosts actually running" survive in any pushed store value
+  // anymore (see fetchStatus above) — poll both directly while the window's
+  // open. Re-subscribes whenever the enabled set changes (toggling a host
+  // on/off) so a freshly-enabled host starts getting polled immediately
+  // rather than waiting for some earlier-scheduled tick.
   const STATUS_POLL_MS = 3000
   React.useEffect(() => {
+    const hosts = [...enabled] as string[]
     const interval = setInterval(() => {
       ns._isRunning(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST).then(setDaemonRunning).catch(() => {})
+      if (hosts.length > 0)
+        fetchStatus(hosts).then(setStatus).catch(() => {})
     }, STATUS_POLL_MS)
     return () => clearInterval(interval)
     // eslint-disable-next-line react/exhaustive-deps
-  }, [])
+  }, [enabled])
 
   async function openLog() {
     await ns._ui._openTail(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST)
@@ -137,8 +174,16 @@ export function useXpFarm(React: any) {
     setBusyHost(hostname)
     try {
       const next = new Set(enabled)
-      if (next.has(hostname)) {
+      const wasEnabled = next.has(hostname)
+      if (wasEnabled) {
         next.delete(hostname)
+        // Instant feedback: this host's own grow/weaken loops may take a
+        // moment to actually die (see the daemon's release handling), but
+        // it's no longer this app's to report on — drop it from the
+        // displayed status right away rather than waiting for the next
+        // poll tick to notice the process is gone.
+        const { [hostname]: _dropped, ...rest } = status
+        setStatus(rest)
       }
       else {
         next.add(hostname)
@@ -152,9 +197,10 @@ export function useXpFarm(React: any) {
           setError(launchError)
         }
       }
-      // No manual re-fetch needed here anymore: `status` comes live
-      // from cgd.store, so it updates on its own the moment the
-      // daemon's next cycle reports the change.
+      // No manual status re-fetch needed for the newly-enabled case: the
+      // poll effect above re-subscribes the instant `enabled` changes, and
+      // its next tick will pick up the daemon's freshly-launched processes
+      // (shown as "starting…" by the components below until then).
     }
     catch (err) {
       setError(err instanceof Error ? err.message : String(err))

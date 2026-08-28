@@ -1,7 +1,5 @@
 import type { NS, Server } from '@ns'
-import type { XpFarmAssignment, XpFarmStatus } from '../cgd/types'
-import { ensureCgdStore } from '../cgd/store'
-import { getCgd } from '../cgd/window-cgd'
+import type { XpFarmAssignment } from '../ui/utils/xp-farm-config'
 import {
   XP_FARM_CONFIG_FILE as CONFIG_FILE,
   XP_FARM_LOOP_DELAY as CONTINUOUS,
@@ -59,7 +57,6 @@ import {
  */
 const CHECK_INTERVAL = 15000
 
-// Same shape `cgd.store`'s `xpFarmStatus` field expects — see cgd/types.ts.
 type Assignment = XpFarmAssignment
 
 function readHosts(ns: NS): string[] {
@@ -73,18 +70,6 @@ function readHosts(ns: NS): string[] {
   catch {
     return []
   }
-}
-
-/**
- * Pushes this cycle's assignments into `cgd.store.xpFarmStatus` — replaces
- * the old `ns.write(STATUS_FILE, ...)`: purely derived, never read back by
- * this daemon itself, so there's no reason for it to touch disk every cycle
- * (see `ui/utils/xp-farm-config.ts`'s header comment).
- */
-function pushStatus(store: ReturnType<typeof ensureCgdStore>, managed: Map<string, Assignment>) {
-  const status: XpFarmStatus = {}
-  for (const [host, assignment] of managed) status[host] = assignment
-  store.setState({ xpFarmStatus: status })
 }
 
 /**
@@ -221,14 +206,6 @@ export async function main(ns: NS) {
     return
   }
 
-  // Reaches `cgd.store` the same way `daemons/lv*.daemon.ts` does — see
-  // `cgd/window-cgd.ts`'s header comment. This daemon isn't one of the
-  // tiered `lv*` processes (it never registers at `cgd.daemon`), but the
-  // store itself is shared, lazily-created, dependency-free infrastructure
-  // any script can reach for — `ensureCgdStore` reuses whichever instance
-  // a tiered daemon already created, or creates it if none has yet.
-  const store = ensureCgdStore(getCgd(eval('window')))
-
   ns.print(`Started. Checking xp-farm-config.txt every ${CHECK_INTERVAL / 1000}s.`)
   const managed = new Map<string, Assignment>()
 
@@ -289,8 +266,6 @@ export async function main(ns: NS) {
       }
       enforceOwnership(ns, host, assignment)
     }
-
-    pushStatus(store, managed)
 
     if (validHosts.length === 0) {
       ns.print('No dedicated servers left — exiting. The app relaunches this when one is enabled again.')
