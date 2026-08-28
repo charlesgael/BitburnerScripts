@@ -27,6 +27,7 @@ export default antfu(
       'react-refresh/only-export-components': 'off',
       // React is v17.0.2, so .Provider is required for context
       'react/no-context-provider': 'off',
+      'react/dom-no-render': 'off',
     },
   },
 )

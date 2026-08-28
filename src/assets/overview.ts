@@ -135,4 +135,8 @@ table:has(#overview-hp-hook) .MuiButton-root {
     padding: 2px 10px !important;
     min-width: 0 !important;
 }
+
+#root > .MuiBox-root > .MuiContainer-maxWidthMd {
+  justify-content: flex-start;
+}
 `.trim()

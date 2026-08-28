@@ -8,6 +8,7 @@ import { initDaemonTierContext } from '../context/daemon-tier-context'
 import { initHomeRamContext } from '../context/home-ram-context'
 import { initNsQueueContext } from '../context/ns-queue-context'
 import { isAppVisible, ramShortfallReason } from '../utils/app-availability'
+import { getReactGlobals, getWinGlobals } from '../utils/react-globals'
 
 interface OpenWindow {
   id: string
@@ -281,6 +282,23 @@ export function createAppGrid(
   }
   doc.addEventListener('keydown', onKeyDown)
 
+  function makePortalContainer() {
+    const { doc } = getWinGlobals()
+
+    const existing = doc.getElementById('windows-portal')
+    if (existing)
+      return existing
+
+    const winTarget = doc.createElement('div')
+    winTarget.id = 'windows-portal'
+    winTarget.style.position = 'absolute'
+    winTarget.style.top = '0px'
+    winTarget.style.left = '0px'
+    doc.body.appendChild(winTarget)
+
+    return winTarget
+  }
+
   function render() {
     // Apps failing minSourceFile/isAvailable are left out of the icon
     // list entirely (see visible() above) — filter before map rather
@@ -435,14 +453,17 @@ export function createAppGrid(
       )
     })
 
-    eval('window').ReactDOM.render(
+    const { ReactDOM } = getReactGlobals()!
+    const portalContainer = makePortalContainer()
+
+    ReactDOM.render(
       <NsQueueContext.Provider value={queuedNs}>
         <ChildPidsContext.Provider value={addChildPid}>
           <HomeRamContext.Provider value={homeRam}>
             <DaemonTierContext.Provider value={daemonTier}>
               <CgdActionsContext.Provider value={callAction}>
                 {grid}
-                {windows}
+                {portalContainer ? ReactDOM.createPortal(windows, portalContainer, 'windows-portal') : windows}
               </CgdActionsContext.Provider>
             </DaemonTierContext.Provider>
           </HomeRamContext.Provider>
