@@ -86,7 +86,7 @@ export async function main(ns: NS): Promise<void> {
   const win = eval('window')
   const cgd = getCgd(win)
 
-  const forcedTier = args._[0] !== undefined ? Number(args._[0]) : undefined
+  const forcedTier = args._[0] !== undefined ? args._[0] : undefined
   const remote = args._[1] !== undefined ? String(args._[1]) : 'home'
 
   const currentTier = cgd.daemon?._getTier()
@@ -94,7 +94,7 @@ export async function main(ns: NS): Promise<void> {
 
   if (needsDaemon || args['--force']) {
     let target: { tier: number, script: string } | null
-    if (forcedTier !== undefined) {
+    if (forcedTier !== undefined && forcedTier !== 'max') {
       target = AVAILABLE_TIERS.find(t => t.tier === forcedTier) ?? null
       if (!target) {
         ns.tprint(`ERROR: start.js — tier ${forcedTier} isn't built yet.`)
