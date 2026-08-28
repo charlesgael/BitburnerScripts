@@ -1,97 +1,97 @@
-import * as Ports from "./ports.lib";
-import { ContractSolver } from "./contracts.lib";
-import { NS } from "@ns";
+import type { NS } from '@ns'
+import { ContractSolver } from './contracts.lib'
+import * as Ports from './ports.lib'
 
 class Contract {
-    constructor(
-        public title: string,
-        public filename: string,
-        public host: string
-    ) {}
+  constructor(
+    public title: string,
+    public filename: string,
+    public host: string,
+  ) {}
 }
 
 function getContractsFromHost(ns: NS, host: string) {
-    const contracts = [];
-    const contractFilenames = ns.ls(host, `.cct`);
-    for (let filename of contractFilenames) {
-        const title = ns.codingcontract.getContractType(filename, host);
-        contracts.push(new Contract(title, filename, host));
-    }
+  const contracts = []
+  const contractFilenames = ns.ls(host, `.cct`)
+  for (const filename of contractFilenames) {
+    const title = ns.codingcontract.getContractType(filename, host)
+    contracts.push(new Contract(title, filename, host))
+  }
 
-    return contracts;
+  return contracts
 }
 
 function findAllContracts(ns: NS) {
-    const serverFile = `known-servers.json.txt`;
-    const servers = JSON.parse(ns.read(serverFile));
+  const serverFile = `known-servers.json.txt`
+  const servers = JSON.parse(ns.read(serverFile))
 
-    ns.print(`\nReloaded ${serverFile}`);
-    ns.print(`Searching for contracts...`);
+  ns.print(`\nReloaded ${serverFile}`)
+  ns.print(`Searching for contracts...`)
 
-    const contracts = [];
-    for (let server of servers) {
-        const hostContracts = getContractsFromHost(ns, server.hostname);
-        contracts.push(...hostContracts);
-    }
+  const contracts = []
+  for (const server of servers) {
+    const hostContracts = getContractsFromHost(ns, server.hostname)
+    contracts.push(...hostContracts)
+  }
 
-    return contracts;
+  return contracts
 }
 
 export async function main(ns: NS) {
-    ns.disableLog(`ALL`);
+  ns.disableLog(`ALL`)
 
-    const tenMinutes = 1000 * 60 * 10;
-    const failures: Contract[] = [];
+  const tenMinutes = 1000 * 60 * 10
+  const failures: Contract[] = []
 
-    while (true) {
-        const contracts = findAllContracts(ns);
+  while (true) {
+    const contracts = findAllContracts(ns)
 
-        if (contracts.length < 1) {
-            ns.print(`No contracts found.`);
-        }
-
-        for (let contract of contracts) {
-            ns.print(
-                `Found: ${contract.host} - ${contract.filename} - ${contract.title}`
-            );
-            if (failures.includes(contract)) {
-                ns.print(`    Skipping due to previous failure...`);
-                continue;
-            }
-
-            const solver = ContractSolver.findSolver(contract.title);
-            if (solver === undefined) {
-                ns.print(`    !!!! NEW !!!!`);
-                continue;
-            }
-
-            const result = await solver.solve(
-                ns,
-                contract.filename,
-                contract.host,
-                Ports.CONTRACT_PORT
-            );
-            let prefix = `Reward`;
-            if (!result.solved) {
-                ns.tail();
-                ns.print(`    !!!! FAILED !!!!`);
-                prefix = `Failure`;
-                failures.push(contract);
-            }
-            ns.print(`    ${prefix}: ${result.message}`);
-        }
-
-        ns.print(`Failed to solve: ${failures.length}`);
-        for (let failure of failures) {
-            ns.print(
-                `    ${failure.host} - ${failure.filename} - ${failure.title}`
-            );
-        }
-        ns.print(
-            `Will search again at ${new Date(
-                Date.now() + tenMinutes
-            ).toLocaleTimeString(undefined, { hour12: false })}.`
-        );
-        await ns.sleep(tenMinutes);
+    if (contracts.length < 1) {
+      ns.print(`No contracts found.`)
     }
+
+    for (const contract of contracts) {
+      ns.print(
+        `Found: ${contract.host} - ${contract.filename} - ${contract.title}`,
+      )
+      if (failures.includes(contract)) {
+        ns.print(`    Skipping due to previous failure...`)
+        continue
+      }
+
+      const solver = ContractSolver.findSolver(contract.title)
+      if (solver === undefined) {
+        ns.print(`    !!!! NEW !!!!`)
+        continue
+      }
+
+      const result = await solver.solve(
+        ns,
+        contract.filename,
+        contract.host,
+        Ports.CONTRACT_PORT,
+      )
+      let prefix = `Reward`
+      if (!result.solved) {
+        ns.tail()
+        ns.print(`    !!!! FAILED !!!!`)
+        prefix = `Failure`
+        failures.push(contract)
+      }
+      ns.print(`    ${prefix}: ${result.message}`)
+    }
+
+    ns.print(`Failed to solve: ${failures.length}`)
+    for (const failure of failures) {
+      ns.print(
+        `    ${failure.host} - ${failure.filename} - ${failure.title}`,
+      )
+    }
+    ns.print(
+      `Will search again at ${new Date(
+        Date.now() + tenMinutes,
+      ).toLocaleTimeString(undefined, { hour12: false })}.`,
+    )
+    await ns.sleep(tenMinutes)
+  }
 }

@@ -1,4 +1,4 @@
-import { QueuedNS } from "../utils/ns-proxy";
+import type { QueuedNS } from '../utils/ns-proxy'
 
 /**
  * React's equivalent of Vue's provide/inject: a `Context.Provider` higher
@@ -19,24 +19,26 @@ import { QueuedNS } from "../utils/ns-proxy";
  * `e(SomeComponent, props)` — not a plain helper function you call
  * yourself.
  */
-let NsQueueContext: any = null;
-let ReactRef: any = null;
+let NsQueueContext: any = null
+let ReactRef: any = null
 
 export function initNsQueueContext(React: any) {
-    ReactRef = React;
-    NsQueueContext = React.createContext(null);
-    return NsQueueContext;
+  ReactRef = React
+  NsQueueContext = React.createContext(null)
+  return NsQueueContext
 }
 
-/** Reads the queued `ns` proxy provided by the nearest
- * `NsQueueContext.Provider` (set up in `ui/components/app-grid.tsx`). */
+/**
+ * Reads the queued `ns` proxy provided by the nearest
+ * `NsQueueContext.Provider` (set up in `ui/components/app-grid.tsx`).
+ */
 export function useQueuedNs(): QueuedNS {
-    if (!NsQueueContext) {
-        throw new Error("useQueuedNs() called before initNsQueueContext() ran");
-    }
-    const queuedNs = ReactRef.useContext(NsQueueContext);
-    if (!queuedNs) {
-        throw new Error("useQueuedNs() called outside of an NsQueueContext.Provider");
-    }
-    return queuedNs;
+  if (!NsQueueContext) {
+    throw new Error('useQueuedNs() called before initNsQueueContext() ran')
+  }
+  const queuedNs = ReactRef.useContext(NsQueueContext)
+  if (!queuedNs) {
+    throw new Error('useQueuedNs() called outside of an NsQueueContext.Provider')
+  }
+  return queuedNs
 }

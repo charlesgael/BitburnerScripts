@@ -7,47 +7,47 @@
  * header comment on why that distinction matters here).
  */
 const CANDY_NAMES = [
-    "cupcake",
-    "donut",
-    "eclair",
-    "froyo",
-    "gingerbread",
-    "honeycomb",
-    "icecream",
-    "jellybean",
-    "kitkat",
-    "lollipop",
-    "marshmallow",
-    "nougat",
-    "oreo",
-    "pie",
-    "gumdrop",
-    "toffee",
-    "praline",
-    "truffle",
-    "caramel",
-    "licorice",
-    "fudge",
-    "brittle",
-    "taffy",
-    "lemondrop",
-    "peppermint",
-    "butterscotch",
-    "gumball",
-    "skittle",
-    "twizzler",
-    "wafer",
-    "sherbet",
-    "meringue",
-    "marzipan",
-    "brownie",
-    "cookie",
-    "pretzel",
-    "waffle",
-    "biscuit",
-    "sundae",
-    "popsicle",
-];
+  'cupcake',
+  'donut',
+  'eclair',
+  'froyo',
+  'gingerbread',
+  'honeycomb',
+  'icecream',
+  'jellybean',
+  'kitkat',
+  'lollipop',
+  'marshmallow',
+  'nougat',
+  'oreo',
+  'pie',
+  'gumdrop',
+  'toffee',
+  'praline',
+  'truffle',
+  'caramel',
+  'licorice',
+  'fudge',
+  'brittle',
+  'taffy',
+  'lemondrop',
+  'peppermint',
+  'butterscotch',
+  'gumball',
+  'skittle',
+  'twizzler',
+  'wafer',
+  'sherbet',
+  'meringue',
+  'marzipan',
+  'brownie',
+  'cookie',
+  'pretzel',
+  'waffle',
+  'biscuit',
+  'sundae',
+  'popsicle',
+]
 
 /**
  * Picks a random name for a new cloud server. Prefers a name not already in
@@ -57,8 +57,8 @@ const CANDY_NAMES = [
  * falling back to a random pick once every themed name is taken is fine.
  */
 export function pickCloudServerName(existingHostnames: string[]): string {
-    const used = new Set(existingHostnames.map((h) => h.toLowerCase()));
-    const available = CANDY_NAMES.filter((name) => !used.has(name));
-    const pool = available.length > 0 ? available : CANDY_NAMES;
-    return pool[Math.floor(Math.random() * pool.length)];
+  const used = new Set(existingHostnames.map(h => h.toLowerCase()))
+  const available = CANDY_NAMES.filter(name => !used.has(name))
+  const pool = available.length > 0 ? available : CANDY_NAMES
+  return pool[Math.floor(Math.random() * pool.length)]
 }

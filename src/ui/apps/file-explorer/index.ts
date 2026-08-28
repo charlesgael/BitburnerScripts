@@ -1,5 +1,5 @@
-import { AppDefinition } from "../../types";
-import { FileExplorerContent } from "./components/file-explorer-content";
+import type { AppDefinition } from '../../types'
+import { FileExplorerContent } from './components/file-explorer-content'
 
 /**
  * A small Windows-Explorer-flavored file browser: a left-hand list of
@@ -29,15 +29,15 @@ import { FileExplorerContent } from "./components/file-explorer-content";
  * is plain presentational JSX driven off that hook's return value.
  */
 export const FileExplorerApp: AppDefinition = {
-    id: "file-explorer",
-    icon: "🗂️",
-    label: "Files",
-    Content: FileExplorerContent,
-    preferredWidth: 900,
-    preferredHeight: 600,
-    // Floor wide enough for the host sidebar (154px) plus a usable file
-    // grid beside it — below this the grid gets squeezed to nothing before
-    // the sidebar does. See `minWidth`/`minHeight` on `AppDefinition`.
-    minWidth: 650,
-    minHeight: 500,
-};
+  id: 'file-explorer',
+  icon: '🗂️',
+  label: 'Files',
+  Content: FileExplorerContent,
+  preferredWidth: 900,
+  preferredHeight: 600,
+  // Floor wide enough for the host sidebar (154px) plus a usable file
+  // grid beside it — below this the grid gets squeezed to nothing before
+  // the sidebar does. See `minWidth`/`minHeight` on `AppDefinition`.
+  minWidth: 650,
+  minHeight: 500,
+}

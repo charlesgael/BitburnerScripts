@@ -1,33 +1,33 @@
 {
-    "compilerOptions": {
-        "module": "esnext",
-        "target": "esnext",
-        "lib": ["esnext", "dom"],
-        "types": ["vite/client", "node", "viteburner", "react"],
-        "jsx": "react",
-        "strict": true,
-        "allowJs": true,
-        "noEmit": true,
-        "isolatedModules": true,
-        "esModuleInterop": true,
-        "baseUrl": ".",
-        "inlineSourceMap": true,
-        "moduleResolution": "Node",
-        "resolveJsonModule": true,
-        "skipLibCheck": true,
-        "paths": {
-            "@/*": ["./src/*"],
-            "/src/*": ["./src/*"],
-            "@ns": ["./NetscriptDefinitions.d.ts"]
-        }
+  "compilerOptions": {
+    "target": "esnext",
+    "jsx": "react",
+    "lib": ["esnext", "dom"],
+    "baseUrl": ".",
+    "module": "esnext",
+    "moduleResolution": "Node",
+    "paths": {
+      "@/*": ["./src/*"],
+      "/src/*": ["./src/*"],
+      "@ns": ["./NetscriptDefinitions.d.ts"]
     },
-    "include": [
-        "src/**/*.ts",
-        "src/**/*.tsx",
-        "src/**/*.js",
-        "NetscriptDefinitions.d.ts",
-        "vite.config.ts",
-        "vite.config.js",
-        "plugin/**/*.ts"
-    ]
+    "resolveJsonModule": true,
+    "types": ["vite/client", "node", "viteburner", "react"],
+    "allowJs": true,
+    "strict": true,
+    "inlineSourceMap": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.js",
+    "NetscriptDefinitions.d.ts",
+    "vite.config.ts",
+    "vite.config.js",
+    "plugin/**/*.ts"
+  ]
 }

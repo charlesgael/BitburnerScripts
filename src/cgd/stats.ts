@@ -1,4 +1,4 @@
-import { NS } from "@ns";
+import type { NS } from '@ns'
 
 /**
  * Stat providers a tiered daemon computes each idle tick and pushes into
@@ -34,59 +34,65 @@ import { NS } from "@ns";
  * Hacking level and money are deliberately not here — the game's own
  * default overview already shows both.
  */
-export type StatValue =
-    | { kind: "text"; label: string; value: string }
-    | { kind: "bar"; label: string; value: string; pct: number };
+export type StatValue
+  = | { kind: 'text', label: string, value: string }
+    | { kind: 'bar', label: string, value: string, pct: number }
 
 export interface StatProvider {
-    id: string;
-    label: string;
-    /** GB — matches the `RAM cost` line(s) in NetscriptDefinitions.d.ts
-     * for whatever `compute` calls; see the comment on each entry. */
-    ramCost: number;
-    enabled: boolean;
-    compute: (ns: NS) => Promise<StatValue>;
+  id: string
+  label: string
+  /**
+   * GB — matches the `RAM cost` line(s) in NetscriptDefinitions.d.ts
+   * for whatever `compute` calls; see the comment on each entry.
+   */
+  ramCost: number
+  enabled: boolean
+  compute: (ns: NS) => Promise<StatValue>
 }
 
 function formatCompact(n: number): string {
-    const abs = Math.abs(n);
-    if (abs >= 1e12) return (n / 1e12).toFixed(2) + "t";
-    if (abs >= 1e9) return (n / 1e9).toFixed(2) + "b";
-    if (abs >= 1e6) return (n / 1e6).toFixed(2) + "m";
-    if (abs >= 1e3) return (n / 1e3).toFixed(2) + "k";
-    return n.toFixed(0);
+  const abs = Math.abs(n)
+  if (abs >= 1e12)
+    return `${(n / 1e12).toFixed(2)}t`
+  if (abs >= 1e9)
+    return `${(n / 1e9).toFixed(2)}b`
+  if (abs >= 1e6)
+    return `${(n / 1e6).toFixed(2)}m`
+  if (abs >= 1e3)
+    return `${(n / 1e3).toFixed(2)}k`
+  return n.toFixed(0)
 }
 
 export const BASELINE_STAT_PROVIDERS: StatProvider[] = [
-    {
-        id: "karma",
-        label: "Karma",
-        // ns.getPlayer — RAM cost: 0.5 GB.
-        ramCost: 0.5,
-        enabled: true,
-        compute: async (ns) => ({
-            kind: "text",
-            label: "Karma",
-            value: (ns.getPlayer()).karma.toFixed(0),
-        }),
+  {
+    id: 'karma',
+    label: 'Karma',
+    // ns.getPlayer — RAM cost: 0.5 GB.
+    ramCost: 0.5,
+    enabled: true,
+    compute: async ns => ({
+      kind: 'text',
+      label: 'Karma',
+      value: (ns.getPlayer()).karma.toFixed(0),
+    }),
+  },
+  {
+    id: 'hacknet-revenue',
+    label: 'Hacknet',
+    // ns.hacknet.numNodes + ns.hacknet.getNodeStats — RAM cost: 0.5 GB
+    // each = 1.0 GB. getNodeStats().production is documented as
+    // "production per second" (money, for classic Hacknet Nodes), so
+    // this sums the live rate across every node rather than a lifetime
+    // total.
+    ramCost: 1.0,
+    enabled: true,
+    compute: async (ns) => {
+      const count = ns.hacknet.numNodes()
+      let perSecond = 0
+      for (let i = 0; i < count; i++) {
+        perSecond += (ns.hacknet.getNodeStats(i)).production
+      }
+      return { kind: 'text', label: 'Hacknet', value: `$${formatCompact(perSecond)}/s` }
     },
-    {
-        id: "hacknet-revenue",
-        label: "Hacknet",
-        // ns.hacknet.numNodes + ns.hacknet.getNodeStats — RAM cost: 0.5 GB
-        // each = 1.0 GB. getNodeStats().production is documented as
-        // "production per second" (money, for classic Hacknet Nodes), so
-        // this sums the live rate across every node rather than a lifetime
-        // total.
-        ramCost: 1.0,
-        enabled: true,
-        compute: async (ns) => {
-            const count = ns.hacknet.numNodes();
-            let perSecond = 0;
-            for (let i = 0; i < count; i++) {
-                perSecond += (ns.hacknet.getNodeStats(i)).production;
-            }
-            return { kind: "text", label: "Hacknet", value: `$${formatCompact(perSecond)}/s` };
-        },
-    },
-];
+  },
+]

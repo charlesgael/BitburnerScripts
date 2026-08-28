@@ -1,5 +1,5 @@
-import { NS } from "@ns";
-import { CgdDaemon } from "../../cgd/types";
+import type { NS } from '@ns'
+import type { CgdDaemon } from '../../cgd/types'
 
 /**
  * `NS` with every property name prefixed with `_` (recursively, into every
@@ -32,14 +32,14 @@ import { CgdDaemon } from "../../cgd/types";
  * a silent RAM leak waiting to be discovered the hard way again.
  */
 type Underscored<T> = {
-    [K in keyof T as K extends string ? `_${K}` : never]: T[K] extends (...args: infer A) => infer R
-        ? (...args: A) => Promise<Awaited<R>>
-        : T[K] extends any[]
-          ? T[K]
-          : T[K] extends object
-            ? Underscored<T[K]>
-            : T[K];
-};
+  [K in keyof T as K extends string ? `_${K}` : never]: T[K] extends (...args: infer A) => infer R
+    ? (...args: A) => Promise<Awaited<R>>
+    : T[K] extends any[]
+      ? T[K]
+      : T[K] extends object
+        ? Underscored<T[K]>
+        : T[K];
+}
 
 /**
  * A handful of NS methods are declared with multiple overloads where
@@ -56,11 +56,11 @@ type Underscored<T> = {
  * than reworking `Underscored` itself, which would risk subtly changing
  * every other already-working call site's inferred type.
  */
-type QueuedNsOverloadFixups = {
-    _kill(pid: number): Promise<boolean>;
-};
+interface QueuedNsOverloadFixups {
+  _kill: (pid: number) => Promise<boolean>
+}
 
-export type QueuedNS = Underscored<NS> & QueuedNsOverloadFixups;
+export type QueuedNS = Underscored<NS> & QueuedNsOverloadFixups
 
 /**
  * Wraps a "current daemon" getter in a Proxy that reads almost exactly like
@@ -94,7 +94,7 @@ export type QueuedNS = Underscored<NS> & QueuedNsOverloadFixups;
  * daemon it should talk to can change afterward without `ui.app.ts` itself
  * relaunching — a different tier taking over via the handoff protocol (see
  * `cgd/daemon-core.ts`). A fixed reference would keep pointing at that
- * *old* daemon's now-dead queue: nothing drains it anymore once that
+ * old* daemon's now-dead queue: nothing drains it anymore once that
  * daemon's process has exited, so a call through it would neither resolve
  * nor reject — it would just hang forever, silently (this happened for
  * real: clicking Restart after a background tier switch closed the old UI
@@ -119,28 +119,29 @@ export type QueuedNS = Underscored<NS> & QueuedNsOverloadFixups;
  * read them once off the real `ns` at startup instead.
  */
 export function createQueuedNs(getDaemon: () => CgdDaemon | undefined): QueuedNS {
-    return makeNsProxy(getDaemon, []) as unknown as QueuedNS;
+  return makeNsProxy(getDaemon, []) as unknown as QueuedNS
 }
 
 function makeNsProxy(getDaemon: () => CgdDaemon | undefined, path: string[]): any {
-    // The Proxy target has to be a function (not a plain object) for the
-    // `apply` trap below to fire — that's what lets the same proxy be both
-    // property-accessed (`._hacknet`) and called (`(...)`).
-    const target = () => {};
+  // The Proxy target has to be a function (not a plain object) for the
+  // `apply` trap below to fire — that's what lets the same proxy be both
+  // property-accessed (`._hacknet`) and called (`(...)`).
+  const target = () => {}
 
-    return new Proxy(target, {
-        get(_target, prop) {
-            if (typeof prop !== "string" || !prop.startsWith("_")) return undefined;
-            return makeNsProxy(getDaemon, [...path, prop.slice(1)]);
-        },
-        apply(_target, _thisArg, args) {
-            const daemon = getDaemon();
-            if (!daemon) {
-                return Promise.reject(
-                    new Error(`No cgd daemon is currently registered — can't call "${path.join(".")}".`)
-                );
-            }
-            return daemon.queue.enqueueCall(path, args);
-        },
-    });
+  return new Proxy(target, {
+    get(_target, prop) {
+      if (typeof prop !== 'string' || !prop.startsWith('_'))
+        return undefined
+      return makeNsProxy(getDaemon, [...path, prop.slice(1)])
+    },
+    apply(_target, _thisArg, args) {
+      const daemon = getDaemon()
+      if (!daemon) {
+        return Promise.reject(
+          new Error(`No cgd daemon is currently registered — can't call "${path.join('.')}".`),
+        )
+      }
+      return daemon.queue.enqueueCall(path, args)
+    },
+  })
 }

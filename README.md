@@ -196,7 +196,7 @@ Viteburner will automatically add an up-to-date type definition file to the root
 ```js
 /** @param {import("../NetscriptDefinitions.d.ts").NS} ns */
 export async function main(ns) {
-    ns.tprint(`Hello world!`);
+  ns.tprint(`Hello world!`)
 }
 ```
 

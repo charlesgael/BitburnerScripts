@@ -1,7 +1,7 @@
-import { CgdStore } from "../../cgd/types";
-import { StatValue } from "../../cgd/stats";
+import type { StatValue } from '../../cgd/stats'
+import type { CgdStore } from '../../cgd/types'
 
-const HOOK_ID = "overview-extra-hook-0";
+const HOOK_ID = 'overview-extra-hook-0'
 
 /**
  * Fills the overview panel's `#overview-extra-hook-0` cell with whatever's
@@ -38,68 +38,72 @@ const HOOK_ID = "overview-extra-hook-0";
  * this component created — it's the game's own, just borrowed.
  */
 export function createOverviewStats() {
-    let unsubscribe: (() => void) | null = null;
+  let unsubscribe: (() => void) | null = null
 
-    function renderLine(doc: any, value: StatValue): any {
-        const line = doc.createElement("div");
-        line.style.cssText = "margin-bottom: 4px;";
+  function renderLine(doc: any, value: StatValue): any {
+    const line = doc.createElement('div')
+    line.style.cssText = 'margin-bottom: 4px;'
 
-        const row = doc.createElement("div");
-        row.style.cssText = "display: flex; margin: 0 8px;";
+    const row = doc.createElement('div')
+    row.style.cssText = 'display: flex; margin: 0 8px;'
 
-        const labelDiv = doc.createElement("div");
-        labelDiv.style.cssText = "flex: 1;";
-        labelDiv.textContent = value.label;
-        row.appendChild(labelDiv);
+    const labelDiv = doc.createElement('div')
+    labelDiv.style.cssText = 'flex: 1;'
+    labelDiv.textContent = value.label
+    row.appendChild(labelDiv)
 
-        const valueDiv = doc.createElement("div");
-        valueDiv.textContent = value.value;
-        row.appendChild(valueDiv);
+    const valueDiv = doc.createElement('div')
+    valueDiv.textContent = value.value
+    row.appendChild(valueDiv)
 
-        line.appendChild(row);
+    line.appendChild(row)
 
-        if (value.kind === "bar") {
-            const track = doc.createElement("div");
-            track.style.cssText =
-                "height: 2px; margin: 2px 4px 0; border-radius: 0; overflow: hidden; " +
-                "background: var(--bb-theme-well, #0b0f0b);";
-            const fill = doc.createElement("div");
-            fill.style.cssText =
-                `height: 100%; width: ${value.pct}%; border-radius: 0; transition: width 0.3s ease; ` +
-                "background: var(--bb-theme-primary, #0f0);";
-            track.appendChild(fill);
-            line.appendChild(track);
-        }
-
-        return line;
+    if (value.kind === 'bar') {
+      const track = doc.createElement('div')
+      track.style.cssText
+        = 'height: 2px; margin: 2px 4px 0; border-radius: 0; overflow: hidden; '
+          + 'background: var(--bb-theme-well, #0b0f0b);'
+      const fill = doc.createElement('div')
+      fill.style.cssText
+        = `height: 100%; width: ${value.pct}%; border-radius: 0; transition: width 0.3s ease; `
+          + 'background: var(--bb-theme-primary, #0f0);'
+      track.appendChild(fill)
+      line.appendChild(track)
     }
 
-    function renderAll(doc: any, stats: Record<string, StatValue>) {
-        const el = doc.getElementById(HOOK_ID);
-        if (!el) return; // overview panel not mounted (e.g. collapsed) right now
+    return line
+  }
 
-        el.style.cssText = "display: flex; flex-direction: column;";
-        el.replaceChildren(...Object.values(stats).map((value) => renderLine(doc, value)));
+  function renderAll(doc: any, stats: Record<string, StatValue>) {
+    const el = doc.getElementById(HOOK_ID)
+    if (!el)
+      return // overview panel not mounted (e.g. collapsed) right now
+
+    el.style.cssText = 'display: flex; flex-direction: column;'
+    el.replaceChildren(...Object.values(stats).map(value => renderLine(doc, value)))
+  }
+
+  function start(doc: any, store: CgdStore) {
+    renderAll(doc, store.getState().stats)
+    unsubscribe = store.subscribe(() => renderAll(doc, store.getState().stats))
+  }
+
+  /**
+   * Unsubscribes from the store and clears the hook back to empty,
+   * dropping the inline style `renderAll` set on it. Safe to call even if
+   * `start` never ran, or the hook is currently missing.
+   */
+  function destroy(doc: any) {
+    if (unsubscribe) {
+      unsubscribe()
+      unsubscribe = null
     }
+    const el = doc.getElementById(HOOK_ID)
+    if (!el)
+      return
+    el.replaceChildren()
+    el.style.cssText = ''
+  }
 
-    function start(doc: any, store: CgdStore) {
-        renderAll(doc, store.getState().stats);
-        unsubscribe = store.subscribe(() => renderAll(doc, store.getState().stats));
-    }
-
-    /** Unsubscribes from the store and clears the hook back to empty,
-     * dropping the inline style `renderAll` set on it. Safe to call even if
-     * `start` never ran, or the hook is currently missing. */
-    function destroy(doc: any) {
-        if (unsubscribe) {
-            unsubscribe();
-            unsubscribe = null;
-        }
-        const el = doc.getElementById(HOOK_ID);
-        if (!el) return;
-        el.replaceChildren();
-        el.style.cssText = "";
-    }
-
-    return { start, destroy };
+  return { start, destroy }
 }

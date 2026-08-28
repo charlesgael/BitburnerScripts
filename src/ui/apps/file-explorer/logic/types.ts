@@ -1,10 +1,10 @@
 export interface HostEntry {
-    hostname: string;
-    icon: string;
+  hostname: string
+  icon: string
 }
 
 export interface Entry {
-    name: string;
-    fullPath: string;
-    isFolder: boolean;
+  name: string
+  fullPath: string
+  isFolder: boolean
 }

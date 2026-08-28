@@ -1,15 +1,15 @@
-import { NS } from "@ns";
+import type { NS } from '@ns'
 
 export async function main(ns: NS) {
-    const host = ns.args[0] as string;
-    const delay = ns.args[1] as number;
+  const host = ns.args[0] as string
+  const delay = ns.args[1] as number
 
-    while (true) {
-        await ns.sleep(delay);
-        await ns.hack(host);
+  while (true) {
+    await ns.sleep(delay)
+    await ns.hack(host)
 
-        if (delay < 0) {
-            break;
-        }
+    if (delay < 0) {
+      break
     }
+  }
 }

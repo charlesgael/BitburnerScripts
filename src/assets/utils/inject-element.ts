@@ -8,11 +8,11 @@
  * live styling instead of accumulating orphaned `<style>` tags.
  */
 export function ensureStyleElement(doc: any, id: string): any {
-    let el = doc.getElementById(id);
-    if (!el) {
-        el = doc.createElement("style");
-        el.id = id;
-        doc.head.appendChild(el);
-    }
-    return el;
+  let el = doc.getElementById(id)
+  if (!el) {
+    el = doc.createElement('style')
+    el.id = id
+    doc.head.appendChild(el)
+  }
+  return el
 }

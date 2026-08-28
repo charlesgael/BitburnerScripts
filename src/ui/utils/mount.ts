@@ -11,22 +11,22 @@
  * RAM either way.
  */
 export function waitForElement(doc: any, id: string, timeoutMs = 10000, intervalMs = 50): Promise<any> {
-    return new Promise((resolve, reject) => {
-        const start = Date.now();
-        function check() {
-            const el = doc.getElementById(id);
-            if (el) {
-                resolve(el);
-                return;
-            }
-            if (Date.now() - start >= timeoutMs) {
-                reject(new Error(`waitForElement: #${id} never appeared within ${timeoutMs}ms`));
-                return;
-            }
-            setTimeout(check, intervalMs);
-        }
-        check();
-    });
+  return new Promise((resolve, reject) => {
+    const start = Date.now()
+    function check() {
+      const el = doc.getElementById(id)
+      if (el) {
+        resolve(el)
+        return
+      }
+      if (Date.now() - start >= timeoutMs) {
+        reject(new Error(`waitForElement: #${id} never appeared within ${timeoutMs}ms`))
+        return
+      }
+      setTimeout(check, intervalMs)
+    }
+    check()
+  })
 }
 
 /**
@@ -37,18 +37,18 @@ export function waitForElement(doc: any, id: string, timeoutMs = 10000, interval
  * instead of accumulating orphans on every restart.
  */
 export async function mountContainer(doc: any, parentId: string, containerId: string): Promise<any> {
-    const orphan = doc.getElementById(containerId);
-    if (orphan && orphan.parentNode) {
-        orphan.parentNode.removeChild(orphan);
-    }
+  const orphan = doc.getElementById(containerId)
+  if (orphan && orphan.parentNode) {
+    orphan.parentNode.removeChild(orphan)
+  }
 
-    const container = doc.createElement("div");
-    container.id = containerId;
+  const container = doc.createElement('div')
+  container.id = containerId
 
-    const parent = await waitForElement(doc, parentId);
-    parent.appendChild(container);
+  const parent = await waitForElement(doc, parentId)
+  parent.appendChild(container)
 
-    return container;
+  return container
 }
 
 /**
@@ -67,9 +67,11 @@ export async function mountContainer(doc: any, parentId: string, containerId: st
  * the same node is enough to make it visible again, no re-render needed.
  */
 export function reattachIfDetached(doc: any, container: any, parentId: string): void {
-    if (!container || container.isConnected) return;
-    const parent = doc.getElementById(parentId);
-    if (parent) parent.appendChild(container);
+  if (!container || container.isConnected)
+    return
+  const parent = doc.getElementById(parentId)
+  if (parent)
+    parent.appendChild(container)
 }
 
 /**
@@ -90,8 +92,8 @@ export function reattachIfDetached(doc: any, container: any, parentId: string): 
  * repair, re-attaching a container that was deliberately torn down.
  */
 export function startReattachGuardian(doc: any, container: any, parentId: string, intervalMs = 1000): () => void {
-    const id = setInterval(() => reattachIfDetached(doc, container, parentId), intervalMs);
-    return () => clearInterval(id);
+  const id = setInterval(reattachIfDetached, intervalMs, doc, container, parentId)
+  return () => clearInterval(id)
 }
 
 /**
@@ -99,13 +101,15 @@ export function startReattachGuardian(doc: any, container: any, parentId: string
  * DOM. Safe to call multiple times or on an already-detached container.
  */
 export function unmountContainer(ReactDOM: any, container: any): void {
-    if (!container) return;
-    try {
-        ReactDOM.unmountComponentAtNode(container);
-    } catch (e) {
-        // no-op if already unmounted
-    }
-    if (container.parentNode) {
-        container.parentNode.removeChild(container);
-    }
+  if (!container)
+    return
+  try {
+    ReactDOM.unmountComponentAtNode(container)
+  }
+  catch {
+    // no-op if already unmounted
+  }
+  if (container.parentNode) {
+    container.parentNode.removeChild(container)
+  }
 }

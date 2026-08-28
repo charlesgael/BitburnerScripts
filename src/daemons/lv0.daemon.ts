@@ -1,7 +1,7 @@
-import { NS } from "@ns";
-import { runTieredDaemon } from "../cgd/daemon-core";
-import { makeStatPusher } from "../cgd/stat-push";
-import { BASELINE_STAT_PROVIDERS } from "../cgd/stats";
+import type { NS } from '@ns'
+import { runTieredDaemon } from '../cgd/daemon-core'
+import { makeStatPusher } from '../cgd/stat-push'
+import { BASELINE_STAT_PROVIDERS } from '../cgd/stats'
 
 /**
  * Tier 0: the cheapest daemon that still holds `window.cgd.daemon` — no
@@ -17,10 +17,10 @@ import { BASELINE_STAT_PROVIDERS } from "../cgd/stats";
  *
  * Usage: `run daemons/lv0.daemon.js`
  */
-const NO_METHODS: ReadonlySet<string> = new Set();
+const NO_METHODS: ReadonlySet<string> = new Set()
 
 export async function main(ns: NS): Promise<void> {
-    await runTieredDaemon(ns, 0, "daemons/lv0.daemon.js", NO_METHODS, {
-        onIdle: makeStatPusher(BASELINE_STAT_PROVIDERS),
-    });
+  await runTieredDaemon(ns, 0, 'daemons/lv0.daemon.js', NO_METHODS, {
+    onIdle: makeStatPusher(BASELINE_STAT_PROVIDERS),
+  })
 }

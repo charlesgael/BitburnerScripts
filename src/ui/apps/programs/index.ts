@@ -1,7 +1,7 @@
-import { AppDefinition } from "../../types";
-import { singularityAvailable } from "../../utils/singularity-availability";
-import { readSlaveNodes } from "../../utils/slave-nodes";
-import { createTaskManagerApp } from "../task-manager";
+import type { AppDefinition } from '../../types'
+import { singularityAvailable } from '../../utils/singularity-availability'
+import { readSlaveNodes } from '../../utils/slave-nodes'
+import { createTaskManagerApp } from '../task-manager'
 
 /**
  * The actual sidebar-launchable "Programs" app — which .js files it can
@@ -34,52 +34,52 @@ import { createTaskManagerApp } from "../task-manager";
  * the Spawn list entirely without that access rather than offered and
  * failing at spawn time.
  */
-export const ProgramsApp: AppDefinition = createTaskManagerApp("programs", "Programs", "🚀", [
-    { script: "netmapper.app.js", label: "Netmapper" },
-    {
-        script: "cracker.app.js",
-        label: "Cracker",
-        requires: ["netmapper.app.js"],
-        singleInstance: true,
-    },
-    {
-        script: "flooder.app.js",
-        label: "Flooder",
-        buildArgs: readSlaveNodes,
-        singleInstance: true,
-        requires: ["netmapper.app.js"],
-    },
-    {
-        script: "backdoor.lite.app.js",
-        label: "Backdoor Lister",
-        oneShot: true,
-        requires: ["netmapper.app.js"],
-        // Inverted from `singularityAvailable`: this row is the point when
-        // you *don't* have Singularity yet (backdoor.app.js below covers
-        // the case where you do). `!singularityAvailable(ctx)` doesn't work
-        // for this — its return type is `true | string`, and a non-empty
-        // reason string is truthy, so negating it is `false` in both the
-        // available and unavailable case. Comparing against `=== true`
-        // instead reads the tri-state value correctly.
-        isAvailable: (ctx) =>
-            singularityAvailable(ctx) === true ? "Use Backdoor Installer instead — Singularity is available." : true,
-    },
-    {
-        script: "backdoor.app.js",
-        label: "Backdoor Installer",
-        requires: ["netmapper.app.js"],
-        isAvailable: singularityAvailable,
-        singleInstance: true,
-    },
-    {
-        script: "next-targets.app.js",
-        label: "Next Targets",
-        oneShot: true,
-        requires: ["netmapper.app.js"],
-    },
-    {
-        script: "hacknet.app.js",
-        label: "Hacknet",
-        singleInstance: true,
-    },
-]);
+export const ProgramsApp: AppDefinition = createTaskManagerApp('programs', 'Programs', '🚀', [
+  { script: 'netmapper.app.js', label: 'Netmapper' },
+  {
+    script: 'cracker.app.js',
+    label: 'Cracker',
+    requires: ['netmapper.app.js'],
+    singleInstance: true,
+  },
+  {
+    script: 'flooder.app.js',
+    label: 'Flooder',
+    buildArgs: readSlaveNodes,
+    singleInstance: true,
+    requires: ['netmapper.app.js'],
+  },
+  {
+    script: 'backdoor.lite.app.js',
+    label: 'Backdoor Lister',
+    oneShot: true,
+    requires: ['netmapper.app.js'],
+    // Inverted from `singularityAvailable`: this row is the point when
+    // you *don't* have Singularity yet (backdoor.app.js below covers
+    // the case where you do). `!singularityAvailable(ctx)` doesn't work
+    // for this — its return type is `true | string`, and a non-empty
+    // reason string is truthy, so negating it is `false` in both the
+    // available and unavailable case. Comparing against `=== true`
+    // instead reads the tri-state value correctly.
+    isAvailable: ctx =>
+      singularityAvailable(ctx) === true ? 'Use Backdoor Installer instead — Singularity is available.' : true,
+  },
+  {
+    script: 'backdoor.app.js',
+    label: 'Backdoor Installer',
+    requires: ['netmapper.app.js'],
+    isAvailable: singularityAvailable,
+    singleInstance: true,
+  },
+  {
+    script: 'next-targets.app.js',
+    label: 'Next Targets',
+    oneShot: true,
+    requires: ['netmapper.app.js'],
+  },
+  {
+    script: 'hacknet.app.js',
+    label: 'Hacknet',
+    singleInstance: true,
+  },
+])

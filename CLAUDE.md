@@ -23,9 +23,17 @@ There are **two separate source trees** — don't confuse them:
   enable `Options → Remote API`, set the port it prints (default `12525`), click Connect. Files under `src/` sync
   and transpile to JS automatically — there is no separate manual build step.
 - **Type-check**: `npx tsc --noEmit -p tsconfig.json` (or the local binary directly:
-  `./node_modules/.bin/tsc.exe --noEmit -p tsconfig.json` on Windows). This is the only real verification command
-  in this repo — there is no test suite, and although `eslint`/`prettier` are devDependencies, no config file for
-  either exists, so there's nothing to actually run them against.
+  `./node_modules/.bin/tsc.exe --noEmit -p tsconfig.json` on Windows). There is no test suite, so this and lint are
+  the only real verification commands in this repo.
+- **Lint / format**: `npm run lint` (check) / `npm run lint:fix` (autofix). Config is `eslint.config.mjs`, built on
+  [`@antfu/eslint-config`](https://github.com/antfu/eslint-config) (flat config, ESLint 9+, its own stylistic rules
+  — no separate `prettier`, which this repo doesn't use). `ignores` there excludes `src.prestige/` (unmaintained
+  reference material, see above) and `NetscriptDefinitions.d.ts` (regenerated, see below). A couple of rules are
+  turned off project-wide for reasons specific to this codebase (`no-eval`/`no-console` for the `eval("window")`
+  trick and in-game `ns.tprint`-adjacent logging; `react-refresh/only-export-components`, since nothing here runs
+  through Vite's dev server/Fast Refresh — see `eslint.config.mjs`'s own comments). `.zed/settings.json` wires
+  Zed's ESLint extension to run `source.fixAll.eslint` on save for JS/TS/JSX/TSX — install Zed's "ESLint" extension
+  for that to take effect.
 - `NetscriptDefinitions.d.ts` at the repo root is regenerated/overwritten by Viteburner — don't hand-edit it.
 
 ## Known pre-existing issues

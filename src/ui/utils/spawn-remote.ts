@@ -1,4 +1,4 @@
-import { QueuedNS } from "./ns-proxy";
+import type { QueuedNS } from './ns-proxy'
 
 /**
  * Copies `script` from `home` to `host` and starts it there — directly
@@ -21,27 +21,27 @@ import { QueuedNS } from "./ns-proxy";
  * over this exact script+host pair mid-call in practice.
  */
 export interface SpawnRemoteResult {
-    ok: boolean;
-    pid?: number;
-    error?: string;
+  ok: boolean
+  pid?: number
+  error?: string
 }
 
 export async function spawnRemote(
-    ns: QueuedNS,
-    script: string,
-    host: string,
-    threads: number,
-    args: (string | number | boolean)[]
+  ns: QueuedNS,
+  script: string,
+  host: string,
+  threads: number,
+  args: (string | number | boolean)[],
 ): Promise<SpawnRemoteResult> {
-    const copied = await ns._scp(script, host);
-    if (!copied) {
-        return { ok: false, error: `Couldn't copy ${script} to ${host} — does it exist on home?` };
-    }
-    const pid = await ns._exec(script, host, threads, ...args);
-    return pid !== 0
-        ? { ok: true, pid }
-        : {
-              ok: false,
-              error: `Couldn't start ${script} on ${host} — enough free RAM? Already running with different args?`,
-          };
+  const copied = await ns._scp(script, host)
+  if (!copied) {
+    return { ok: false, error: `Couldn't copy ${script} to ${host} — does it exist on home?` }
+  }
+  const pid = await ns._exec(script, host, threads, ...args)
+  return pid !== 0
+    ? { ok: true, pid }
+    : {
+        ok: false,
+        error: `Couldn't start ${script} on ${host} — enough free RAM? Already running with different args?`,
+      }
 }

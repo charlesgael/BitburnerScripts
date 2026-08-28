@@ -1,8 +1,9 @@
-import { AppComponentProps } from "../../../types";
-import { useShare } from "../logic/use-share";
-import { ShareHostCard } from "./share-host-card";
+import type { AppComponentProps } from '../../../types'
+import { useShare } from '../logic/use-share'
+import { ShareHostCard } from './share-host-card'
 
-/** Root component: the refresh header and the per-host card grid. See
+/**
+ * Root component: the refresh header and the per-host card grid. See
  * `../index.ts`'s header comment for what this app does and why.
  *
  * The hook's return is named `shareState`, not `share` — Bitburner's RAM
@@ -15,58 +16,61 @@ import { ShareHostCard } from "./share-host-card";
  * `ns-queue.ts`'s original `run`→`enqueue` rename, just triggered by a
  * declaration instead of a call this time. See
  * `docs/epic-cgd-namespace.md`'s "Validated assumptions" for the fuller
- * writeup. */
+ * writeup.
+ */
 export function ShareContent({ React }: AppComponentProps) {
-    const shareState = useShare(React);
+  const shareState = useShare(React)
 
-    return (
-        <div>
+  return (
+    <div>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          fontSize: '12px',
+          marginBottom: '8px',
+        }}
+      >
+        <button
+          onClick={() => void shareState.refresh()}
+          disabled={shareState.loading}
+          className="bb-btn"
+        >
+          {shareState.loading ? '...' : 'Refresh'}
+        </button>
+      </div>
+
+      {shareState.error
+        ? (
             <div
-                style={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    fontSize: "12px",
-                    marginBottom: "8px",
-                }}
+              className="bb-text-error bb-wrap"
+              style={{
+                fontSize: '11px',
+                marginBottom: '8px',
+              }}
             >
-                <button
-                    onClick={() => void shareState.refresh()}
-                    disabled={shareState.loading}
-                    className="bb-btn"
-                >
-                    {shareState.loading ? "..." : "Refresh"}
-                </button>
+              {shareState.error}
             </div>
+          )
+        : null}
 
-            {shareState.error ? (
-                <div
-                    className="bb-text-error bb-wrap"
-                    style={{
-                        fontSize: "11px",
-                        marginBottom: "8px",
-                    }}
-                >
-                    {shareState.error}
-                </div>
-            ) : null}
-
-            <div
-                style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-                    gap: "8px",
-                }}
-            >
-                {shareState.hosts.map((host) => (
-                    <ShareHostCard
-                        key={host.hostname}
-                        React={React}
-                        ns={shareState.ns}
-                        host={host}
-                        onUsedRamChange={shareState.updateCloudUsedRam}
-                    />
-                ))}
-            </div>
-        </div>
-    );
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+          gap: '8px',
+        }}
+      >
+        {shareState.hosts.map(host => (
+          <ShareHostCard
+            key={host.hostname}
+            React={React}
+            ns={shareState.ns}
+            host={host}
+            onUsedRamChange={shareState.updateCloudUsedRam}
+          />
+        ))}
+      </div>
+    </div>
+  )
 }

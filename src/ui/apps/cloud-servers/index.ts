@@ -1,12 +1,12 @@
-import { AppDefinition } from "../../types";
-import { CloudServersContent } from "./components/cloud-servers-content";
+import type { AppDefinition } from '../../types'
+import { CloudServersContent } from './components/cloud-servers-content'
 
 /**
  * Lets the player buy, list, and delete purchased ("cloud") servers.
  *
  * This app never references `ns.cloud.*` (or `ns.getServerMoneyAvailable`)
  * itself — Bitburner charges a script for every ns.* function it merely
- * *references* anywhere in its reachable code, whether or not that code
+ * references* anywhere in its reachable code, whether or not that code
  * path runs, and since this file is always part of ui.app.js's bundle,
  * writing those here would permanently inflate its footprint. Instead all
  * of that work happens through `window.cgd.daemon.queue.enqueueAction` —
@@ -32,15 +32,15 @@ import { CloudServersContent } from "./components/cloud-servers-content";
  * is plain presentational JSX driven off that hook's return value.
  */
 export const CloudServersApp: AppDefinition = {
-    id: "cloud-servers",
-    icon: "🖥️",
-    label: "Cloud S.",
-    Content: CloudServersContent,
-    // Wide enough to open already showing two ~260px server cards per row
-    // (see the grid in CloudServersContent) instead of the default window
-    // width falling back to a single column.
-    preferredWidth: 850,
-    preferredHeight: 620,
-    minWidth: 290,
-    minDaemonTier: 2,
-};
+  id: 'cloud-servers',
+  icon: '🖥️',
+  label: 'Cloud S.',
+  Content: CloudServersContent,
+  // Wide enough to open already showing two ~260px server cards per row
+  // (see the grid in CloudServersContent) instead of the default window
+  // width falling back to a single column.
+  preferredWidth: 850,
+  preferredHeight: 620,
+  minWidth: 290,
+  minDaemonTier: 2,
+}

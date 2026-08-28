@@ -21,30 +21,32 @@
  * components call to read the value it provides.
  */
 export interface HomeRam {
-    used: number;
-    max: number;
+  used: number
+  max: number
 }
 
-let HomeRamContext: any = null;
-let ReactRef: any = null;
+let HomeRamContext: any = null
+let ReactRef: any = null
 
 export function initHomeRamContext(React: any) {
-    ReactRef = React;
-    HomeRamContext = React.createContext(null);
-    return HomeRamContext;
+  ReactRef = React
+  HomeRamContext = React.createContext(null)
+  return HomeRamContext
 }
 
-/** Reads `home`'s current `{ used, max }` RAM, kept fresh by
+/**
+ * Reads `home`'s current `{ used, max }` RAM, kept fresh by
  * `ui.app.ts`'s main loop (see `ui/utils/home-ram-poller.ts`) and provided
  * by the nearest `HomeRamContext.Provider` (set up in
- * `ui/components/app-grid.tsx`). */
+ * `ui/components/app-grid.tsx`).
+ */
 export function useHomeRam(): HomeRam {
-    if (!HomeRamContext) {
-        throw new Error("useHomeRam() called before initHomeRamContext() ran");
-    }
-    const homeRam = ReactRef.useContext(HomeRamContext);
-    if (!homeRam) {
-        throw new Error("useHomeRam() called outside of a HomeRamContext.Provider");
-    }
-    return homeRam;
+  if (!HomeRamContext) {
+    throw new Error('useHomeRam() called before initHomeRamContext() ran')
+  }
+  const homeRam = ReactRef.useContext(HomeRamContext)
+  if (!homeRam) {
+    throw new Error('useHomeRam() called outside of a HomeRamContext.Provider')
+  }
+  return homeRam
 }

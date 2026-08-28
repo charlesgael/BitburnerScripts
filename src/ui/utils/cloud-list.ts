@@ -1,7 +1,7 @@
-import { CgdQueue } from "../../cgd/types";
-import { CloudListResult, CloudServerRow } from "../../cgd/actions/cloud";
+import type { CloudListResult, CloudServerRow } from '../../cgd/actions/cloud'
+import type { CgdQueue } from '../../cgd/types'
 
-export type { CloudListResult, CloudServerRow };
+export type { CloudListResult, CloudServerRow }
 
 /**
  * Client-side helper for `cgd/actions/cloud.ts`'s `cloudListAction` —
@@ -23,8 +23,8 @@ export type { CloudListResult, CloudServerRow };
  * registered, or its tier is below 2) and a cached value would just mask
  * that instead of surfacing it.
  */
-export async function fetchCloudList(enqueueAction: CgdQueue["enqueueAction"]): Promise<CloudListResult> {
-    return (await enqueueAction("cloudList", [])) as CloudListResult;
+export async function fetchCloudList(enqueueAction: CgdQueue['enqueueAction']): Promise<CloudListResult> {
+  return (await enqueueAction('cloudList', [])) as CloudListResult
 }
 
 /**
@@ -33,5 +33,5 @@ export async function fetchCloudList(enqueueAction: CgdQueue["enqueueAction"]): 
  * order instead of whatever order the daemon happened to enumerate them in.
  */
 export function sortByHostname<T extends { hostname: string }>(rows: T[]): T[] {
-    return [...rows].sort((a, b) => a.hostname.localeCompare(b.hostname));
+  return [...rows].sort((a, b) => a.hostname.localeCompare(b.hostname))
 }

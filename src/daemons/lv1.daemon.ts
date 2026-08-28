@@ -1,8 +1,8 @@
-import { NS } from "@ns";
-import { runTieredDaemon } from "../cgd/daemon-core";
-import { makeStatPusher } from "../cgd/stat-push";
-import { BASELINE_STAT_PROVIDERS } from "../cgd/stats";
-import { CgdActionHandlers } from "../cgd/types";
+import type { NS } from '@ns'
+import type { CgdActionHandlers } from '../cgd/types'
+import { runTieredDaemon } from '../cgd/daemon-core'
+import { makeStatPusher } from '../cgd/stat-push'
+import { BASELINE_STAT_PROVIDERS } from '../cgd/stats'
 
 /**
  * Tier 1's dispatchable surface — an explicit, enumerated list, not "every
@@ -39,28 +39,29 @@ import { CgdActionHandlers } from "../cgd/types";
  * `docs/epic-cgd-namespace.md`'s import-chain section made concrete.
  */
 export const TIER_1_METHODS: readonly string[] = [
-    "exec",
-    "kill",
-    "scp",
-    "rm",
-    "ls",
-    "isRunning",
-    "fileExists",
-    "getScriptRam",
-    "getResetInfo",
-    "getPlayer",
-    "hacknet.numNodes",
-    "hacknet.getNodeStats",
-    "ps",
-    "ui.openTail",
-    "read",
-    "write",
-    "mv",
-    "getServerUsedRam",
-    "getHostname",
-];
+  'exec',
+  'kill',
+  'scp',
+  'rm',
+  'ls',
+  'isRunning',
+  'fileExists',
+  'getScriptRam',
+  'getResetInfo',
+  'getPlayer',
+  'hacknet.numNodes',
+  'hacknet.getNodeStats',
+  'ps',
+  'ui.openTail',
+  'read',
+  'write',
+  'mv',
+  'getServerUsedRam',
+  'getHostname',
+]
 
-/** Referenced-but-never-called, on purpose — see `TIER_1_METHODS`'s header
+/**
+ * Referenced-but-never-called, on purpose — see `TIER_1_METHODS`'s header
  * comment above and `cgd/dispatch.ts`'s `isPathAllowed`. Each line must be
  * a literal property access (not `ns[name]`, which is exactly the computed
  * form that doesn't get counted) so Bitburner's static RAM calculator
@@ -72,27 +73,28 @@ export const TIER_1_METHODS: readonly string[] = [
  * `hacknet.*`) — redundant references cost nothing extra (RAM is per
  * distinct function, not per occurrence), and this way `reserveTier1Ram`
  * alone stays the authoritative, self-contained source of what's reserved,
- * instead of that guarantee depending on `stat-push.ts` never changing. */
+ * instead of that guarantee depending on `stat-push.ts` never changing.
+ */
 export function reserveTier1Ram(ns: NS): void {
-    void ns.exec;
-    void ns.kill;
-    void ns.scp;
-    void ns.rm;
-    void ns.ls;
-    void ns.isRunning;
-    void ns.fileExists;
-    void ns.getScriptRam;
-    void ns.getResetInfo;
-    void ns.getPlayer;
-    void ns.hacknet.numNodes;
-    void ns.hacknet.getNodeStats;
-    void ns.ps;
-    void ns.ui.openTail;
-    void ns.read;
-    void ns.write;
-    void ns.mv;
-    void ns.getServerUsedRam;
-    void ns.getHostname;
+  void ns.exec
+  void ns.kill
+  void ns.scp
+  void ns.rm
+  void ns.ls
+  void ns.isRunning
+  void ns.fileExists
+  void ns.getScriptRam
+  void ns.getResetInfo
+  void ns.getPlayer
+  void ns.hacknet.numNodes
+  void ns.hacknet.getNodeStats
+  void ns.ps
+  void ns.ui.openTail
+  void ns.read
+  void ns.write
+  void ns.mv
+  void ns.getServerUsedRam
+  void ns.getHostname
 }
 
 /**
@@ -114,7 +116,7 @@ export function reserveTier1Ram(ns: NS): void {
  * `lv2.daemon.ts`'s `...TIER_1_ACTIONS` spread keeps working unchanged if a
  * genuinely tier-1-appropriate action shows up later.
  */
-export const TIER_1_ACTIONS: CgdActionHandlers = {};
+export const TIER_1_ACTIONS: CgdActionHandlers = {}
 
 /**
  * Tier 1: the daemon's real baseline. Every method in `TIER_1_METHODS`
@@ -128,15 +130,15 @@ export const TIER_1_ACTIONS: CgdActionHandlers = {};
  * Usage: `run daemons/lv1.daemon.js`
  */
 export async function main(ns: NS): Promise<void> {
-    // Actually called, not just defined: an uncalled, non-exported,
-    // side-effect-free local function is exactly the shape a bundler's
-    // dead-code elimination could legally strip from the deployed output —
-    // which would silently remove the very references this exists to keep
-    // present. Calling it (its body still does nothing observable) is the
-    // safe way to guarantee it survives the build.
-    reserveTier1Ram(ns);
-    await runTieredDaemon(ns, 1, "daemons/lv1.daemon.js", new Set(TIER_1_METHODS), {
-        actionHandlers: TIER_1_ACTIONS,
-        onIdle: makeStatPusher(BASELINE_STAT_PROVIDERS),
-    });
+  // Actually called, not just defined: an uncalled, non-exported,
+  // side-effect-free local function is exactly the shape a bundler's
+  // dead-code elimination could legally strip from the deployed output —
+  // which would silently remove the very references this exists to keep
+  // present. Calling it (its body still does nothing observable) is the
+  // safe way to guarantee it survives the build.
+  reserveTier1Ram(ns)
+  await runTieredDaemon(ns, 1, 'daemons/lv1.daemon.js', new Set(TIER_1_METHODS), {
+    actionHandlers: TIER_1_ACTIONS,
+    onIdle: makeStatPusher(BASELINE_STAT_PROVIDERS),
+  })
 }

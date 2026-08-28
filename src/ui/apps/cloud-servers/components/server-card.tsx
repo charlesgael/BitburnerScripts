@@ -1,55 +1,65 @@
-import { CloudServerRow } from "../../../utils/cloud-list";
-import { CloudServersState } from "../logic/use-cloud-servers";
+import type { CloudServerRow } from '../../../utils/cloud-list'
+import type { CloudServersState } from '../logic/use-cloud-servers'
 
-/** One purchased server's card: hostname + used/total RAM, a thin usage
- * bar, and its Delete button (with an inline confirm step). */
+/**
+ * One purchased server's card: hostname + used/total RAM, a thin usage
+ * bar, and its Delete button (with an inline confirm step).
+ */
 export function ServerCard({
-    React,
-    cs,
-    s,
+  React,
+  cs,
+  s,
 }: {
-    React: any;
-    cs: CloudServersState;
-    s: CloudServerRow;
+  React: any
+  cs: CloudServersState
+  s: CloudServerRow
 }) {
-    const usedPct = s.ram > 0 ? Math.min(100, (s.usedRam / s.ram) * 100) : 0;
-    return (
-        <div className="bb-card">
-            <div
-                style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: "8px",
-                }}
-            >
-                <span className="bb-wrap" style={{ flex: 1 }}>
-                    {s.hostname} ({s.usedRam.toFixed(1)} / {s.ram} GB)
-                </span>
-                <button
-                    onClick={() => cs.handleDeleteClick(s.hostname)}
-                    disabled={cs.busy || s.usedRam > 0}
-                    title={
-                        s.usedRam > 0
-                            ? "Can't delete: processes are running on this server"
-                            : undefined
-                    }
-                    className="bb-btn bb-btn-danger"
-                >
-                    {cs.deleteBusyHost === s.hostname
-                        ? "..."
-                        : cs.confirmDeleteHost === s.hostname
-                        ? "Confirm?"
-                        : "Delete"}
-                </button>
-            </div>
-            {/* Thin per-server RAM usage bar. */}
-            <div className="bb-progress bb-progress--thin">
-                <div
-                    className={`bb-progress-fill${usedPct > 90 ? " bb-progress-fill--danger" : ""}`}
-                    style={{ width: `${usedPct}%` }}
-                />
-            </div>
-        </div>
-    );
+  const usedPct = s.ram > 0 ? Math.min(100, (s.usedRam / s.ram) * 100) : 0
+  return (
+    <div className="bb-card">
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '8px',
+        }}
+      >
+        <span className="bb-wrap" style={{ flex: 1 }}>
+          {s.hostname}
+          {' '}
+          (
+          {s.usedRam.toFixed(1)}
+          {' '}
+          /
+          {s.ram}
+          {' '}
+          GB)
+        </span>
+        <button
+          onClick={() => cs.handleDeleteClick(s.hostname)}
+          disabled={cs.busy || s.usedRam > 0}
+          title={
+            s.usedRam > 0
+              ? 'Can\'t delete: processes are running on this server'
+              : undefined
+          }
+          className="bb-btn bb-btn-danger"
+        >
+          {cs.deleteBusyHost === s.hostname
+            ? '...'
+            : cs.confirmDeleteHost === s.hostname
+              ? 'Confirm?'
+              : 'Delete'}
+        </button>
+      </div>
+      {/* Thin per-server RAM usage bar. */}
+      <div className="bb-progress bb-progress--thin">
+        <div
+          className={`bb-progress-fill${usedPct > 90 ? ' bb-progress-fill--danger' : ''}`}
+          style={{ width: `${usedPct}%` }}
+        />
+      </div>
+    </div>
+  )
 }

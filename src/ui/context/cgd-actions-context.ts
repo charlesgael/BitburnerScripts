@@ -1,4 +1,4 @@
-import { CgdQueue } from "../../cgd/types";
+import type { CgdQueue } from '../../cgd/types'
 
 /**
  * React's equivalent of Vue's provide/inject (see `ns-queue-context.ts` for
@@ -16,26 +16,28 @@ import { CgdQueue } from "../../cgd/types";
  * `ui/components/app-grid.tsx`), and `useCgdActions` is the hook descendant
  * components call to read the value it provides.
  */
-let CgdActionsContext: any = null;
-let ReactRef: any = null;
+let CgdActionsContext: any = null
+let ReactRef: any = null
 
 export function initCgdActionsContext(React: any) {
-    ReactRef = React;
-    CgdActionsContext = React.createContext(null);
-    return CgdActionsContext;
+  ReactRef = React
+  CgdActionsContext = React.createContext(null)
+  return CgdActionsContext
 }
 
-/** Returns the running daemon's `enqueueAction(name, args)` — e.g.
+/**
+ * Returns the running daemon's `enqueueAction(name, args)` — e.g.
  * `await useCgdActions()("cloudList", [])`. Most call sites will want a
  * small typed wrapper (see `ui/utils/cloud-list.ts`'s `fetchCloudList`)
- * rather than calling this directly with a bare action-name string. */
-export function useCgdActions(): CgdQueue["enqueueAction"] {
-    if (!CgdActionsContext) {
-        throw new Error("useCgdActions() called before initCgdActionsContext() ran");
-    }
-    const enqueueAction = ReactRef.useContext(CgdActionsContext);
-    if (!enqueueAction) {
-        throw new Error("useCgdActions() called outside of a CgdActionsContext.Provider");
-    }
-    return enqueueAction;
+ * rather than calling this directly with a bare action-name string.
+ */
+export function useCgdActions(): CgdQueue['enqueueAction'] {
+  if (!CgdActionsContext) {
+    throw new Error('useCgdActions() called before initCgdActionsContext() ran')
+  }
+  const enqueueAction = ReactRef.useContext(CgdActionsContext)
+  if (!enqueueAction) {
+    throw new Error('useCgdActions() called outside of a CgdActionsContext.Provider')
+  }
+  return enqueueAction
 }

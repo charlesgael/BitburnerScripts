@@ -1,10 +1,10 @@
-import { CgdNamespace, CgdStore, CgdStoreState } from "./types";
+import type { CgdNamespace, CgdStore, CgdStoreState } from './types'
 
 const INITIAL_STATE: CgdStoreState = {
-    homeRam: { used: 0, max: 0 },
-    stats: {},
-    xpFarmStatus: {},
-};
+  homeRam: { used: 0, max: 0 },
+  stats: {},
+  xpFarmStatus: {},
+}
 
 /**
  * Hand-rolled, dependency-free vanilla store: `getState`/`setState`/
@@ -25,24 +25,24 @@ const INITIAL_STATE: CgdStoreState = {
  * stat no longer produced after a tier downgrade disappears cleanly.
  */
 function createCgdStore(): CgdStore {
-    let state = INITIAL_STATE;
-    const listeners = new Set<() => void>();
+  let state = INITIAL_STATE
+  const listeners = new Set<() => void>()
 
-    function getState(): CgdStoreState {
-        return state;
-    }
+  function getState(): CgdStoreState {
+    return state
+  }
 
-    function setState(partial: Partial<CgdStoreState>): void {
-        state = { ...state, ...partial };
-        for (const listener of listeners) listener();
-    }
+  function setState(partial: Partial<CgdStoreState>): void {
+    state = { ...state, ...partial }
+    for (const listener of listeners) listener()
+  }
 
-    function subscribe(listener: () => void): () => void {
-        listeners.add(listener);
-        return () => listeners.delete(listener);
-    }
+  function subscribe(listener: () => void): () => void {
+    listeners.add(listener)
+    return () => listeners.delete(listener)
+  }
 
-    return { getState, setState, subscribe };
+  return { getState, setState, subscribe }
 }
 
 /**
@@ -54,8 +54,8 @@ function createCgdStore(): CgdStore {
  * consumer holding the old reference would silently stop seeing updates.
  */
 export function ensureCgdStore(cgd: CgdNamespace): CgdStore {
-    if (!cgd.store) {
-        cgd.store = createCgdStore();
-    }
-    return cgd.store;
+  if (!cgd.store) {
+    cgd.store = createCgdStore()
+  }
+  return cgd.store
 }

@@ -1,5 +1,5 @@
-import { AppDefinition } from "../../types";
-import { ShareContent } from "./components/share-content";
+import type { AppDefinition } from '../../types'
+import { ShareContent } from './components/share-content'
 
 /**
  * Lets the player dedicate spare RAM — on `home` or any purchased ("cloud")
@@ -48,14 +48,14 @@ import { ShareContent } from "./components/share-content";
  * presentational JSX driven off those hooks' return values.
  */
 export const ShareApp: AppDefinition = {
-    id: "share",
-    icon: "🤝",
-    label: "Share",
-    Content: ShareContent,
-    // Wide enough to open already showing two ~220px host cards per row —
-    // same reasoning as the XP Farm/Cloud Servers apps' own preferredWidth.
-    preferredWidth: 700,
-    preferredHeight: 440,
-    minWidth: 550,
-    minHeight: 400,
-};
+  id: 'share',
+  icon: '🤝',
+  label: 'Share',
+  Content: ShareContent,
+  // Wide enough to open already showing two ~220px host cards per row —
+  // same reasoning as the XP Farm/Cloud Servers apps' own preferredWidth.
+  preferredWidth: 700,
+  preferredHeight: 440,
+  minWidth: 550,
+  minHeight: 400,
+}

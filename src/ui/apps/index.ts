@@ -1,10 +1,10 @@
-import { AppDefinition } from "../types";
-import { FileExplorerApp } from "./file-explorer";
-import { ProgramsApp } from "./programs";
-import { CloudServersApp } from "./cloud-servers";
-import { ShareApp } from "./share";
-import { XpFarmApp } from "./xp-farm";
-import { TrainerApp } from "./trainer";
+import type { AppDefinition } from '../types'
+import { CloudServersApp } from './cloud-servers'
+import { FileExplorerApp } from './file-explorer'
+import { ProgramsApp } from './programs'
+import { ShareApp } from './share'
+import { TrainerApp } from './trainer'
+import { XpFarmApp } from './xp-farm'
 
 /**
  * Registry of every app shown in the sidebar grid (see
@@ -14,11 +14,11 @@ import { TrainerApp } from "./trainer";
  * list it here.
  */
 export const APPS: AppDefinition[] = [
-    /* HelloWorldApp, */
-    FileExplorerApp,
-    ProgramsApp,
-    CloudServersApp,
-    ShareApp,
-    XpFarmApp,
-    TrainerApp,
-];
+  /* HelloWorldApp, */
+  FileExplorerApp,
+  ProgramsApp,
+  CloudServersApp,
+  ShareApp,
+  XpFarmApp,
+  TrainerApp,
+]

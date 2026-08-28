@@ -1,4 +1,4 @@
-import { CgdTier } from "../../cgd/types";
+import type { CgdTier } from '../../cgd/types'
 
 /**
  * React's equivalent of Vue's provide/inject (see `ns-queue-context.ts` for
@@ -21,24 +21,26 @@ import { CgdTier } from "../../cgd/types";
  * `ui/components/app-grid.tsx`), and `useDaemonTier` is the hook descendant
  * components call to read the value it provides.
  */
-let DaemonTierContext: any = null;
-let ReactRef: any = null;
+let DaemonTierContext: any = null
+let ReactRef: any = null
 
 export function initDaemonTierContext(React: any) {
-    ReactRef = React;
-    DaemonTierContext = React.createContext(null);
-    return DaemonTierContext;
+  ReactRef = React
+  DaemonTierContext = React.createContext(null)
+  return DaemonTierContext
 }
 
-/** Reads the currently-running daemon's tier, provided by the nearest
- * `DaemonTierContext.Provider` (set up in `ui/components/app-grid.tsx`). */
+/**
+ * Reads the currently-running daemon's tier, provided by the nearest
+ * `DaemonTierContext.Provider` (set up in `ui/components/app-grid.tsx`).
+ */
 export function useDaemonTier(): CgdTier {
-    if (!DaemonTierContext) {
-        throw new Error("useDaemonTier() called before initDaemonTierContext() ran");
-    }
-    const daemonTier = ReactRef.useContext(DaemonTierContext);
-    if (daemonTier == null) {
-        throw new Error("useDaemonTier() called outside of a DaemonTierContext.Provider");
-    }
-    return daemonTier;
+  if (!DaemonTierContext) {
+    throw new Error('useDaemonTier() called before initDaemonTierContext() ran')
+  }
+  const daemonTier = ReactRef.useContext(DaemonTierContext)
+  if (daemonTier == null) {
+    throw new Error('useDaemonTier() called outside of a DaemonTierContext.Provider')
+  }
+  return daemonTier
 }

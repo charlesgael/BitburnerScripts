@@ -1,4 +1,4 @@
-import { NS } from "@ns";
+import type { NS } from '@ns'
 
 /**
  * Compound action (see `cgd/types.ts`'s `CgdActionHandler`) backing the
@@ -14,43 +14,45 @@ import { NS } from "@ns";
  * any earlier than the rest of that app's administrative capability.
  */
 export interface SlaveNodeHost {
-    hostname: string;
-    ram: number;
-    usedRam: number;
+  hostname: string
+  ram: number
+  usedRam: number
 }
 
 /** Every hostname reachable from `home`, found via a plain BFS. */
 function scanNetwork(ns: NS): string[] {
-    const seen = new Set<string>(["home"]);
-    const queue = ["home"];
-    while (queue.length > 0) {
-        const current = queue.shift() as string;
-        for (const neighbor of ns.scan(current)) {
-            if (!seen.has(neighbor)) {
-                seen.add(neighbor);
-                queue.push(neighbor);
-            }
-        }
+  const seen = new Set<string>(['home'])
+  const queue = ['home']
+  while (queue.length > 0) {
+    const current = queue.shift() as string
+    for (const neighbor of ns.scan(current)) {
+      if (!seen.has(neighbor)) {
+        seen.add(neighbor)
+        queue.push(neighbor)
+      }
     }
-    return [...seen];
+  }
+  return [...seen]
 }
 
-/** Walks the whole network from `home` and returns every rooted,
+/**
+ * Walks the whole network from `home` and returns every rooted,
  * non-purchased, non-`home` host — the full checklist the Cloud Servers
  * app's Slave Nodes tab renders, independent of which are currently
  * designated (that's cross-referenced client-side against the already-
  * fetched `CloudServerRow[]` snapshot). Root access alone is what's needed
  * here — same as before, backdoor status is irrelevant to running scripts
- * on a machine. */
+ * on a machine.
+ */
 export async function slaveNodeHostsAction(ns: NS): Promise<{ hosts: SlaveNodeHost[] }> {
-    const hosts: SlaveNodeHost[] = scanNetwork(ns)
-        .filter((hostname) => hostname !== "home")
-        .map((hostname) => ({ hostname, server: ns.getServer(hostname) }))
-        .filter(({ server }) => server.hasAdminRights && !server.purchasedByPlayer)
-        .map(({ hostname }) => ({
-            hostname,
-            ram: ns.getServerMaxRam(hostname),
-            usedRam: ns.getServerUsedRam(hostname),
-        }));
-    return { hosts };
+  const hosts: SlaveNodeHost[] = scanNetwork(ns)
+    .filter(hostname => hostname !== 'home')
+    .map(hostname => ({ hostname, server: ns.getServer(hostname) }))
+    .filter(({ server }) => server.hasAdminRights && !server.purchasedByPlayer)
+    .map(({ hostname }) => ({
+      hostname,
+      ram: ns.getServerMaxRam(hostname),
+      usedRam: ns.getServerUsedRam(hostname),
+    }))
+  return { hosts }
 }

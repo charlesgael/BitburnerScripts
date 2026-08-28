@@ -37,4 +37,4 @@ export const scrollbarStyle = `
 .un-scale ::-webkit-scrollbar-corner {
     background: transparent;
 }
-`.trim();
+`.trim()

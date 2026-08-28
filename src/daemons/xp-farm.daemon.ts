@@ -1,13 +1,13 @@
-import { NS, Server } from "@ns";
+import type { NS, Server } from '@ns'
+import type { XpFarmAssignment, XpFarmStatus } from '../cgd/types'
+import { ensureCgdStore } from '../cgd/store'
+import { getCgd } from '../cgd/window-cgd'
 import {
-    XP_FARM_CONFIG_FILE as CONFIG_FILE,
-    XP_FARM_GROW_SCRIPT as GROW_SCRIPT,
-    XP_FARM_WEAKEN_SCRIPT as WEAKEN_SCRIPT,
-    XP_FARM_LOOP_DELAY as CONTINUOUS,
-} from "../ui/utils/xp-farm-config";
-import { XpFarmAssignment, XpFarmStatus } from "../cgd/types";
-import { ensureCgdStore } from "../cgd/store";
-import { getCgd } from "../cgd/window-cgd";
+  XP_FARM_CONFIG_FILE as CONFIG_FILE,
+  XP_FARM_LOOP_DELAY as CONTINUOUS,
+  XP_FARM_GROW_SCRIPT as GROW_SCRIPT,
+  XP_FARM_WEAKEN_SCRIPT as WEAKEN_SCRIPT,
+} from '../ui/utils/xp-farm-config'
 
 /**
  * Background orchestrator for the XP Farm feature (`ui/apps/xp-farm/`).
@@ -57,83 +57,98 @@ import { getCgd } from "../cgd/window-cgd";
  * manual `run daemons/xp-farm.daemon.js` from the terminal can't end up
  * fighting the app-launched instance over the same hosts.
  */
-const CHECK_INTERVAL = 15000;
+const CHECK_INTERVAL = 15000
 
 // Same shape `cgd.store`'s `xpFarmStatus` field expects — see cgd/types.ts.
-type Assignment = XpFarmAssignment;
+type Assignment = XpFarmAssignment
 
 function readHosts(ns: NS): string[] {
-    const raw = ns.read(CONFIG_FILE);
-    if (!raw) return [];
-    try {
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed : [];
-    } catch {
-        return [];
-    }
+  const raw = ns.read(CONFIG_FILE)
+  if (!raw)
+    return []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  }
+  catch {
+    return []
+  }
 }
 
-/** Pushes this cycle's assignments into `cgd.store.xpFarmStatus` — replaces
+/**
+ * Pushes this cycle's assignments into `cgd.store.xpFarmStatus` — replaces
  * the old `ns.write(STATUS_FILE, ...)`: purely derived, never read back by
  * this daemon itself, so there's no reason for it to touch disk every cycle
- * (see `ui/utils/xp-farm-config.ts`'s header comment). */
+ * (see `ui/utils/xp-farm-config.ts`'s header comment).
+ */
 function pushStatus(store: ReturnType<typeof ensureCgdStore>, managed: Map<string, Assignment>) {
-    const status: XpFarmStatus = {};
-    for (const [host, assignment] of managed) status[host] = assignment;
-    store.setState({ xpFarmStatus: status });
+  const status: XpFarmStatus = {}
+  for (const [host, assignment] of managed) status[host] = assignment
+  store.setState({ xpFarmStatus: status })
 }
 
-/** Every hostname reachable from `home`, found once per cycle rather than
+/**
+ * Every hostname reachable from `home`, found once per cycle rather than
  * cached — the player can root new servers at any time, each one a
- * potentially better target than whatever was picked before. */
+ * potentially better target than whatever was picked before.
+ */
 function scanNetwork(ns: NS): string[] {
-    const seen = new Set<string>(["home"]);
-    const queue = ["home"];
-    while (queue.length > 0) {
-        const current = queue.shift() as string;
-        for (const neighbor of ns.scan(current)) {
-            if (!seen.has(neighbor)) {
-                seen.add(neighbor);
-                queue.push(neighbor);
-            }
-        }
+  const seen = new Set<string>(['home'])
+  const queue = ['home']
+  while (queue.length > 0) {
+    const current = queue.shift() as string
+    for (const neighbor of ns.scan(current)) {
+      if (!seen.has(neighbor)) {
+        seen.add(neighbor)
+        queue.push(neighbor)
+      }
     }
-    return [...seen];
+  }
+  return [...seen]
 }
 
-/** The rooted, non-purchased server with the highest `baseDifficulty`
+/**
+ * The rooted, non-purchased server with the highest `baseDifficulty`
  * (more XP per grow/weaken completion) among those whose hacking-skill
  * requirement the player has already met (keeps per-call time reasonable).
- * null if nothing qualifies (e.g. nothing rooted yet besides home). */
+ * null if nothing qualifies (e.g. nothing rooted yet besides home).
+ */
 function pickTarget(ns: NS): string | null {
-    const hackingLevel = ns.getHackingLevel();
-    let best: Server | null = null;
-    for (const hostname of scanNetwork(ns)) {
-        if (hostname === "home") continue;
-        const server = ns.getServer(hostname);
-        if (!server.hasAdminRights || server.purchasedByPlayer) continue;
-        if ((server.requiredHackingSkill ?? 0) > hackingLevel) continue;
-        if (best === null || (server.baseDifficulty ?? 0) > (best.baseDifficulty ?? 0)) {
-            best = server;
-        }
+  const hackingLevel = ns.getHackingLevel()
+  let best: Server | null = null
+  for (const hostname of scanNetwork(ns)) {
+    if (hostname === 'home')
+      continue
+    const server = ns.getServer(hostname)
+    if (!server.hasAdminRights || server.purchasedByPlayer)
+      continue
+    if ((server.requiredHackingSkill ?? 0) > hackingLevel)
+      continue
+    if (best === null || (server.baseDifficulty ?? 0) > (best.baseDifficulty ?? 0)) {
+      best = server
     }
-    return best?.hostname ?? null;
+  }
+  return best?.hostname ?? null
 }
 
-/** Splits `totalThreads` between weaken and grow so that, cycle over cycle,
+/**
+ * Splits `totalThreads` between weaken and grow so that, cycle over cycle,
  * weaken's security decrease roughly matches grow's security increase —
  * computed from the actual live multipliers rather than a hardcoded ratio,
- * so it stays correct across BitNodes/augmentations that alter them. */
-function splitThreads(ns: NS, totalThreads: number): { growThreads: number; weakenThreads: number } {
-    if (totalThreads <= 1) return { growThreads: 0, weakenThreads: totalThreads };
-    const weakenPerThread = ns.weakenAnalyze(1);
-    const growPerThread = ns.growthAnalyzeSecurity(1);
-    const ratio = growPerThread > 0 ? weakenPerThread / growPerThread : 12.5;
-    const weakenThreads = Math.min(totalThreads - 1, Math.max(1, Math.round(totalThreads / (ratio + 1))));
-    return { growThreads: totalThreads - weakenThreads, weakenThreads };
+ * so it stays correct across BitNodes/augmentations that alter them.
+ */
+function splitThreads(ns: NS, totalThreads: number): { growThreads: number, weakenThreads: number } {
+  if (totalThreads <= 1)
+    return { growThreads: 0, weakenThreads: totalThreads }
+  const weakenPerThread = ns.weakenAnalyze(1)
+  const growPerThread = ns.growthAnalyzeSecurity(1)
+  const ratio = growPerThread > 0 ? weakenPerThread / growPerThread : 12.5
+  const weakenThreads = Math.min(totalThreads - 1, Math.max(1, Math.round(totalThreads / (ratio + 1))))
+  return { growThreads: totalThreads - weakenThreads, weakenThreads }
 }
 
-/** Re-asserts exclusive control of an already-claimed host and launches
+/**
+ * Re-asserts exclusive control of an already-claimed host and launches
  * whichever of its two loops (per `assignment`) aren't already running —
  * safe to call every cycle: never launches a duplicate of one that's
  * already alive, but recovers one that died some other way (e.g. manually
@@ -144,137 +159,144 @@ function splitThreads(ns: NS, totalThreads: number): { growThreads: number; weak
  * foreign process gets its whole process list wiped and both loops
  * relaunched fresh, rather than trying to identify and kill only the
  * intruder — simpler, and "this host runs nothing but its assigned
- * grow/weaken loops" is the invariant this daemon exists to hold. */
+ * grow/weaken loops" is the invariant this daemon exists to hold.
+ */
 function enforceOwnership(ns: NS, host: string, assignment: Assignment) {
-    const foreign = ns.ps(host).some((p) => p.filename !== GROW_SCRIPT && p.filename !== WEAKEN_SCRIPT);
-    if (foreign) {
-        ns.print(`${host}: foreign process detected — reclaiming exclusive control.`);
-        ns.killall(host);
-    }
-    if (assignment.weakenThreads > 0 && !ns.isRunning(WEAKEN_SCRIPT, host, assignment.target, CONTINUOUS)) {
-        ns.print(`${host}: (re)launching weaken loop against ${assignment.target}.`);
-        ns.exec(WEAKEN_SCRIPT, host, assignment.weakenThreads, assignment.target, CONTINUOUS);
-    }
-    if (assignment.growThreads > 0 && !ns.isRunning(GROW_SCRIPT, host, assignment.target, CONTINUOUS)) {
-        ns.print(`${host}: (re)launching grow loop against ${assignment.target}.`);
-        ns.exec(GROW_SCRIPT, host, assignment.growThreads, assignment.target, CONTINUOUS);
-    }
+  const foreign = ns.ps(host).some(p => p.filename !== GROW_SCRIPT && p.filename !== WEAKEN_SCRIPT)
+  if (foreign) {
+    ns.print(`${host}: foreign process detected — reclaiming exclusive control.`)
+    ns.killall(host)
+  }
+  if (assignment.weakenThreads > 0 && !ns.isRunning(WEAKEN_SCRIPT, host, assignment.target, CONTINUOUS)) {
+    ns.print(`${host}: (re)launching weaken loop against ${assignment.target}.`)
+    ns.exec(WEAKEN_SCRIPT, host, assignment.weakenThreads, assignment.target, CONTINUOUS)
+  }
+  if (assignment.growThreads > 0 && !ns.isRunning(GROW_SCRIPT, host, assignment.target, CONTINUOUS)) {
+    ns.print(`${host}: (re)launching grow loop against ${assignment.target}.`)
+    ns.exec(GROW_SCRIPT, host, assignment.growThreads, assignment.target, CONTINUOUS)
+  }
 }
 
-/** Seizes exclusive control of a newly-dedicated host, splits its RAM into
+/**
+ * Seizes exclusive control of a newly-dedicated host, splits its RAM into
  * grow/weaken threads for `target`, and starts its loops. Returns null (and
  * leaves the host unmanaged, to be retried next cycle) if there's not even
  * enough RAM for one thread. `target` is passed in (computed once per cycle
  * in `main`, shared by every host) rather than picked per-host — there's
- * only ever one globally-best target at a time, not a per-host one. */
+ * only ever one globally-best target at a time, not a per-host one.
+ */
 function claim(ns: NS, host: string, target: string): Assignment | null {
-    ns.killall(host);
+  ns.killall(host)
 
-    // Measured from "home" (where Viteburner always deploys these scripts),
-    // not `host` — a freshly-claimed cloud server never has them yet at this
-    // point (that's what the scp below is for), and getScriptRam returns 0
-    // for a script that doesn't exist on the given host, which would make
-    // every claim silently fail forever. RAM cost only depends on the
-    // script's own content, not which host it's measured from, so this is
-    // exactly as accurate.
-    const scriptRam = ns.getScriptRam(GROW_SCRIPT, "home");
-    const totalThreads = scriptRam > 0 ? Math.floor(ns.getServerMaxRam(host) / scriptRam) : 0;
-    if (totalThreads < 1) {
-        ns.print(`${host}: skipping — not enough RAM for even one grow/weaken thread (${scriptRam.toFixed(2)} GB each).`);
-        return null;
-    }
+  // Measured from "home" (where Viteburner always deploys these scripts),
+  // not `host` — a freshly-claimed cloud server never has them yet at this
+  // point (that's what the scp below is for), and getScriptRam returns 0
+  // for a script that doesn't exist on the given host, which would make
+  // every claim silently fail forever. RAM cost only depends on the
+  // script's own content, not which host it's measured from, so this is
+  // exactly as accurate.
+  const scriptRam = ns.getScriptRam(GROW_SCRIPT, 'home')
+  const totalThreads = scriptRam > 0 ? Math.floor(ns.getServerMaxRam(host) / scriptRam) : 0
+  if (totalThreads < 1) {
+    ns.print(`${host}: skipping — not enough RAM for even one grow/weaken thread (${scriptRam.toFixed(2)} GB each).`)
+    return null
+  }
 
-    ns.scp([GROW_SCRIPT, WEAKEN_SCRIPT], host);
-    const { growThreads, weakenThreads } = splitThreads(ns, totalThreads);
-    const assignment: Assignment = { target, growThreads, weakenThreads };
-    enforceOwnership(ns, host, assignment);
-    ns.print(`${host}: farming ${target} — ${growThreads} grow thread(s), ${weakenThreads} weaken thread(s).`);
-    return assignment;
+  ns.scp([GROW_SCRIPT, WEAKEN_SCRIPT], host)
+  const { growThreads, weakenThreads } = splitThreads(ns, totalThreads)
+  const assignment: Assignment = { target, growThreads, weakenThreads }
+  enforceOwnership(ns, host, assignment)
+  ns.print(`${host}: farming ${target} — ${growThreads} grow thread(s), ${weakenThreads} weaken thread(s).`)
+  return assignment
 }
 
 export async function main(ns: NS) {
-    ns.disableLog("ALL");
+  ns.disableLog('ALL')
 
-    // Refuse to run alongside another live instance of this exact script —
-    // see the header comment above.
-    const dupe = ns.ps("home").find((p) => p.filename === ns.getScriptName() && p.pid !== ns.pid);
-    if (dupe) {
-        ns.tprint(`WARNING: daemons/xp-farm.daemon.js is already running (pid ${dupe.pid}) — exiting.`);
-        return;
+  // Refuse to run alongside another live instance of this exact script —
+  // see the header comment above.
+  const dupe = ns.ps('home').find(p => p.filename === ns.getScriptName() && p.pid !== ns.pid)
+  if (dupe) {
+    ns.tprint(`WARNING: daemons/xp-farm.daemon.js is already running (pid ${dupe.pid}) — exiting.`)
+    return
+  }
+
+  // Reaches `cgd.store` the same way `daemons/lv*.daemon.ts` does — see
+  // `cgd/window-cgd.ts`'s header comment. This daemon isn't one of the
+  // tiered `lv*` processes (it never registers at `cgd.daemon`), but the
+  // store itself is shared, lazily-created, dependency-free infrastructure
+  // any script can reach for — `ensureCgdStore` reuses whichever instance
+  // a tiered daemon already created, or creates it if none has yet.
+  const store = ensureCgdStore(getCgd(eval('window')))
+
+  ns.print(`Started. Checking xp-farm-config.txt every ${CHECK_INTERVAL / 1000}s.`)
+  const managed = new Map<string, Assignment>()
+
+  while (true) {
+    const configured = readHosts(ns)
+    // Self-heal: a dedicated server can be deleted (via the Cloud
+    // Servers app) without ever being explicitly un-dedicated first —
+    // drop it from the config file too, instead of leaving a phantom
+    // entry the app would keep showing as enabled forever.
+    const validHosts = configured.filter(h => ns.serverExists(h))
+    if (validHosts.length !== configured.length) {
+      ns.write(CONFIG_FILE, JSON.stringify(validHosts), 'w')
+    }
+    const hostSet = new Set(validHosts)
+
+    for (const host of [...managed.keys()]) {
+      if (hostSet.has(host))
+        continue
+      if (ns.serverExists(host))
+        ns.killall(host) // release: hand it back to Programs
+      ns.print(`${host}: released — no longer in xp-farm-config.txt.`)
+      managed.delete(host)
     }
 
-    // Reaches `cgd.store` the same way `daemons/lv*.daemon.ts` does — see
-    // `cgd/window-cgd.ts`'s header comment. This daemon isn't one of the
-    // tiered `lv*` processes (it never registers at `cgd.daemon`), but the
-    // store itself is shared, lazily-created, dependency-free infrastructure
-    // any script can reach for — `ensureCgdStore` reuses whichever instance
-    // a tiered daemon already created, or creates it if none has yet.
-    const store = ensureCgdStore(getCgd(eval("window")));
+    // Computed once per cycle, not per host — there's only ever one
+    // globally-best target at a time (see pickTarget), so every host
+    // shares it rather than each re-running the same network scan.
+    const bestTarget = pickTarget(ns)
 
-    ns.print(`Started. Checking xp-farm-config.txt every ${CHECK_INTERVAL / 1000}s.`);
-    const managed = new Map<string, Assignment>();
-
-    while (true) {
-        const configured = readHosts(ns);
-        // Self-heal: a dedicated server can be deleted (via the Cloud
-        // Servers app) without ever being explicitly un-dedicated first —
-        // drop it from the config file too, instead of leaving a phantom
-        // entry the app would keep showing as enabled forever.
-        const validHosts = configured.filter((h) => ns.serverExists(h));
-        if (validHosts.length !== configured.length) {
-            ns.write(CONFIG_FILE, JSON.stringify(validHosts), "w");
-        }
-        const hostSet = new Set(validHosts);
-
-        for (const host of [...managed.keys()]) {
-            if (hostSet.has(host)) continue;
-            if (ns.serverExists(host)) ns.killall(host); // release: hand it back to Programs
-            ns.print(`${host}: released — no longer in xp-farm-config.txt.`);
-            managed.delete(host);
-        }
-
-        // Computed once per cycle, not per host — there's only ever one
-        // globally-best target at a time (see pickTarget), so every host
-        // shares it rather than each re-running the same network scan.
-        const bestTarget = pickTarget(ns);
-
-        if (bestTarget) {
-            for (const host of validHosts) {
-                if (managed.has(host)) continue;
-                const assignment = claim(ns, host, bestTarget);
-                if (assignment) managed.set(host, assignment);
-            }
-        }
-
-        for (const [host, assignment] of managed) {
-            // A better target can appear mid-run — a server gets rooted, or
-            // the player's hacking level clears its requirement — without
-            // this host ever being disabled/re-enabled. Since pickTarget
-            // always returns the single best currently-qualifying target,
-            // any difference here is strictly an upgrade, never a
-            // downgrade, so switching unconditionally is safe. The old
-            // loops are running with the old target baked into their args,
-            // so isRunning(..., newTarget, ...) would find nothing and just
-            // launch a second set alongside them if they weren't killed
-            // first — killall here (not just relying on enforceOwnership's
-            // own foreign-process check, which only looks at filenames and
-            // wouldn't recognize a same-script-different-target process as
-            // foreign) clears them out before the retargeted relaunch.
-            if (bestTarget && bestTarget !== assignment.target) {
-                ns.print(`${host}: switching target ${assignment.target} → ${bestTarget}.`);
-                ns.killall(host);
-                assignment.target = bestTarget;
-            }
-            enforceOwnership(ns, host, assignment);
-        }
-
-        pushStatus(store, managed);
-
-        if (validHosts.length === 0) {
-            ns.print("No dedicated servers left — exiting. The app relaunches this when one is enabled again.");
-            break;
-        }
-
-        await ns.sleep(CHECK_INTERVAL);
+    if (bestTarget) {
+      for (const host of validHosts) {
+        if (managed.has(host))
+          continue
+        const assignment = claim(ns, host, bestTarget)
+        if (assignment)
+          managed.set(host, assignment)
+      }
     }
+
+    for (const [host, assignment] of managed) {
+      // A better target can appear mid-run — a server gets rooted, or
+      // the player's hacking level clears its requirement — without
+      // this host ever being disabled/re-enabled. Since pickTarget
+      // always returns the single best currently-qualifying target,
+      // any difference here is strictly an upgrade, never a
+      // downgrade, so switching unconditionally is safe. The old
+      // loops are running with the old target baked into their args,
+      // so isRunning(..., newTarget, ...) would find nothing and just
+      // launch a second set alongside them if they weren't killed
+      // first — killall here (not just relying on enforceOwnership's
+      // own foreign-process check, which only looks at filenames and
+      // wouldn't recognize a same-script-different-target process as
+      // foreign) clears them out before the retargeted relaunch.
+      if (bestTarget && bestTarget !== assignment.target) {
+        ns.print(`${host}: switching target ${assignment.target} → ${bestTarget}.`)
+        ns.killall(host)
+        assignment.target = bestTarget
+      }
+      enforceOwnership(ns, host, assignment)
+    }
+
+    pushStatus(store, managed)
+
+    if (validHosts.length === 0) {
+      ns.print('No dedicated servers left — exiting. The app relaunches this when one is enabled again.')
+      break
+    }
+
+    await ns.sleep(CHECK_INTERVAL)
+  }
 }

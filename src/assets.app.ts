@@ -1,6 +1,6 @@
-import { NS } from "@ns";
-import { ALL_STYLES } from "./assets/index";
-import { ensureStyleElement } from "./assets/utils/inject-element";
+import type { NS } from '@ns'
+import { ALL_STYLES } from './assets/index'
+import { ensureStyleElement } from './assets/utils/inject-element'
 
 /**
  * Injects this project's own page-level CSS into the live game window:
@@ -18,10 +18,10 @@ import { ensureStyleElement } from "./assets/utils/inject-element";
  * Usage: `run assets.app.js`
  */
 export async function main(ns: NS) {
-    const doc = eval("document");
+  const doc = eval('document')
 
-    const style = ensureStyleElement(doc, "custom-styles");
-    style.textContent = ALL_STYLES.map((s) => `/* ---- ${s.name} ---- */\n${s.css}`).join("\n\n");
+  const style = ensureStyleElement(doc, 'custom-styles')
+  style.textContent = ALL_STYLES.map(s => `/* ---- ${s.name} ---- */\n${s.css}`).join('\n\n')
 
-    ns.print(`INFO: custom-styles updated (${ALL_STYLES.length} chunk${ALL_STYLES.length === 1 ? "" : "s"}).`);
+  ns.print(`INFO: custom-styles updated (${ALL_STYLES.length} chunk${ALL_STYLES.length === 1 ? '' : 's'}).`)
 }

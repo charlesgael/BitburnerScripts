@@ -1,4 +1,4 @@
-import { CgdNamespace } from "./types";
+import type { CgdNamespace } from './types'
 
 /**
  * Reaches `window.cgd` the same way `ui/utils/react-globals.ts` already
@@ -22,8 +22,8 @@ import { CgdNamespace } from "./types";
  * here needs to treat that as an error case to recover from.
  */
 export function getCgd(win: any): CgdNamespace {
-    if (!win.cgd) {
-        win.cgd = { reactApps: {} } as CgdNamespace;
-    }
-    return win.cgd as CgdNamespace;
+  if (!win.cgd) {
+    win.cgd = { reactApps: {} } as CgdNamespace
+  }
+  return win.cgd as CgdNamespace
 }

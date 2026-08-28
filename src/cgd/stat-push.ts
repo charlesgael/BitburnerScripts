@@ -1,8 +1,8 @@
-import { NS } from "@ns";
-import { CgdStore, CgdStoreState } from "./types";
-import { StatProvider, StatValue } from "./stats";
+import type { NS } from '@ns'
+import type { StatProvider, StatValue } from './stats'
+import type { CgdStore, CgdStoreState } from './types'
 
-const REFRESH_INTERVAL_MS = 2000;
+const REFRESH_INTERVAL_MS = 2000
 
 /**
  * Builds the `onIdle` callback a tier's daemon passes to `runTieredDaemon`
@@ -26,40 +26,44 @@ const REFRESH_INTERVAL_MS = 2000;
  * fire every ~100ms and none of this changes nearly that often.
  */
 export function makeStatPusher(providers: StatProvider[]) {
-    let lastRefresh = 0;
+  let lastRefresh = 0
 
-    return async function pushStats(ns: NS, store: CgdStore): Promise<void> {
-        const now = Date.now();
-        if (now - lastRefresh < REFRESH_INTERVAL_MS) return;
-        lastRefresh = now;
+  return async function pushStats(ns: NS, store: CgdStore): Promise<void> {
+    const now = Date.now()
+    if (now - lastRefresh < REFRESH_INTERVAL_MS)
+      return
+    lastRefresh = now
 
-        let used = 0;
-        let max = 0;
-        try {
-            [used, max] = await Promise.all([ns.getServerUsedRam("home"), ns.getServerMaxRam("home")]);
-        } catch {
-            // Same reasoning as the per-provider catch below — one failed
-            // read here shouldn't blank out (or crash) the rest of this
-            // tick's push. See daemon-core.ts's own try/catch for why an
-            // uncaught throw reaching the daemon's main loop is worse than
-            // just this tick's home-RAM numbers being stale.
-        }
-        const pct = max > 0 ? Math.min(100, (used / max) * 100) : 0;
+    let used = 0
+    let max = 0
+    try {
+      [used, max] = await Promise.all([ns.getServerUsedRam('home'), ns.getServerMaxRam('home')])
+    }
+    catch {
+      // Same reasoning as the per-provider catch below — one failed
+      // read here shouldn't blank out (or crash) the rest of this
+      // tick's push. See daemon-core.ts's own try/catch for why an
+      // uncaught throw reaching the daemon's main loop is worse than
+      // just this tick's home-RAM numbers being stale.
+    }
+    const pct = max > 0 ? Math.min(100, (used / max) * 100) : 0
 
-        const stats: Record<string, StatValue> = {
-            "home-ram": { kind: "bar", label: "RAM", value: `${used.toFixed(0)}/${max.toFixed(0)}GB`, pct },
-        };
-        for (const provider of providers) {
-            if (!provider.enabled) continue;
-            try {
-                stats[provider.id] = await provider.compute(ns);
-            } catch {
-                // One provider failing (API not unlocked, etc.) shouldn't
-                // blank out the rest.
-            }
-        }
+    const stats: Record<string, StatValue> = {
+      'home-ram': { kind: 'bar', label: 'RAM', value: `${used.toFixed(0)}/${max.toFixed(0)}GB`, pct },
+    }
+    for (const provider of providers) {
+      if (!provider.enabled)
+        continue
+      try {
+        stats[provider.id] = await provider.compute(ns)
+      }
+      catch {
+        // One provider failing (API not unlocked, etc.) shouldn't
+        // blank out the rest.
+      }
+    }
 
-        const next: Pick<CgdStoreState, "homeRam" | "stats"> = { homeRam: { used, max }, stats };
-        store.setState(next);
-    };
+    const next: Pick<CgdStoreState, 'homeRam' | 'stats'> = { homeRam: { used, max }, stats }
+    store.setState(next)
+  }
 }

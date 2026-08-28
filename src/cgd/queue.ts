@@ -1,6 +1,6 @@
-import { NS } from "@ns";
-import { CgdActionHandlers, CgdQueue, CgdQueuedTask, CgdTier } from "./types";
-import { dispatchCall, isPathAllowed } from "./dispatch";
+import type { NS } from '@ns'
+import type { CgdActionHandlers, CgdQueue, CgdQueuedTask, CgdTier } from './types'
+import { dispatchCall, isPathAllowed } from './dispatch'
 
 /**
  * Creates the queue a daemon registers at `cgd.daemon.queue`. `tier` and
@@ -36,63 +36,65 @@ import { dispatchCall, isPathAllowed } from "./dispatch";
  * same decoy/allow-list treatment `enqueueCall` does.
  */
 export function createCgdQueue(
-    tier: CgdTier,
-    allowedPaths: ReadonlySet<string>,
-    actionHandlers: CgdActionHandlers = {}
+  tier: CgdTier,
+  allowedPaths: ReadonlySet<string>,
+  actionHandlers: CgdActionHandlers = {},
 ): CgdQueue {
-    const pending: CgdQueuedTask[] = [];
+  const pending: CgdQueuedTask[] = []
 
-    function enqueueCall(path: string[], args: unknown[]): Promise<unknown> {
-        return new Promise((resolve, reject) => {
-            pending.push({
-                invoke: (ns) => {
-                    if (!isPathAllowed(tier, allowedPaths, path)) {
-                        throw new Error(`"${path.join(".")}" is not available at daemon tier ${tier}.`);
-                    }
-                    return dispatchCall(ns, path, args);
-                },
-                resolve,
-                reject,
-            });
-        });
+  function enqueueCall(path: string[], args: unknown[]): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+      pending.push({
+        invoke: (ns) => {
+          if (!isPathAllowed(tier, allowedPaths, path)) {
+            throw new Error(`"${path.join('.')}" is not available at daemon tier ${tier}.`)
+          }
+          return dispatchCall(ns, path, args)
+        },
+        resolve,
+        reject,
+      })
+    })
+  }
+
+  function enqueueAction(name: string, args: unknown[]): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+      pending.push({
+        invoke: (ns) => {
+          const handler = actionHandlers[name]
+          if (!handler) {
+            throw new Error(`Action "${name}" is not available at daemon tier ${tier}.`)
+          }
+          return handler(ns, ...args)
+        },
+        resolve,
+        reject,
+      })
+    })
+  }
+
+  async function drain(ns: NS): Promise<boolean> {
+    const task = pending.shift()
+    if (!task)
+      return false
+    try {
+      task.resolve(await task.invoke(ns))
     }
-
-    function enqueueAction(name: string, args: unknown[]): Promise<unknown> {
-        return new Promise((resolve, reject) => {
-            pending.push({
-                invoke: (ns) => {
-                    const handler = actionHandlers[name];
-                    if (!handler) {
-                        throw new Error(`Action "${name}" is not available at daemon tier ${tier}.`);
-                    }
-                    return handler(ns, ...args);
-                },
-                resolve,
-                reject,
-            });
-        });
+    catch (err) {
+      task.reject(err)
     }
+    return true
+  }
 
-    async function drain(ns: NS): Promise<boolean> {
-        const task = pending.shift();
-        if (!task) return false;
-        try {
-            task.resolve(await task.invoke(ns));
-        } catch (err) {
-            task.reject(err);
-        }
-        return true;
+  function size(): number {
+    return pending.length
+  }
+
+  function rejectAll(err: unknown): void {
+    while (pending.length > 0) {
+      pending.shift()?.reject(err)
     }
+  }
 
-    function size(): number {
-        return pending.length;
-    }
-
-    function rejectAll(err: unknown): void {
-        while (pending.length > 0) {
-            pending.shift()?.reject(err);
-        }
-    }
-
-    return { enqueueCall, enqueueAction, drain, size, rejectAll };
+  return { enqueueCall, enqueueAction, drain, size, rejectAll }
 }

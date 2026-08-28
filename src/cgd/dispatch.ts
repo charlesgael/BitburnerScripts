@@ -1,9 +1,9 @@
-import { NS } from "@ns";
-import { CgdTier } from "./types";
+import type { NS } from '@ns'
+import type { CgdTier } from './types'
 
 /**
  * Executes one queued call against the real `ns`, given as a property
- * *path* (e.g. `["hacknet", "numNodes"]`) plus args — never as a literal
+ * path* (e.g. `["hacknet", "numNodes"]`) plus args — never as a literal
  * `ns.someMethod(...)` call written anywhere in this file's own source.
  *
  * This distinction is the whole reason a persistent daemon's RAM cost can
@@ -35,12 +35,12 @@ import { CgdTier } from "./types";
  * `run-daemon.ts` already accidentally does today.
  */
 export function dispatchCall(ns: NS, path: string[], args: unknown[]): unknown {
-    let receiver: any = ns;
-    for (let i = 0; i < path.length - 1; i++) {
-        receiver = receiver[path[i]];
-    }
-    const method = path[path.length - 1];
-    return receiver[method](...args);
+  let receiver: any = ns
+  for (let i = 0; i < path.length - 1; i++) {
+    receiver = receiver[path[i]]
+  }
+  const method = path[path.length - 1]
+  return receiver[method](...args)
 }
 
 /**
@@ -68,6 +68,7 @@ export function dispatchCall(ns: NS, path: string[], args: unknown[]): unknown {
  * counted).
  */
 export function isPathAllowed(tier: CgdTier, allowedPaths: ReadonlySet<string>, path: string[]): boolean {
-    if (tier <= 0) return false; // tier 0: no caller-facing methods at all
-    return allowedPaths.has(path.join("."));
+  if (tier <= 0)
+    return false // tier 0: no caller-facing methods at all
+  return allowedPaths.has(path.join('.'))
 }

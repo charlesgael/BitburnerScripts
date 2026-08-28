@@ -1,5 +1,5 @@
-import { QueuedNS } from "./ns-proxy";
-import { XpFarmAssignment, XpFarmStatus } from "../../cgd/types";
+import type { XpFarmAssignment, XpFarmStatus } from '../../cgd/types'
+import type { QueuedNS } from './ns-proxy'
 
 /**
  * Shared constants/types for the XP Farm feature: the player dedicates a
@@ -32,41 +32,50 @@ import { XpFarmAssignment, XpFarmStatus } from "../../cgd/types";
  * queued ns below without any RAM concern — same as the daemon touching it
  * directly through the real ns.
  */
-export const XP_FARM_CONFIG_FILE = "xp-farm-config.txt";
-export const XP_FARM_DAEMON_SCRIPT = "daemons/xp-farm.daemon.js";
-export const XP_FARM_DAEMON_HOST = "home";
+export const XP_FARM_CONFIG_FILE = 'xp-farm-config.txt'
+export const XP_FARM_DAEMON_SCRIPT = 'daemons/xp-farm.daemon.js'
+export const XP_FARM_DAEMON_HOST = 'home'
 
-/** The two loop scripts the daemon launches on every managed host, and the
+/**
+ * The two loop scripts the daemon launches on every managed host, and the
  * fixed "delay between calls" arg (0 — back-to-back forever) it always
  * launches them with. Shared here — rather than each side hardcoding its
  * own copy — so `ui/apps/xp-farm/` can open a specific loop's own tail
  * window (`ns.ui.openTail(script, host, target, XP_FARM_LOOP_DELAY)`) using
  * the exact same filename+args the daemon actually exec'd it with; a
- * mismatch here would mean openTail finds nothing. */
-export const XP_FARM_GROW_SCRIPT = "daemons/grow.daemon.js";
-export const XP_FARM_WEAKEN_SCRIPT = "daemons/weaken.daemon.js";
-export const XP_FARM_LOOP_DELAY = 0;
+ * mismatch here would mean openTail finds nothing.
+ */
+export const XP_FARM_GROW_SCRIPT = 'daemons/grow.daemon.js'
+export const XP_FARM_WEAKEN_SCRIPT = 'daemons/weaken.daemon.js'
+export const XP_FARM_LOOP_DELAY = 0
 
-/** Re-exported for existing call sites — the actual definitions now live in
- * `cgd/types.ts` (see this file's header comment for why). */
-export type { XpFarmAssignment, XpFarmStatus };
+/**
+ * Re-exported for existing call sites — the actual definitions now live in
+ * `cgd/types.ts` (see this file's header comment for why).
+ */
+export type { XpFarmAssignment, XpFarmStatus }
 
-/** The set of hostnames currently dedicated to XP farming, or [] if the
- * config file doesn't exist yet / is empty / unparsable. */
+/**
+ * The set of hostnames currently dedicated to XP farming, or [] if the
+ * config file doesn't exist yet / is empty / unparsable.
+ */
 export async function readXpFarmHosts(ns: QueuedNS): Promise<string[]> {
-    const raw = await ns._read(XP_FARM_CONFIG_FILE);
-    if (!raw) return [];
-    try {
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed : [];
-    } catch {
-        return [];
-    }
+  const raw = await ns._read(XP_FARM_CONFIG_FILE)
+  if (!raw)
+    return []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  }
+  catch {
+    return []
+  }
 }
 
-/** Overwrites the config file with `hosts` — the only way the dedicated
- * list ever changes; the daemon only ever reads it. */
+/**
+ * Overwrites the config file with `hosts` — the only way the dedicated
+ * list ever changes; the daemon only ever reads it.
+ */
 export async function writeXpFarmHosts(ns: QueuedNS, hosts: string[]): Promise<void> {
-    await ns._write(XP_FARM_CONFIG_FILE, JSON.stringify(hosts), "w");
+  await ns._write(XP_FARM_CONFIG_FILE, JSON.stringify(hosts), 'w')
 }
-

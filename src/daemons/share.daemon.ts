@@ -1,4 +1,4 @@
-import { NS } from "@ns";
+import type { NS } from '@ns'
 
 /**
  * Repeatedly calls ns.share() to boost reputation gain from faction work
@@ -15,8 +15,8 @@ import { NS } from "@ns";
  * by any script) + 2.4GB (ns.share()) = 4GB/thread.
  */
 export async function main(ns: NS) {
-    ns.disableLog("ALL");
-    while (true) {
-        await ns.share();
-    }
+  ns.disableLog('ALL')
+  while (true) {
+    await ns.share()
+  }
 }

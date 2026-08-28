@@ -1,11 +1,11 @@
-import { NS } from "@ns";
-import { runTieredDaemon } from "../cgd/daemon-core";
-import { makeStatPusher } from "../cgd/stat-push";
-import { BASELINE_STAT_PROVIDERS } from "../cgd/stats";
-import { CgdActionHandlers } from "../cgd/types";
-import { cloudBuyAction, cloudDeleteAction, cloudListAction } from "../cgd/actions/cloud";
-import { slaveNodeHostsAction } from "../cgd/actions/slave-nodes";
-import { TIER_1_ACTIONS, TIER_1_METHODS, reserveTier1Ram } from "./lv1.daemon";
+import type { NS } from '@ns'
+import type { CgdActionHandlers } from '../cgd/types'
+import { cloudBuyAction, cloudDeleteAction, cloudListAction } from '../cgd/actions/cloud'
+import { slaveNodeHostsAction } from '../cgd/actions/slave-nodes'
+import { runTieredDaemon } from '../cgd/daemon-core'
+import { makeStatPusher } from '../cgd/stat-push'
+import { BASELINE_STAT_PROVIDERS } from '../cgd/stats'
+import { reserveTier1Ram, TIER_1_ACTIONS, TIER_1_METHODS } from './lv1.daemon'
 
 /**
  * Tier 2: adds cloud-server management — listing, purchasing, deleting —
@@ -31,20 +31,20 @@ import { TIER_1_ACTIONS, TIER_1_METHODS, reserveTier1Ram } from "./lv1.daemon";
  * Usage: `run daemons/lv2.daemon.js`
  */
 const TIER_2_ACTIONS: CgdActionHandlers = {
-    ...TIER_1_ACTIONS,
-    cloudList: cloudListAction,
-    cloudBuy: cloudBuyAction,
-    cloudDelete: cloudDeleteAction,
-    slaveNodeHosts: slaveNodeHostsAction,
-};
+  ...TIER_1_ACTIONS,
+  cloudList: cloudListAction,
+  cloudBuy: cloudBuyAction,
+  cloudDelete: cloudDeleteAction,
+  slaveNodeHosts: slaveNodeHostsAction,
+}
 
 export async function main(ns: NS): Promise<void> {
-    // Same reasoning as lv1.daemon.ts's own call — this tier's compiled
-    // output is a separate bundle from lv1.daemon.js, so an unused,
-    // non-exported import wouldn't survive tree-shaking on its own.
-    reserveTier1Ram(ns);
-    await runTieredDaemon(ns, 2, "daemons/lv2.daemon.js", new Set(TIER_1_METHODS), {
-        actionHandlers: TIER_2_ACTIONS,
-        onIdle: makeStatPusher(BASELINE_STAT_PROVIDERS),
-    });
+  // Same reasoning as lv1.daemon.ts's own call — this tier's compiled
+  // output is a separate bundle from lv1.daemon.js, so an unused,
+  // non-exported import wouldn't survive tree-shaking on its own.
+  reserveTier1Ram(ns)
+  await runTieredDaemon(ns, 2, 'daemons/lv2.daemon.js', new Set(TIER_1_METHODS), {
+    actionHandlers: TIER_2_ACTIONS,
+    onIdle: makeStatPusher(BASELINE_STAT_PROVIDERS),
+  })
 }

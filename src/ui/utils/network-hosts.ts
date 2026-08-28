@@ -1,4 +1,4 @@
-import { QueuedNS } from "./ns-proxy";
+import type { QueuedNS } from './ns-proxy'
 
 /**
  * Reads `netmapper.app.ts`'s cached network scan (`known-servers.json.txt`)
@@ -15,23 +15,26 @@ import { QueuedNS } from "./ns-proxy";
  * a player would normally run it, and returns `[]` rather than throwing if
  * it's missing, empty, or unparsable.
  */
-const KNOWN_SERVERS_FILE = "known-servers.json.txt";
+const KNOWN_SERVERS_FILE = 'known-servers.json.txt'
 
 export interface NetworkHostRow {
-    hostname: string;
-    hasRoot: boolean;
+  hostname: string
+  hasRoot: boolean
 }
 
 export async function readNetworkHosts(ns: QueuedNS): Promise<NetworkHostRow[]> {
-    try {
-        const raw = await ns._read(KNOWN_SERVERS_FILE);
-        if (!raw) return [];
-        const servers = JSON.parse(raw) as { hostname?: string; hasAdminRights?: boolean }[];
-        if (!Array.isArray(servers)) return [];
-        return servers
-            .filter((s) => typeof s.hostname === "string")
-            .map((s) => ({ hostname: s.hostname as string, hasRoot: !!s.hasAdminRights }));
-    } catch {
-        return [];
-    }
+  try {
+    const raw = await ns._read(KNOWN_SERVERS_FILE)
+    if (!raw)
+      return []
+    const servers = JSON.parse(raw) as { hostname?: string, hasAdminRights?: boolean }[]
+    if (!Array.isArray(servers))
+      return []
+    return servers
+      .filter(s => typeof s.hostname === 'string')
+      .map(s => ({ hostname: s.hostname as string, hasRoot: !!s.hasAdminRights }))
+  }
+  catch {
+    return []
+  }
 }

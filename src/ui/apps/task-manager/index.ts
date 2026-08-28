@@ -1,8 +1,8 @@
-import { AppComponentProps, AppDefinition } from "../../types";
-import { ManagedAppDefinition } from "./logic/types";
-import { TaskManagerBody } from "./components/task-manager-body";
+import type { AppComponentProps, AppDefinition } from '../../types'
+import type { ManagedAppDefinition } from './logic/types'
+import { TaskManagerBody } from './components/task-manager-body'
 
-export type { ManagedAppDefinition };
+export type { ManagedAppDefinition }
 
 /**
  * Builds a task-manager app: a fixed catalog of scripts (`apps`, fixed in
@@ -60,22 +60,22 @@ export type { ManagedAppDefinition };
  * is plain presentational JSX driven off that hook's return value.
  */
 export function createTaskManagerApp(
-    id: string,
-    label: string,
-    icon: string,
-    apps: ManagedAppDefinition[]
+  id: string,
+  label: string,
+  icon: string,
+  apps: ManagedAppDefinition[],
 ): AppDefinition {
-    const runnableApps = apps.filter((a) => !a.oneShot);
-    const appByScript = Object.fromEntries(apps.map((a) => [a.script, a]));
+  const runnableApps = apps.filter(a => !a.oneShot)
+  const appByScript = Object.fromEntries(apps.map(a => [a.script, a]))
 
-    function TaskManagerContent({ React }: AppComponentProps) {
-        return TaskManagerBody({ React, apps, runnableApps, appByScript });
-    }
+  function TaskManagerContent({ React }: AppComponentProps) {
+    return TaskManagerBody({ React, apps, runnableApps, appByScript })
+  }
 
-    return {
-        id,
-        icon,
-        label,
-        Content: TaskManagerContent,
-    };
+  return {
+    id,
+    icon,
+    label,
+    Content: TaskManagerContent,
+  }
 }

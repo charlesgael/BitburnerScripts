@@ -15,24 +15,26 @@
  * `ui/components/app-grid.tsx`), and `useAddChildPid` is the hook descendant
  * components call to read the value it provides.
  */
-let ChildPidsContext: any = null;
-let ReactRef: any = null;
+let ChildPidsContext: any = null
+let ReactRef: any = null
 
 export function initChildPidsContext(React: any) {
-    ReactRef = React;
-    ChildPidsContext = React.createContext(null);
-    return ChildPidsContext;
+  ReactRef = React
+  ChildPidsContext = React.createContext(null)
+  return ChildPidsContext
 }
 
-/** Returns a function that registers a spawned script's pid with
- * `state.childPids` (see `ui.app.ts`) so `ns.atExit` kills it on cleanup. */
+/**
+ * Returns a function that registers a spawned script's pid with
+ * `state.childPids` (see `ui.app.ts`) so `ns.atExit` kills it on cleanup.
+ */
 export function useAddChildPid(): (pid: number) => void {
-    if (!ChildPidsContext) {
-        throw new Error("useAddChildPid() called before initChildPidsContext() ran");
-    }
-    const addChildPid = ReactRef.useContext(ChildPidsContext);
-    if (!addChildPid) {
-        throw new Error("useAddChildPid() called outside of a ChildPidsContext.Provider");
-    }
-    return addChildPid;
+  if (!ChildPidsContext) {
+    throw new Error('useAddChildPid() called before initChildPidsContext() ran')
+  }
+  const addChildPid = ReactRef.useContext(ChildPidsContext)
+  if (!addChildPid) {
+    throw new Error('useAddChildPid() called outside of a ChildPidsContext.Provider')
+  }
+  return addChildPid
 }

@@ -1,5 +1,5 @@
 export interface ActionResult {
-    ok: boolean;
-    hostname?: string;
-    error?: string;
+  ok: boolean
+  hostname?: string
+  error?: string
 }

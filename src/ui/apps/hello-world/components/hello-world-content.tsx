@@ -1,5 +1,5 @@
-import { AppComponentProps } from "../../../types";
-import { useQueuedNs } from "../../../context/ns-queue-context";
+import type { AppComponentProps } from '../../../types'
+import { useQueuedNs } from '../../../context/ns-queue-context'
 
 /**
  * Proofing app: says hello, and proves the `useQueuedNs` context hook works
@@ -8,20 +8,27 @@ import { useQueuedNs } from "../../../context/ns-queue-context";
  * against the script's main loop instead of racing it.
  */
 export function HelloWorldContent({ React }: AppComponentProps) {
-    const ns = useQueuedNs();
-    const [hostname, setHostname] = React.useState(null);
+  const ns = useQueuedNs()
+  const [hostname, setHostname] = React.useState(null)
 
-    async function fetchHostname() {
-        setHostname(await ns._getHostname());
-    }
+  async function fetchHostname() {
+    setHostname(await ns._getHostname())
+  }
 
-    return (
-        <div>
-            <div style={{ marginBottom: "8px" }}>Hello, world!</div>
-            <button onClick={fetchHostname} className="bb-btn">
-                Get hostname via queued ns
-            </button>
-            {hostname ? <div style={{ marginTop: "8px", opacity: 0.85 }}>Host: {hostname}</div> : null}
-        </div>
-    );
+  return (
+    <div>
+      <div style={{ marginBottom: '8px' }}>Hello, world!</div>
+      <button onClick={fetchHostname} className="bb-btn">
+        Get hostname via queued ns
+      </button>
+      {hostname
+        ? (
+            <div style={{ marginTop: '8px', opacity: 0.85 }}>
+              Host:
+              {hostname}
+            </div>
+          )
+        : null}
+    </div>
+  )
 }

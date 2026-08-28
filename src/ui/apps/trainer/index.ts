@@ -1,6 +1,6 @@
-import { AppDefinition } from "../../types";
-import { TrainerContent } from "./components/trainer-content";
-import { singularityAvailable } from "../../utils/singularity-availability";
+import type { AppDefinition } from '../../types'
+import { singularityAvailable } from '../../utils/singularity-availability'
+import { TrainerContent } from './components/trainer-content'
 
 /**
  * This app is a thin launcher — it never calls ns.singularity.* itself.
@@ -18,10 +18,10 @@ import { singularityAvailable } from "../../utils/singularity-availability";
  * plain presentational JSX driven off that hook's return value.
  */
 export const TrainerApp: AppDefinition = {
-    id: "trainer",
-    icon: "💪",
-    label: "Trainer",
-    Content: TrainerContent,
-    minRam: 90.1,
-    isAvailable: singularityAvailable,
-};
+  id: 'trainer',
+  icon: '💪',
+  label: 'Trainer',
+  Content: TrainerContent,
+  minRam: 90.1,
+  isAvailable: singularityAvailable,
+}

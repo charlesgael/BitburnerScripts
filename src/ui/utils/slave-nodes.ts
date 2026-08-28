@@ -1,9 +1,9 @@
-import { QueuedNS } from "./ns-proxy";
-import { CgdQueue } from "../../cgd/types";
-import { SLAVE_NODE_FILE } from "../../cgd/actions/cloud";
-import { SlaveNodeHost } from "../../cgd/actions/slave-nodes";
+import type { SlaveNodeHost } from '../../cgd/actions/slave-nodes'
+import type { CgdQueue } from '../../cgd/types'
+import type { QueuedNS } from './ns-proxy'
+import { SLAVE_NODE_FILE } from '../../cgd/actions/cloud'
 
-export type { SlaveNodeHost };
+export type { SlaveNodeHost }
 
 /**
  * Shared constants/types/helpers for the "Slave Nodes" feature: letting the
@@ -31,24 +31,30 @@ export type { SlaveNodeHost };
  * tier concern — same convention as `xp-farm-config.ts`.
  */
 
-/** The set of hostnames currently designated as slave nodes, or [] if the
- * file doesn't exist yet / is empty / unparsable. */
+/**
+ * The set of hostnames currently designated as slave nodes, or [] if the
+ * file doesn't exist yet / is empty / unparsable.
+ */
 export async function readSlaveNodes(ns: QueuedNS): Promise<string[]> {
-    const raw = await ns._read(SLAVE_NODE_FILE);
-    if (!raw) return [];
-    try {
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed : [];
-    } catch {
-        return [];
-    }
+  const raw = await ns._read(SLAVE_NODE_FILE)
+  if (!raw)
+    return []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  }
+  catch {
+    return []
+  }
 }
 
-/** Overwrites the designated list with `hosts` — the only way it ever
+/**
+ * Overwrites the designated list with `hosts` — the only way it ever
  * changes; `cgd/actions/cloud.ts`'s `cloudListAction` only ever reads (and
- * self-heals) it. */
+ * self-heals) it.
+ */
 export async function writeSlaveNodes(ns: QueuedNS, hosts: string[]): Promise<void> {
-    await ns._write(SLAVE_NODE_FILE, JSON.stringify(hosts), "w");
+  await ns._write(SLAVE_NODE_FILE, JSON.stringify(hosts), 'w')
 }
 
 /**
@@ -57,7 +63,7 @@ export async function writeSlaveNodes(ns: QueuedNS, hosts: string[]): Promise<vo
  * Registered at tier 2 (unlike `fetchCloudList`), so this is only called
  * from the Cloud Servers app, which is itself gated on `minDaemonTier: 2`.
  */
-export async function fetchSlaveNodeHosts(enqueueAction: CgdQueue["enqueueAction"]): Promise<SlaveNodeHost[]> {
-    const result = (await enqueueAction("slaveNodeHosts", [])) as { hosts: SlaveNodeHost[] };
-    return result.hosts;
+export async function fetchSlaveNodeHosts(enqueueAction: CgdQueue['enqueueAction']): Promise<SlaveNodeHost[]> {
+  const result = (await enqueueAction('slaveNodeHosts', [])) as { hosts: SlaveNodeHost[] }
+  return result.hosts
 }

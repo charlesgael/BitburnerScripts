@@ -1,4 +1,4 @@
-import { ManagedAppDefinition, Task } from "./types";
+import type { ManagedAppDefinition, Task } from './types'
 
 /**
  * Resolves what still needs to spawn on `host` before `app` itself can, per
@@ -25,34 +25,38 @@ import { ManagedAppDefinition, Task } from "./types";
  * call this without duplicating the walk.
  */
 export function resolveDependencyChain(
-    app: ManagedAppDefinition,
-    host: string,
-    appByScript: Record<string, ManagedAppDefinition>,
-    tasks: Task[]
+  app: ManagedAppDefinition,
+  host: string,
+  appByScript: Record<string, ManagedAppDefinition>,
+  tasks: Task[],
 ): ManagedAppDefinition[] | null {
-    const chain: ManagedAppDefinition[] = [];
-    const seen = new Set<string>();
-    let unsatisfiable = false;
+  const chain: ManagedAppDefinition[] = []
+  const seen = new Set<string>()
+  let unsatisfiable = false
 
-    function visit(current: ManagedAppDefinition) {
-        if (unsatisfiable || seen.has(current.script)) return;
-        seen.add(current.script);
-        if (tasks.some((t) => t.script === current.script && t.host === host)) return;
-        if (current.singleInstance && tasks.some((t) => t.script === current.script)) {
-            unsatisfiable = true;
-            return;
-        }
-        for (const depScript of current.requires ?? []) {
-            const depApp = appByScript[depScript];
-            if (depApp) visit(depApp);
-        }
-        chain.push(current);
+  function visit(current: ManagedAppDefinition) {
+    if (unsatisfiable || seen.has(current.script))
+      return
+    seen.add(current.script)
+    if (tasks.some(t => t.script === current.script && t.host === host))
+      return
+    if (current.singleInstance && tasks.some(t => t.script === current.script)) {
+      unsatisfiable = true
+      return
     }
-
-    for (const depScript of app.requires ?? []) {
-        const depApp = appByScript[depScript];
-        if (depApp) visit(depApp);
+    for (const depScript of current.requires ?? []) {
+      const depApp = appByScript[depScript]
+      if (depApp)
+        visit(depApp)
     }
+    chain.push(current)
+  }
 
-    return unsatisfiable ? null : chain;
+  for (const depScript of app.requires ?? []) {
+    const depApp = appByScript[depScript]
+    if (depApp)
+      visit(depApp)
+  }
+
+  return unsatisfiable ? null : chain
 }

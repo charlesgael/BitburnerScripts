@@ -1,5 +1,5 @@
-import { NS } from "@ns";
-import { ReactGlobals } from "../types";
+import type { NS } from '@ns'
+import type { ReactGlobals } from '../types'
 
 /**
  * Grabs the game's exposed React/ReactDOM globals via the classic
@@ -8,15 +8,15 @@ import { ReactGlobals } from "../types";
  * React/ReactDOM aren't available.
  */
 export function getReactGlobals(ns: NS): ReactGlobals | null {
-    const doc = eval("document");
-    const win = eval("window");
-    const React = win.React;
-    const ReactDOM = win.ReactDOM;
+  const doc = eval('document')
+  const win = eval('window')
+  const React = win.React
+  const ReactDOM = win.ReactDOM
 
-    if (!React || !ReactDOM) {
-        ns.tprint("ERROR: Could not access React/ReactDOM globals.");
-        return null;
-    }
+  if (!React || !ReactDOM) {
+    ns.tprint('ERROR: Could not access React/ReactDOM globals.')
+    return null
+  }
 
-    return { doc, win, React, ReactDOM };
+  return { doc, win, React, ReactDOM }
 }

@@ -1,4 +1,4 @@
-import { AppAvailabilityContext, AppDefinition } from "../types";
+import type { AppAvailabilityContext, AppDefinition } from '../types'
 
 /**
  * Checks an app's `minRam` (see `ui/types.ts`) against `ctx`. Returns `null`
@@ -13,13 +13,15 @@ import { AppAvailabilityContext, AppDefinition } from "../types";
  * (`home`'s live RAM — see `ui.app.ts`), so this never touches `ns` itself.
  */
 export function ramShortfallReason(app: AppDefinition, ctx: AppAvailabilityContext): string | null {
-    if (app.minRam == null) return null;
-    const headroom = ctx.homeRam.max * 0.8;
-    if (headroom >= app.minRam) return null;
-    return (
-        `Needs ${app.minRam} GB of home's max RAM (80% headroom rule) — only ` +
-        `${headroom.toFixed(1)} GB of ${ctx.homeRam.max.toFixed(1)} GB qualifies.`
-    );
+  if (app.minRam == null)
+    return null
+  const headroom = ctx.homeRam.max * 0.8
+  if (headroom >= app.minRam)
+    return null
+  return (
+    `Needs ${app.minRam} GB of home's max RAM (80% headroom rule) — only `
+    + `${headroom.toFixed(1)} GB of ${ctx.homeRam.max.toFixed(1)} GB qualifies.`
+  )
 }
 
 /**
@@ -42,10 +44,10 @@ export function ramShortfallReason(app: AppDefinition, ctx: AppAvailabilityConte
  * the fixed pattern.
  */
 export function checkIsAvailable(
-    isAvailable: ((ctx: AppAvailabilityContext) => true | string) | undefined,
-    ctx: AppAvailabilityContext
+  isAvailable: ((ctx: AppAvailabilityContext) => true | string) | undefined,
+  ctx: AppAvailabilityContext,
 ): boolean {
-    return !isAvailable || isAvailable(ctx) === true;
+  return !isAvailable || isAvailable(ctx) === true
 }
 
 /**
@@ -71,11 +73,14 @@ export function checkIsAvailable(
  * through here.
  */
 export function isAppVisible(app: AppDefinition, ctx: AppAvailabilityContext): boolean {
-    if (ctx.daemonTier <= 0) return false;
-    if (app.minSourceFile != null) {
-        const { n, lvl } = app.minSourceFile;
-        if ((ctx.ownedSF.get(n) ?? 0) < lvl) return false;
-    }
-    if (app.minDaemonTier != null && ctx.daemonTier < app.minDaemonTier) return false;
-    return checkIsAvailable(app.isAvailable, ctx);
+  if (ctx.daemonTier <= 0)
+    return false
+  if (app.minSourceFile != null) {
+    const { n, lvl } = app.minSourceFile
+    if ((ctx.ownedSF.get(n) ?? 0) < lvl)
+      return false
+  }
+  if (app.minDaemonTier != null && ctx.daemonTier < app.minDaemonTier)
+    return false
+  return checkIsAvailable(app.isAvailable, ctx)
 }

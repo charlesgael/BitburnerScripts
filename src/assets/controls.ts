@@ -340,4 +340,4 @@ export const controlsStyle = `
     word-break: break-word;
     overflow-wrap: anywhere;
 }
-`.trim();
+`.trim()

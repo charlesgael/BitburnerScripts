@@ -135,4 +135,4 @@ table:has(#overview-hp-hook) .MuiButton-root {
     padding: 2px 10px !important;
     min-width: 0 !important;
 }
-`.trim();
+`.trim()

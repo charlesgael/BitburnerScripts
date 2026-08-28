@@ -1,7 +1,8 @@
-import { ReactGlobals } from "../types";
-import { CgdDaemon, CgdTier } from "../../cgd/types";
+import type { CgdDaemon, CgdTier } from '../../cgd/types'
+import type { ReactGlobals } from '../types'
+import { createRoot } from 'react-dom/client'
 
-const TIER_POLL_MS = 1000;
+const TIER_POLL_MS = 1000
 
 /**
  * Floating status panel: a live status line (the currently-running daemon's
@@ -23,45 +24,48 @@ const TIER_POLL_MS = 1000;
  * (`setTimeout`) to a macrotask boundary instead.
  */
 export function createStatusPanel(
-    globals: ReactGlobals,
-    container: any,
-    getDaemon: () => CgdDaemon | undefined,
-    onStop: () => void,
-    onRestart: () => void
+  globals: ReactGlobals,
+  container: any,
+  getDaemon: () => CgdDaemon | undefined,
+  onStop: () => void,
+  onRestart: () => void,
 ) {
-    const { React, ReactDOM } = globals;
+  const { React } = globals
 
-    let daemonTier: CgdTier = getDaemon()?._getTier() ?? 0;
+  let daemonTier: CgdTier = getDaemon()?._getTier() ?? 0
 
-    function render() {
-        ReactDOM.render(
-            <div style={{ padding: "0 16px" }}>
-                <hr className="MuiDivider-root MuiDivider-fullWidth css-8dakje" style={{ margin: "0 -16px 8px" }} />
-                <div style={{ marginBottom: "8px", fontWeight: "bold" }}>Bitburner UI</div>
-                <div style={{ marginBottom: "10px", opacity: 0.85 }}>Daemon: tier {daemonTier}</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    <button onClick={onRestart} className="bb-btn">
-                        Restart
-                    </button>
-                    <button onClick={onStop} className="bb-btn bb-btn-danger">
-                        Quit
-                    </button>
-                </div>
-            </div>,
-            container
-        );
-    }
+  function render() {
+    createRoot(container).render(
+      <div style={{ padding: '0 16px' }}>
+        <hr className="MuiDivider-root MuiDivider-fullWidth css-8dakje" style={{ margin: '0 -16px 8px' }} />
+        <div style={{ marginBottom: '8px', fontWeight: 'bold' }}>Bitburner UI</div>
+        <div style={{ marginBottom: '10px', opacity: 0.85 }}>
+          Daemon: tier
+          {daemonTier}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <button onClick={onRestart} className="bb-btn">
+            Restart
+          </button>
+          <button onClick={onStop} className="bb-btn bb-btn-danger">
+            Quit
+          </button>
+        </div>
+      </div>,
+    )
+  }
 
-    const tierPollId = setInterval(() => {
-        const next = getDaemon()?._getTier() ?? 0;
-        if (next === daemonTier) return;
-        daemonTier = next;
-        render();
-    }, TIER_POLL_MS);
+  const tierPollId = setInterval(() => {
+    const next = getDaemon()?._getTier() ?? 0
+    if (next === daemonTier)
+      return
+    daemonTier = next
+    render()
+  }, TIER_POLL_MS)
 
-    function destroy() {
-        clearInterval(tierPollId);
-    }
+  function destroy() {
+    clearInterval(tierPollId)
+  }
 
-    return { render, destroy };
+  return { render, destroy }
 }

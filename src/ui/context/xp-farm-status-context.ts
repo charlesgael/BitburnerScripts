@@ -1,4 +1,4 @@
-import { XpFarmStatus } from "../../cgd/types";
+import type { XpFarmStatus } from '../../cgd/types'
 
 /**
  * React's equivalent of Vue's provide/inject (see `ns-queue-context.ts` for
@@ -19,25 +19,27 @@ import { XpFarmStatus } from "../../cgd/types";
  * `ui/components/app-grid.tsx`), and `useXpFarmStatus` is the hook
  * descendant components call to read the value it provides.
  */
-let XpFarmStatusContext: any = null;
-let ReactRef: any = null;
+let XpFarmStatusContext: any = null
+let ReactRef: any = null
 
 export function initXpFarmStatusContext(React: any) {
-    ReactRef = React;
-    XpFarmStatusContext = React.createContext(null);
-    return XpFarmStatusContext;
+  ReactRef = React
+  XpFarmStatusContext = React.createContext(null)
+  return XpFarmStatusContext
 }
 
-/** Reads the daemon's last-reported XP Farm status, kept fresh via
+/**
+ * Reads the daemon's last-reported XP Farm status, kept fresh via
  * `cgd.store` and provided by the nearest `XpFarmStatusContext.Provider`
- * (set up in `ui/components/app-grid.tsx`). */
+ * (set up in `ui/components/app-grid.tsx`).
+ */
 export function useXpFarmStatus(): XpFarmStatus {
-    if (!XpFarmStatusContext) {
-        throw new Error("useXpFarmStatus() called before initXpFarmStatusContext() ran");
-    }
-    const status = ReactRef.useContext(XpFarmStatusContext);
-    if (!status) {
-        throw new Error("useXpFarmStatus() called outside of an XpFarmStatusContext.Provider");
-    }
-    return status;
+  if (!XpFarmStatusContext) {
+    throw new Error('useXpFarmStatus() called before initXpFarmStatusContext() ran')
+  }
+  const status = ReactRef.useContext(XpFarmStatusContext)
+  if (!status) {
+    throw new Error('useXpFarmStatus() called outside of an XpFarmStatusContext.Provider')
+  }
+  return status
 }

@@ -1,5 +1,5 @@
-import { AppDefinition } from "../../types";
-import { XpFarmContent } from "./components/xp-farm-content";
+import type { AppDefinition } from '../../types'
+import { XpFarmContent } from './components/xp-farm-content'
 
 /**
  * Lets the player dedicate purchased ("cloud") servers to grinding hacking
@@ -37,15 +37,15 @@ import { XpFarmContent } from "./components/xp-farm-content";
  * plain presentational JSX driven off that hook's return value.
  */
 export const XpFarmApp: AppDefinition = {
-    id: "xp-farm",
-    icon: "🏋️",
-    label: "XP Farm",
-    Content: XpFarmContent,
-    minDaemonTier: 2,
-    // Wide enough to open already showing two ~260px server cards per row —
-    // same reasoning as the Cloud Servers app's own preferredWidth.
-    preferredWidth: 850,
-    preferredHeight: 640,
-    minWidth: 550,
-    minHeight: 400,
-};
+  id: 'xp-farm',
+  icon: '🏋️',
+  label: 'XP Farm',
+  Content: XpFarmContent,
+  minDaemonTier: 2,
+  // Wide enough to open already showing two ~260px server cards per row —
+  // same reasoning as the Cloud Servers app's own preferredWidth.
+  preferredWidth: 850,
+  preferredHeight: 640,
+  minWidth: 550,
+  minHeight: 400,
+}

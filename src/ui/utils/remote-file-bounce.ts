@@ -1,5 +1,5 @@
-import { QueuedNS } from "./ns-proxy";
-import { isMovable } from "./file-types";
+import type { QueuedNS } from './ns-proxy'
+import { isMovable } from './file-types'
 
 /**
  * Lets the File Explorer app (`ui/apps/file-explorer/`) View/Edit a file
@@ -44,60 +44,68 @@ import { isMovable } from "./file-types";
  * transient copy, if there was nothing to restore) once the bounce is done,
  * so this is invisible in either case.
  */
-const STAGING_ROOT = "remote";
+const STAGING_ROOT = 'remote'
 
 export function stagedPathFor(host: string, path: string): string {
-    return `${STAGING_ROOT}/${host}/${path}`;
+  return `${STAGING_ROOT}/${host}/${path}`
 }
 
 async function withHomeBounce<T>(ns: QueuedNS, path: string, action: () => Promise<T>): Promise<T> {
-    const collided = await ns._fileExists(path, "home");
-    const backup = collided ? await ns._read(path) : null;
-    try {
-        return await action();
-    } finally {
-        if (collided) {
-            await ns._write(path, backup ?? "", "w");
-        } else if (await ns._fileExists(path, "home")) {
-            await ns._rm(path, "home");
-        }
+  const collided = await ns._fileExists(path, 'home')
+  const backup = collided ? await ns._read(path) : null
+  try {
+    return await action()
+  }
+  finally {
+    if (collided) {
+      await ns._write(path, backup ?? '', 'w')
     }
+    else if (await ns._fileExists(path, 'home')) {
+      await ns._rm(path, 'home')
+    }
+  }
 }
 
-/** Pulls `path` from `host` into its cache slot on `home` and returns its
+/**
+ * Pulls `path` from `host` into its cache slot on `home` and returns its
  * content. Safe to call repeatedly — each call re-fetches the latest
  * remote content and overwrites whatever was cached before. Throws
  * up front for a file type `ns.mv` doesn't support (see the module doc
- * comment) — callers should avoid offering this for such files at all. */
+ * comment) — callers should avoid offering this for such files at all.
+ */
 export async function pullRemoteFile(ns: QueuedNS, host: string, path: string): Promise<string> {
-    if (!isMovable(path)) {
-        throw new Error(`Can't preview ${path} from another server — copy it to home first, then view it there.`);
+  if (!isMovable(path)) {
+    throw new Error(`Can't preview ${path} from another server — copy it to home first, then view it there.`)
+  }
+  const staged = stagedPathFor(host, path)
+  await withHomeBounce(ns, path, async () => {
+    const ok = await ns._scp(path, 'home', host)
+    if (!ok)
+      throw new Error(`Couldn't copy ${path} from ${host} — does it still exist?`)
+    if (await ns._fileExists(staged, 'home')) {
+      await ns._rm(staged, 'home')
     }
-    const staged = stagedPathFor(host, path);
-    await withHomeBounce(ns, path, async () => {
-        const ok = await ns._scp(path, "home", host);
-        if (!ok) throw new Error(`Couldn't copy ${path} from ${host} — does it still exist?`);
-        if (await ns._fileExists(staged, "home")) {
-            await ns._rm(staged, "home");
-        }
-        await ns._mv("home", path, staged);
-    });
-    return await ns._read(staged);
+    await ns._mv('home', path, staged)
+  })
+  return await ns._read(staged)
 }
 
-/** Pushes `content` back to `path` on `host`, and refreshes the cache slot
+/**
+ * Pushes `content` back to `path` on `host`, and refreshes the cache slot
  * to match so a subsequent View doesn't show stale content. Same
  * `isMovable`-only restriction as `pullRemoteFile` — moot in practice since
  * a non-movable file was never editable to begin with (see `isEditable`),
- * but kept as the same defensive backstop. */
+ * but kept as the same defensive backstop.
+ */
 export async function pushRemoteFile(ns: QueuedNS, host: string, path: string, content: string): Promise<void> {
-    if (!isMovable(path)) {
-        throw new Error(`Can't save ${path} back to another server.`);
-    }
-    await withHomeBounce(ns, path, async () => {
-        await ns._write(path, content, "w");
-        const ok = await ns._scp(path, host, "home");
-        if (!ok) throw new Error(`Couldn't copy ${path} to ${host}.`);
-    });
-    await ns._write(stagedPathFor(host, path), content, "w");
+  if (!isMovable(path)) {
+    throw new Error(`Can't save ${path} back to another server.`)
+  }
+  await withHomeBounce(ns, path, async () => {
+    await ns._write(path, content, 'w')
+    const ok = await ns._scp(path, host, 'home')
+    if (!ok)
+      throw new Error(`Couldn't copy ${path} to ${host}.`)
+  })
+  await ns._write(stagedPathFor(host, path), content, 'w')
 }

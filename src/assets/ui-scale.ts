@@ -40,4 +40,4 @@ div[role="tooltip"],
 .un-scale {
     zoom: 1.2;
 }
-`.trim();
+`.trim()

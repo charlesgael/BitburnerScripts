@@ -1,5 +1,5 @@
-import { NS } from "@ns";
-import { StatValue } from "./stats";
+import type { NS } from '@ns'
+import type { StatValue } from './stats'
 
 /**
  * Shared types for the `window.cgd` namespace — the mechanism that lets a
@@ -17,26 +17,32 @@ import { StatValue } from "./stats";
  * runtime piece (the lazy-init accessor).
  */
 
-/** The tiers a daemon can run at — see `docs/epic-cgd-namespace.md`'s tier
+/**
+ * The tiers a daemon can run at — see `docs/epic-cgd-namespace.md`'s tier
  * table for what each one actually adds. Numbers are stable identifiers,
  * not a contiguous range that gets renumbered when a new tier is inserted
  * — existing `minDaemonTier` values on apps (added in a later phase) stay
- * valid across that. */
-export type CgdTier = 0 | 1 | 2 | 3 | 4;
+ * valid across that.
+ */
+export type CgdTier = 0 | 1 | 2 | 3 | 4
 
-/** Bumped whenever `CgdDaemon`/`CgdNamespace`'s shape changes in a way an
+/**
+ * Bumped whenever `CgdDaemon`/`CgdNamespace`'s shape changes in a way an
  * older-build daemon or consumer could misread. Checked (not enforced) by
- * whichever side notices a mismatch — see `window-cgd.ts`. */
-export const CGD_SCHEMA_VERSION = 1;
+ * whichever side notices a mismatch — see `window-cgd.ts`.
+ */
+export const CGD_SCHEMA_VERSION = 1
 
-/** One item in flight on a daemon's queue — see `queue.ts`. Shape mirrors
+/**
+ * One item in flight on a daemon's queue — see `queue.ts`. Shape mirrors
  * the original (pre-epic) `ui/utils/ns-queue.ts`, since deleted — `ns-
  * proxy.ts` and `ui.app.ts` both talk to `cgd.daemon.queue` now instead of
- * a queue `ui.app.ts` owned itself. */
+ * a queue `ui.app.ts` owned itself.
+ */
 export interface CgdQueuedTask {
-    invoke: (ns: NS) => unknown | Promise<unknown>;
-    resolve: (value: unknown) => void;
-    reject: (err: unknown) => void;
+  invoke: (ns: NS) => unknown | Promise<unknown>
+  resolve: (value: unknown) => void
+  reject: (err: unknown) => void
 }
 
 /**
@@ -55,8 +61,8 @@ export interface CgdQueuedTask {
  * call, so it isn't billed or trackable as "dynamic ns usage" at all —
  * only what the handler's own body does is.
  */
-export type CgdActionHandler = (ns: NS, ...args: any[]) => unknown | Promise<unknown>;
-export type CgdActionHandlers = Record<string, CgdActionHandler>;
+export type CgdActionHandler = (ns: NS, ...args: any[]) => unknown | Promise<unknown>
+export type CgdActionHandlers = Record<string, CgdActionHandler>
 
 /**
  * The daemon-owned request queue at `cgd.daemon.queue`. Two entry points
@@ -74,56 +80,69 @@ export type CgdActionHandlers = Record<string, CgdActionHandler>;
  * might believe it to be.
  */
 export interface CgdQueue {
-    enqueueCall(path: string[], args: unknown[]): Promise<unknown>;
-    enqueueAction(name: string, args: unknown[]): Promise<unknown>;
-    /** Runs the next queued call (if any) against `ns`. Returns `true` if
-     * one was consumed, `false` if the queue was empty — callers should
-     * `ns.sleep` when this returns `false` instead of busy-looping. Only
-     * ever called by the daemon's own idle loop against the real `ns`. */
-    drain(ns: NS): Promise<boolean>;
-    size(): number;
-    /** Rejects every currently-pending call with `err` and empties the
-     * queue — called once by a daemon's `_stop()` cleanup so nothing
-     * enqueued against it is left hanging forever once it's gone. */
-    rejectAll(err: unknown): void;
+  enqueueCall: (path: string[], args: unknown[]) => Promise<unknown>
+  enqueueAction: (name: string, args: unknown[]) => Promise<unknown>
+  /**
+   * Runs the next queued call (if any) against `ns`. Returns `true` if
+   * one was consumed, `false` if the queue was empty — callers should
+   * `ns.sleep` when this returns `false` instead of busy-looping. Only
+   * ever called by the daemon's own idle loop against the real `ns`.
+   */
+  drain: (ns: NS) => Promise<boolean>
+  size: () => number
+  /**
+   * Rejects every currently-pending call with `err` and empties the
+   * queue — called once by a daemon's `_stop()` cleanup so nothing
+   * enqueued against it is left hanging forever once it's gone.
+   */
+  rejectAll: (err: unknown) => void
 }
 
-/** What a daemon registers at `window.cgd.daemon`. Present only while a
+/**
+ * What a daemon registers at `window.cgd.daemon`. Present only while a
  * daemon is alive *and* ready to serve — assignment is deferred until the
  * drain loop is actually running (see `daemon-core.ts`), so this object's
  * mere presence is a trustworthy readiness signal, not just an existence
- * one. */
+ * one.
+ */
 export interface CgdDaemon {
-    version: number;
-    tier: CgdTier;
-    queue: CgdQueue;
-    /** `_`-prefixed per this epic's naming convention — keeps this name
-     * distinct from any real (or future) `ns.*` method text, so it can
-     * never trip Bitburner's identifier-text RAM analyzer the way
-     * `ns-queue.ts`'s original `run`→`enqueue` rename had to dodge once
-     * already (see that file's header comment). */
-    _getTier(): CgdTier;
-    /** Rejects every pending queue entry, then clears `window.cgd.daemon`
-     * — wired to this daemon's own `ns.atExit`, so it fires regardless of
-     * how the process ends (falls off `main()`, killed, throws). */
-    _stop(): void;
+  version: number
+  tier: CgdTier
+  queue: CgdQueue
+  /**
+   * `_`-prefixed per this epic's naming convention — keeps this name
+   * distinct from any real (or future) `ns.*` method text, so it can
+   * never trip Bitburner's identifier-text RAM analyzer the way
+   * `ns-queue.ts`'s original `run`→`enqueue` rename had to dodge once
+   * already (see that file's header comment).
+   */
+  _getTier: () => CgdTier
+  /**
+   * Rejects every pending queue entry, then clears `window.cgd.daemon`
+   * — wired to this daemon's own `ns.atExit`, so it fires regardless of
+   * how the process ends (falls off `main()`, killed, throws).
+   */
+  _stop: () => void
 }
 
-/** One host's current XP Farm assignment, as last reported by
+/**
+ * One host's current XP Farm assignment, as last reported by
  * `daemons/xp-farm.daemon.ts` — see `CgdStoreState.xpFarmStatus`. Lives here
  * (rather than in `ui/utils/xp-farm-config.ts`, which used to own it back
  * when the two sides only talked through `xp-farm-status.txt`) so both the
  * daemon (`cgd/` side) and the app (`ui/` side) import the same shape from
- * one place instead of the daemon reaching into a `ui/` file. */
+ * one place instead of the daemon reaching into a `ui/` file.
+ */
 export interface XpFarmAssignment {
-    target: string;
-    growThreads: number;
-    weakenThreads: number;
+  target: string
+  growThreads: number
+  weakenThreads: number
 }
 
-export type XpFarmStatus = Record<string, XpFarmAssignment>;
+export type XpFarmStatus = Record<string, XpFarmAssignment>
 
-/** `cgd.store`'s data shape. `homeRam` is broken out from the generic
+/**
+ * `cgd.store`'s data shape. `homeRam` is broken out from the generic
  * `stats` record (rather than being just another entry in it) because
  * `ui/utils/app-availability.ts`'s `ramShortfallReason` needs the raw
  * numbers for gating math, not a pre-formatted display string — see
@@ -141,43 +160,48 @@ export type XpFarmStatus = Record<string, XpFarmAssignment>;
  * wipes it out from under XP Farm's own, independent update cycle. As a
  * sibling field, `store.ts`'s shallow top-level merge leaves it untouched by
  * every push that doesn't explicitly set it — see the design doc's "Store
- * lifecycle" section. */
+ * lifecycle" section.
+ */
 export interface CgdStoreState {
-    homeRam: { used: number; max: number };
-    stats: Record<string, StatValue>;
-    xpFarmStatus: XpFarmStatus;
+  homeRam: { used: number, max: number }
+  stats: Record<string, StatValue>
+  xpFarmStatus: XpFarmStatus
 }
 
-/** Hand-rolled, dependency-free vanilla store at `window.cgd.store` — see
+/**
+ * Hand-rolled, dependency-free vanilla store at `window.cgd.store` — see
  * `store.ts`. Stable and long-lived: created once, lazily, by whichever
  * daemon first finds it missing, and reused across every subsequent daemon
  * generation/tier swap rather than recreated — see the design doc's "Store
  * lifecycle" section for why (a fresh instance per daemon would silently
- * strand any already-subscribed consumer holding the old reference). */
+ * strand any already-subscribed consumer holding the old reference).
+ */
 export interface CgdStore {
-    getState(): CgdStoreState;
-    setState(partial: Partial<CgdStoreState>): void;
-    subscribe(listener: () => void): () => void;
+  getState: () => CgdStoreState
+  setState: (partial: Partial<CgdStoreState>) => void
+  subscribe: (listener: () => void) => () => void
 }
 
 export interface CgdReactAppHandle {
-    unmount(): void;
+  unmount: () => void
 }
 
-/** `window.cgd.reactApps` — one entry per mounted piece of `ui.app.ts`'s
+/**
+ * `window.cgd.reactApps` — one entry per mounted piece of `ui.app.ts`'s
  * UI. A fresh `ui.app.ts` launch dismounts whichever of these already
  * exist (calling `unmount()` on each) before mounting its own and
  * overwriting this object — see `docs/epic-cgd-namespace.md` section 3 and
- * `ui.app.ts` itself. */
+ * `ui.app.ts` itself.
+ */
 export interface CgdReactApps {
-    launcher?: CgdReactAppHandle;
-    overview?: CgdReactAppHandle;
-    status?: CgdReactAppHandle;
+  launcher?: CgdReactAppHandle
+  overview?: CgdReactAppHandle
+  status?: CgdReactAppHandle
 }
 
 /** The full `window.cgd` shape. */
 export interface CgdNamespace {
-    daemon?: CgdDaemon;
-    store?: CgdStore;
-    reactApps: CgdReactApps;
+  daemon?: CgdDaemon
+  store?: CgdStore
+  reactApps: CgdReactApps
 }
