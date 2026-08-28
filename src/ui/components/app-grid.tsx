@@ -2,7 +2,6 @@ import type { CgdDaemon, CgdQueue, CgdStore, CgdTier } from '../../cgd/types'
 import type { HomeRam } from '../context/home-ram-context'
 import type { AppDefinition, ReactGlobals } from '../types'
 import type { QueuedNS } from '../utils/ns-proxy'
-import { createRoot } from 'react-dom/client'
 import { initCgdActionsContext } from '../context/cgd-actions-context'
 import { initChildPidsContext } from '../context/child-pids-context'
 import { initDaemonTierContext } from '../context/daemon-tier-context'
@@ -323,20 +322,23 @@ export function createAppGrid(
       )
     })
 
-    const grid = (
-      <div
-        key="grid"
-        className="un-scale"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(56px, 1fr))',
-          gap: '8px',
-          padding: '8px',
-        }}
-      >
-        {icons}
-      </div>
-    )
+    const grid = icons.length
+      ? (
+          <div
+            key="grid"
+            className="un-scale"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(56px, 1fr))',
+              gap: '8px',
+              padding: '8px',
+              borderTop: 'solid 1px rgb(68, 68, 68)',
+            }}
+          >
+            {icons}
+          </div>
+        )
+      : null
 
     const windows = state.windows.map((win) => {
       const app = apps.find(a => a.id === win.id)
@@ -443,17 +445,13 @@ export function createAppGrid(
       )
     })
 
-    createRoot(container).render(
+    eval('window').ReactDOM.render(
       <NsQueueContext.Provider value={queuedNs}>
         <ChildPidsContext.Provider value={addChildPid}>
           <HomeRamContext.Provider value={homeRam}>
             <XpFarmStatusContext.Provider value={xpFarmStatus}>
               <DaemonTierContext.Provider value={daemonTier}>
                 <CgdActionsContext.Provider value={callAction}>
-                  <hr
-                    className="MuiDivider-root MuiDivider-fullWidth css-8dakje"
-                    style={{ margin: '0 -16px' }}
-                  />
                   {grid}
                   {windows}
                 </CgdActionsContext.Provider>
@@ -462,6 +460,7 @@ export function createAppGrid(
           </HomeRamContext.Provider>
         </ChildPidsContext.Provider>
       </NsQueueContext.Provider>,
+      container,
     )
   }
 

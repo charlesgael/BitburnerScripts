@@ -1,6 +1,5 @@
 import type { CgdDaemon, CgdTier } from '../../cgd/types'
 import type { ReactGlobals } from '../types'
-import { createRoot } from 'react-dom/client'
 
 const TIER_POLL_MS = 1000
 
@@ -35,7 +34,7 @@ export function createStatusPanel(
   let daemonTier: CgdTier = getDaemon()?._getTier() ?? 0
 
   function render() {
-    createRoot(container).render(
+    eval('window').ReactDOM.render(
       <div style={{ padding: '0 16px' }}>
         <hr className="MuiDivider-root MuiDivider-fullWidth css-8dakje" style={{ margin: '0 -16px 8px' }} />
         <div style={{ marginBottom: '8px', fontWeight: 'bold' }}>Bitburner UI</div>
@@ -52,6 +51,7 @@ export function createStatusPanel(
           </button>
         </div>
       </div>,
+      container,
     )
   }
 
