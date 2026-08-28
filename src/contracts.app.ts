@@ -73,7 +73,7 @@ export async function main(ns: NS) {
       )
       let prefix = `Reward`
       if (!result.solved) {
-        ns.tail()
+        ns.ui.openTail()
         ns.print(`    !!!! FAILED !!!!`)
         prefix = `Failure`
         failures.push(contract)

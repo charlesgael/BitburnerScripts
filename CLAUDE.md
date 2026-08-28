@@ -38,13 +38,16 @@ There are **two separate source trees** — don't confuse them:
 
 ## Known pre-existing issues
 
-`npx tsc --noEmit` currently reports errors in `src/servers.ts`, `src/contracts.app.ts`, `src/init.ts`, and
-`src/contracts.lib.ts` — all pre-existing, not something a given change broke. They're all the same root cause: the
-game's NS API moved some functions into namespaces since these files were written. Concretely: `getPurchasedServers`
-/`purchaseServer`/`deleteServer` moved under `ns.cloud.*`; `tail` moved to `ns.ui.openTail`; `CodingContractData` was
-renamed to `CodingContract`. `src.prestige/` has many more instances of this same pattern (old flat Singularity
-calls like `ns.gymWorkout` that now live under `ns.singularity.*`) — see `src/daemons/train.daemon.ts` for how one of
-those was actually fixed.
+`npx tsc --noEmit` is currently clean. It previously reported errors in `src/servers.ts`, `src/contracts.app.ts`, and
+`src/contracts.lib.ts`, all from the same root cause: the game's NS API moved some functions into namespaces since
+those files were written — `getPurchasedServers`/`getPurchasedServerLimit`/`getPurchasedServerCost`/
+`purchaseServer`/`deleteServer` moved under `ns.cloud.*` (as `getServerNames`/`getServerLimit`/`getServerCost`/
+`purchaseServer`/`deleteServer`); bare `tail()` moved to `ns.ui.openTail()`; the exported type `CodingContractData`
+was removed (`ns.codingcontract.getData` returns `any`, so call sites just use `any` now — `CodingContract`, the
+name TS suggests instead, is actually the unrelated `ns.codingcontract` namespace interface, not a data type).
+`src.prestige/` still has many more instances of this same pattern (old flat Singularity calls like `ns.gymWorkout`
+that now live under `ns.singularity.*`), since it's unmaintained reference material — see
+`src/daemons/train.daemon.ts` for how one of those was actually fixed for real, live code.
 
 ## The RAM-cost model (read this before adding any `ns.*` call anywhere in `src/ui/` or `src/cgd/`)
 

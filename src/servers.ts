@@ -1,8 +1,8 @@
 import type { NS } from '@ns'
 
 async function buy_servers(ns: NS, ram: number) {
-  while (ns.getPurchasedServers().length < ns.getPurchasedServerLimit()) {
-    const bought = ns.purchaseServer(`foo`, ram) !== ``
+  while (ns.cloud.getServerNames().length < ns.cloud.getServerLimit()) {
+    const bought = ns.cloud.purchaseServer(`foo`, ram) !== ``
     if (!bought) {
       await ns.sleep(5000)
     }
@@ -10,22 +10,22 @@ async function buy_servers(ns: NS, ram: number) {
 }
 
 function delete_servers(ns: NS) {
-  const servers = ns.getPurchasedServers()
+  const servers = ns.cloud.getServerNames()
   for (const server of servers) {
     ns.killall(server)
-    ns.deleteServer(server)
+    ns.cloud.deleteServer(server)
   }
 }
 
 function get_current_server_ram(ns: NS) {
-  const servers = ns.getPurchasedServers()
+  const servers = ns.cloud.getServerNames()
   return servers.length > 0 ? ns.getServerMaxRam(servers[0]) : 0
 }
 
 function can_afford_upgrade(ns: NS, ram: number) {
-  const total_servers = ns.getPurchasedServerLimit()
+  const total_servers = ns.cloud.getServerLimit()
   return (
-    ns.getPlayer().money >= ns.getPurchasedServerCost(ram) * total_servers
+    ns.getPlayer().money >= ns.cloud.getServerCost(ram) * total_servers
   )
 }
 
@@ -54,8 +54,8 @@ export async function main(ns: NS) {
 
   if (current_ram === next_upgrade) {
     const upgrade_cost
-      = ns.getPurchasedServerCost(next_upgrade * 2)
-        * ns.getPurchasedServerLimit()
+      = ns.cloud.getServerCost(next_upgrade * 2)
+        * ns.cloud.getServerLimit()
 
     const formatted_cost = new Intl.NumberFormat(undefined, {
       style: 'currency',
@@ -70,8 +70,8 @@ export async function main(ns: NS) {
   }
   else if (simulate) {
     const upgrade_cost
-      = ns.getPurchasedServerCost(next_upgrade)
-        * ns.getPurchasedServerLimit()
+      = ns.cloud.getServerCost(next_upgrade)
+        * ns.cloud.getServerLimit()
 
     const formatted_cost = new Intl.NumberFormat(undefined, {
       style: 'currency',

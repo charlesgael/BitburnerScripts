@@ -1,4 +1,4 @@
-import type { CodingContractData, NS } from '@ns'
+import type { NS } from '@ns'
 
 // generated from ns.codingcontracts.getContractTypes()
 export const ContractTypes = {
@@ -49,8 +49,8 @@ export class ContractSolver {
     public title: string,
     public script: string,
     public processInput: (
-      input: CodingContractData,
-    ) => CodingContractData = input => input,
+      input: any,
+    ) => any = input => input,
   ) {}
 
   solve = async (ns: NS, filename: string, host: string, portId: number) => {
