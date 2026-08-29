@@ -7,6 +7,11 @@ import { makeStatPusher } from '../cgd/stat-push'
 import { BASELINE_STAT_PROVIDERS } from '../cgd/stats'
 import { reserveTier1Ram, TIER_1_ACTIONS, TIER_1_METHODS } from './lv1.daemon'
 
+const TIER_2_METHODS = [
+  ...TIER_1_METHODS,
+  'getServer',
+]
+
 /**
  * Tier 2: adds cloud-server management — listing, purchasing, deleting —
  * and the slave-node network scan (see `docs/epic-cgd-namespace.md`'s tier
@@ -38,12 +43,17 @@ const TIER_2_ACTIONS: CgdActionHandlers = {
   slaveNodeHosts: slaveNodeHostsAction,
 }
 
+function reserveTier2Ram(ns: NS) {
+  reserveTier1Ram(ns)
+  void ns.getServer
+}
+
 export async function main(ns: NS): Promise<void> {
   // Same reasoning as lv1.daemon.ts's own call — this tier's compiled
   // output is a separate bundle from lv1.daemon.js, so an unused,
   // non-exported import wouldn't survive tree-shaking on its own.
-  reserveTier1Ram(ns)
-  await runTieredDaemon(ns, 2, 'daemons/lv2.daemon.js', new Set(TIER_1_METHODS), {
+  reserveTier2Ram(ns)
+  await runTieredDaemon(ns, 2, 'daemons/lv2.daemon.js', new Set(TIER_2_METHODS), {
     actionHandlers: TIER_2_ACTIONS,
     onIdle: makeStatPusher(BASELINE_STAT_PROVIDERS),
   })

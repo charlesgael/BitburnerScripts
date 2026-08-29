@@ -67,7 +67,7 @@ export function ShareContent({ React }: AppComponentProps) {
             React={React}
             ns={shareState.ns}
             host={host}
-            onUsedRamChange={shareState.updateCloudUsedRam}
+            onRamUsedChange={shareState.updateCloudUsedRam}
           />
         ))}
       </div>

@@ -1,7 +1,7 @@
 import type { AppComponentProps } from '../../../types'
 import type { CloudServerRow } from '../../../utils/cloud-list'
 import { useXpFarm } from '../logic/use-xp-farm'
-import { ServerCard } from './server-card'
+import { XpFarmServerCard } from './server-card'
 
 /**
  * Root component: the dedicated-count/refresh header, the daemon status
@@ -18,7 +18,7 @@ export function XpFarmContent({ React }: AppComponentProps) {
   // the window reflows into more columns instead of a fixed-width list
   // stranded in empty space.
   const cards = xf.servers.map((s: CloudServerRow) => (
-    <ServerCard key={s.hostname} React={React} xf={xf} s={s} />
+    <XpFarmServerCard key={s.hostname} React={React} xf={xf} s={s} />
   ))
 
   return (

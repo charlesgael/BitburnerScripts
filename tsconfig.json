@@ -7,7 +7,6 @@
     "module": "esnext",
     "moduleResolution": "Node",
     "paths": {
-      "@/*": ["./src/*"],
       "/src/*": ["./src/*"],
       "@ns": ["./NetscriptDefinitions.d.ts"]
     },

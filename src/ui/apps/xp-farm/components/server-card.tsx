@@ -1,5 +1,6 @@
 import type { CloudServerRow } from '../../../utils/cloud-list'
 import type { XpFarmState } from '../logic/use-xp-farm'
+import { ServerCard } from '../../../components/server-card'
 import {
   XP_FARM_GROW_SCRIPT,
   XP_FARM_WEAKEN_SCRIPT,
@@ -17,7 +18,7 @@ const linkStyle = {
  * One dedicated (or dedicatable) server's card: hostname/RAM + Enable/
  * Disable, and — once enabled — its current target/thread status line.
  */
-export function ServerCard({
+export function XpFarmServerCard({
   React,
   xf,
   s,
@@ -31,90 +32,88 @@ export function ServerCard({
   const assignment = xf.status[s.hostname]
 
   return (
-    <div className="bb-card">
+    <ServerCard
+      React={React}
+      server={s}
+    >
+
       <div
         style={{
           display: 'flex',
+          flexDirection: 'row-reverse',
           justifyContent: 'space-between',
           alignItems: 'center',
           gap: '8px',
         }}
       >
-        <span className="bb-wrap" style={{ flex: 1 }}>
-          {s.hostname}
-          {' '}
-          (
-          {s.ram}
-          {' '}
-          GB)
-        </span>
         <button
           onClick={() => void xf.toggle(s.hostname)}
           disabled={isOccupied}
           className={`bb-btn bb-btn--wide${isEnabled ? ' bb-btn-danger' : ''}`}
         >
-          {isOccupied ? '...' : isEnabled ? 'Disable' : 'Enable'}
+          {isOccupied ? '...' : isEnabled ? 'Stop' : 'Start'}
         </button>
+        {isEnabled
+          ? (
+              <div className="bb-wrap" style={{ fontSize: '11px', opacity: 0.75 }}>
+                {assignment
+                  ? (
+                      <span>
+                        →
+                        {' '}
+                        {assignment.target}
+                        {' '}
+                        (
+                        {assignment.growThreads > 0
+                          ? (
+                              <span
+                                onClick={() =>
+                                  void xf.openLoopLog(
+                                    XP_FARM_GROW_SCRIPT,
+                                    s.hostname,
+                                    assignment.target,
+                                  )}
+                                title="Open this host's grow loop log"
+                                style={linkStyle}
+                              >
+                                {assignment.growThreads}
+                                g
+                              </span>
+                            )
+                          : (
+                              `${assignment.growThreads}g`
+                            )}
+                        {' / '}
+                        {assignment.weakenThreads > 0
+                          ? (
+                              <span
+                                onClick={() =>
+                                  void xf.openLoopLog(
+                                    XP_FARM_WEAKEN_SCRIPT,
+                                    s.hostname,
+                                    assignment.target,
+                                  )}
+                                title="Open this host's weaken loop log"
+                                style={linkStyle}
+                              >
+                                {assignment.weakenThreads}
+                                w
+                              </span>
+                            )
+                          : (
+                              `${assignment.weakenThreads}w`
+                            )}
+                        )
+                      </span>
+                    )
+                  : (
+                      '→ starting…'
+                    )}
+              </div>
+            )
+          : null}
       </div>
-      {isEnabled
-        ? (
-            <div className="bb-wrap" style={{ fontSize: '11px', opacity: 0.75 }}>
-              {assignment
-                ? (
-                    <span>
-                      →
-                      {' '}
-                      {assignment.target}
-                      {' '}
-                      (
-                      {assignment.growThreads > 0
-                        ? (
-                            <span
-                              onClick={() =>
-                                void xf.openLoopLog(
-                                  XP_FARM_GROW_SCRIPT,
-                                  s.hostname,
-                                  assignment.target,
-                                )}
-                              title="Open this host's grow loop log"
-                              style={linkStyle}
-                            >
-                              {assignment.growThreads}
-                              g
-                            </span>
-                          )
-                        : (
-                            `${assignment.growThreads}g`
-                          )}
-                      {' / '}
-                      {assignment.weakenThreads > 0
-                        ? (
-                            <span
-                              onClick={() =>
-                                void xf.openLoopLog(
-                                  XP_FARM_WEAKEN_SCRIPT,
-                                  s.hostname,
-                                  assignment.target,
-                                )}
-                              title="Open this host's weaken loop log"
-                              style={linkStyle}
-                            >
-                              {assignment.weakenThreads}
-                              w
-                            </span>
-                          )
-                        : (
-                            `${assignment.weakenThreads}w`
-                          )}
-                      )
-                    </span>
-                  )
-                : (
-                    '→ starting…'
-                  )}
-            </div>
-          )
-        : null}
-    </div>
+
+    </ServerCard>
   )
 }

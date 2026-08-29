@@ -1,8 +1,8 @@
+import type { Server } from '@ns'
 import type { CloudServerRow } from '../../../utils/cloud-list'
-import type { ShareHost } from './types'
 import { useCgdActions } from '../../../context/cgd-actions-context'
-import { useHomeRam } from '../../../context/home-ram-context'
 import { useQueuedNs } from '../../../context/ns-queue-context'
+import { isHome } from '../../../logic/is-home'
 import { fetchCloudList, sortByHostname } from '../../../utils/cloud-list'
 import { readXpFarmHosts } from '../../../utils/xp-farm-config'
 
@@ -14,9 +14,18 @@ import { readXpFarmHosts } from '../../../utils/xp-farm-config'
  */
 export function useShare(React: any) {
   const ns = useQueuedNs()
-  const homeRam = useHomeRam()
   const callAction = useCgdActions()
 
+  // Starts `null`, not `{}`/`[]` — `hosts` below filters it out until the
+  // first `refresh()` resolves. A placeholder object with no `hostname`
+  // would render as a card with an undefined `key`, and `useShareHostCard`
+  // would key its own `ns._ps(host.hostname)` effect off that same
+  // `undefined`, firing once for garbage before re-firing for real once
+  // `homeServer` actually arrives.
+  const [homeServer, setHomeServer]: [
+    Server | null,
+    (v: Server | null | ((prev: Server | null) => Server | null)) => void,
+  ] = React.useState(null)
   const [cloudServers, setCloudServers]: [
     CloudServerRow[],
     (v: CloudServerRow[] | ((prev: CloudServerRow[]) => CloudServerRow[])) => void,
@@ -28,10 +37,12 @@ export function useShare(React: any) {
     setLoading(true)
     setError(null)
     try {
-      const [cloudList, xpFarmHosts] = await Promise.all([
+      const [homeServer, cloudList, xpFarmHosts] = await Promise.all([
+        ns._getServer('home'),
         fetchCloudList(callAction),
         readXpFarmHosts(ns),
       ])
+      setHomeServer(homeServer)
       const dedicated = new Set(xpFarmHosts)
       setCloudServers(sortByHostname(cloudList.servers.filter((s: CloudServerRow) => !dedicated.has(s.hostname))))
     }
@@ -44,9 +55,14 @@ export function useShare(React: any) {
   }
 
   // This component remounts every time the window is opened — fetch the
-  // cloud-server list fresh rather than trusting stale state. `home`'s own
-  // RAM comes live from useHomeRam() (see ui/context/home-ram-context.ts)
-  // and needs no fetch of its own.
+  // cloud-server list fresh rather than trusting stale state. `home` used
+  // to come live from useHomeRam() instead of this fetch (see
+  // ui/context/home-ram-context.ts), but that context has no `isSlave`/
+  // full-`Server`-shape data and made `home` a structurally different
+  // object from every cloud host, so it's fetched here the same way now —
+  // see `updateCloudUsedRam`/`useShareHostCard`'s `syncUsedRam` below for
+  // the other half of that: `home` is patched in place after a toggle
+  // exactly like a cloud host is, not treated as a special case.
   React.useEffect(() => {
     void refresh()
     // eslint-disable-next-line react/exhaustive-deps
@@ -56,25 +72,20 @@ export function useShare(React: any) {
   // back the RAM it just consumed/freed by starting/stopping a share
   // daemon, without waiting on a full Refresh (see use-share-host-card.ts's
   // syncUsedRam for why that matters).
-  function updateCloudUsedRam(hostname: string, usedRam: number) {
-    setCloudServers((prev: CloudServerRow[]) => prev.map(s => (s.hostname === hostname ? { ...s, usedRam } : s)))
+  function updateCloudUsedRam(hostname: string, ramUsed: number) {
+    if (isHome(hostname))
+      setHomeServer(prev => (prev ? { ...prev, ramUsed } : prev))
+    else
+      setCloudServers((prev: CloudServerRow[]) => prev.map(s => (s.hostname === hostname ? { ...s, ramUsed } : s)))
   }
 
-  const hosts: ShareHost[] = [
-    {
-      hostname: 'home',
-      maxRam: homeRam.max,
-      usedRam: homeRam.used,
-      isHome: true,
-    },
-    ...cloudServers.map(s => ({
-      hostname: s.hostname,
-      maxRam: s.ram,
-      usedRam: s.usedRam,
-      isHome: false,
-    })),
+  // `homeServer` is `null` until the first `refresh()` resolves (see its
+  // declaration above) — left out of `hosts` until then instead of handing
+  // `ShareHostCard` a hostname-less placeholder.
+  const hosts: CloudServerRow[] = [
+    ...(homeServer ? [homeServer] : []),
+    ...cloudServers,
   ]
-
   return {
     ns,
     loading,

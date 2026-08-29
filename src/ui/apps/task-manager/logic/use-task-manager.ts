@@ -172,7 +172,7 @@ export function useTaskManager(React: any, apps: ManagedAppDefinition[], runnabl
         options.push({ host, freeRam })
     }
     consider('home', homeRam.max - homeRam.used)
-    for (const cs of cloudServers) consider(cs.hostname, cs.ram - cs.usedRam)
+    for (const cs of cloudServers) consider(cs.hostname, cs.maxRam - cs.ramUsed)
     return options
   }
 

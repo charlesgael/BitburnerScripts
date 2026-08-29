@@ -1,5 +1,6 @@
+import type { CloudServerRow } from '../../../utils/cloud-list'
 import type { QueuedNS } from '../../../utils/ns-proxy'
-import type { ShareHost } from './types'
+import { isHome } from '../../../logic/is-home'
 import { spawnRemote } from '../../../utils/spawn-remote'
 import { threadTiers } from './thread-tiers'
 
@@ -33,8 +34,8 @@ const RESERVED_RAM_FRACTION = 0.2
 export function useShareHostCard(
   React: any,
   ns: QueuedNS,
-  host: ShareHost,
-  onUsedRamChange: (hostname: string, usedRam: number) => void,
+  host: CloudServerRow,
+  onRamUsedChange: (hostname: string, usedRam: number) => void,
 ) {
   const [pid, setPid] = React.useState(null) // non-null while a share daemon is running here
   const [runningThreads, setRunningThreads] = React.useState(0)
@@ -45,8 +46,8 @@ export function useShareHostCard(
   const [error, setError] = React.useState(null)
 
   const sharing = pid != null
-  const freeRam = host.maxRam - host.usedRam
-  const reservedRam = host.isHome ? Math.max(MIN_RESERVED_RAM_GB, host.maxRam * RESERVED_RAM_FRACTION) : 0
+  const freeRam = host.maxRam - host.ramUsed
+  const reservedRam = isHome(host) ? Math.max(MIN_RESERVED_RAM_GB, host.maxRam * RESERVED_RAM_FRACTION) : 0
   const shareableRam = Math.max(0, freeRam - reservedRam)
   const maxThreads = costPerThread > 0 ? Math.floor(shareableRam / costPerThread) : 0
   const tiers = threadTiers(maxThreads)
@@ -115,24 +116,22 @@ export function useShareHostCard(
     return () => clearInterval(interval)
   }, [pid])
 
-  // `host.usedRam` is a snapshot from ShareContent's last cloud-list
-  // fetch — for a cloud host, that only ever happens on mount or a manual
-  // Refresh click, so starting/stopping a share daemon here would
-  // otherwise leave that snapshot stale until one of those. Left
-  // uncorrected, a stale (too-high) usedRam after Stop makes this card
-  // think there's still no free RAM, showing the "not enough RAM" message
-  // until the player manually refreshes. `home`'s own entry doesn't need
-  // this — it comes live from useHomeRam(), refreshed by ui.app.ts's main
-  // loop regardless of what this card does — so this only bothers
-  // fetching for cloud hosts. ns.getServerUsedRam is already part of
+  // `host.ramUsed` is a snapshot from ShareContent's last cloud-list/
+  // `getServer('home')` fetch (`use-share.ts`'s `refresh`) — that only ever
+  // happens on mount or a manual Refresh click, so starting/stopping a
+  // share daemon here would otherwise leave that snapshot stale until one
+  // of those. Left uncorrected, a stale (too-high) ramUsed after Stop makes
+  // this card think there's still no free RAM, showing the "not enough
+  // RAM" message until the player manually refreshes. Runs for `home` too,
+  // not just cloud hosts — `home` is no longer a special case fed live by
+  // useHomeRam() (see `use-share.ts`'s own header-comment edit), it's just
+  // another host in the same list. ns.getServerUsedRam is already part of
   // ui.app.js's footprint (see ui/stats/registry.ts), so calling it here
   // adds nothing new on top of that.
   async function syncUsedRam() {
-    if (host.isHome)
-      return
     try {
       const usedRam = await ns._getServerUsedRam(host.hostname)
-      onUsedRamChange(host.hostname, usedRam)
+      onRamUsedChange(host.hostname, usedRam)
     }
     catch {
       // Best-effort — a manual Refresh will still fix it if this fails.
@@ -158,12 +157,12 @@ export function useShareHostCard(
         setError(
           `Not enough free RAM: ${selectedThreads} thread(s) needs ${requiredRam.toFixed(2)} GB, only `
           + `${shareableRam.toFixed(2)} GB is shareable on ${host.hostname}${
-            host.isHome ? ` (${reservedRam.toFixed(2)} GB kept in reserve).` : '.'}`,
+            isHome(host) ? ` (${reservedRam.toFixed(2)} GB kept in reserve).` : '.'}`,
         )
         return
       }
 
-      if (host.isHome) {
+      if (isHome(host)) {
         const newPid = await ns._exec(DAEMON_SCRIPT, host.hostname, selectedThreads)
         if (newPid === 0) {
           setError(`Couldn't launch ${DAEMON_SCRIPT} — enough RAM? Is it deployed to ${host.hostname}?`)

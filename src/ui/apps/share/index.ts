@@ -52,6 +52,7 @@ export const ShareApp: AppDefinition = {
   icon: '🤝',
   label: 'Share',
   Content: ShareContent,
+  minDaemonTier: 2,
   // Wide enough to open already showing two ~220px host cards per row —
   // same reasoning as the XP Farm/Cloud Servers apps' own preferredWidth.
   preferredWidth: 700,

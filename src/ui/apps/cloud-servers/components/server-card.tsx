@@ -5,7 +5,7 @@ import type { CloudServersState } from '../logic/use-cloud-servers'
  * One purchased server's card: hostname + used/total RAM, a thin usage
  * bar, and its Delete button (with an inline confirm step).
  */
-export function ServerCard({
+export function CloudServerCard({
   React,
   cs,
   s,
@@ -14,7 +14,7 @@ export function ServerCard({
   cs: CloudServersState
   s: CloudServerRow
 }) {
-  const usedPct = s.ram > 0 ? Math.min(100, (s.usedRam / s.ram) * 100) : 0
+  const usedPct = s.maxRam > 0 ? Math.min(100, (s.ramUsed / s.maxRam) * 100) : 0
   return (
     <div className="bb-card">
       <div
@@ -29,18 +29,18 @@ export function ServerCard({
           {s.hostname}
           {' '}
           (
-          {s.usedRam.toFixed(1)}
+          {s.ramUsed.toFixed(1)}
           {' '}
           /
-          {s.ram}
+          {s.maxRam}
           {' '}
           GB)
         </span>
         <button
           onClick={() => cs.handleDeleteClick(s.hostname)}
-          disabled={cs.busy || s.usedRam > 0}
+          disabled={cs.busy || s.ramUsed > 0}
           title={
-            s.usedRam > 0
+            s.ramUsed > 0
               ? 'Can\'t delete: processes are running on this server'
               : undefined
           }

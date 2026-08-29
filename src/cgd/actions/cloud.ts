@@ -1,4 +1,4 @@
-import type { NS } from '@ns'
+import type { NS, Server } from '@ns'
 
 /**
  * Compound actions (see `cgd/types.ts`'s `CgdActionHandler`) for cloud
@@ -22,10 +22,14 @@ import type { NS } from '@ns'
 
 export const SLAVE_NODE_FILE = 'slave-nodes.txt'
 
-export interface CloudServerRow {
-  hostname: string
-  ram: number
-  usedRam: number
+/**
+ * `Server` (NS's own type, straight from `ns.getServer`) plus one extra
+ * flag — reusing it instead of hand-rolling `{ hostname, ram, usedRam }`
+ * means every consumer gets the full server shape (`hasAdminRights`,
+ * `purchasedByPlayer`, ...) for free, not just the three fields this app
+ * happened to need originally.
+ */
+export type CloudServerRow = Server & {
   /**
    * True for a player-designated "slave node" (see
    * `cgd/actions/slave-nodes.ts`) — a rooted, non-purchased server the
@@ -65,12 +69,7 @@ export async function cloudListAction(ns: NS): Promise<CloudListResult> {
   const ramLimit = ns.cloud.getRamLimit()
 
   const hostnames = ns.cloud.getServerNames()
-  const servers: CloudServerRow[] = hostnames.map(hostname => ({
-    hostname,
-    ram: ns.getServerMaxRam(hostname),
-    usedRam: ns.getServerUsedRam(hostname),
-    isSlave: false,
-  }))
+  const servers: Server[] = hostnames.map(ns.getServer.bind(ns))
 
   const raw = ns.read(SLAVE_NODE_FILE)
   let configuredSlaves: string[] = []
@@ -85,21 +84,14 @@ export async function cloudListAction(ns: NS): Promise<CloudListResult> {
       // clears it back to a valid `[]`.
     }
   }
-  const validSlaves = configuredSlaves.filter((hostname) => {
-    if (!ns.serverExists(hostname))
-      return false
-    const server = ns.getServer(hostname)
-    return server.hasAdminRights && !server.purchasedByPlayer
-  })
-  if (validSlaves.length !== configuredSlaves.length) {
-    ns.write(SLAVE_NODE_FILE, JSON.stringify(validSlaves), 'w')
+  const slaves = configuredSlaves
+    .filter(ns.serverExists.bind(ns))
+    .map(ns.getServer.bind(ns))
+    .filter(s => s.hasAdminRights && !s.purchasedByPlayer)
+  const slaveNames = slaves.map(s => s.hostname)
+  if (slaveNames.length !== configuredSlaves.length) {
+    ns.write(SLAVE_NODE_FILE, JSON.stringify(slaveNames), 'w')
   }
-  const slaveRows: CloudServerRow[] = validSlaves.map(hostname => ({
-    hostname,
-    ram: ns.getServerMaxRam(hostname),
-    usedRam: ns.getServerUsedRam(hostname),
-    isSlave: true,
-  }))
 
   // Price for every valid power-of-two RAM tier up to the cap — computed
   // once here so the buy form can show live prices without a round-trip
@@ -110,7 +102,7 @@ export async function cloudListAction(ns: NS): Promise<CloudListResult> {
   }
 
   return {
-    servers: [...servers, ...slaveRows],
+    servers: [...servers, ...slaves],
     moneyAvailable: ns.getServerMoneyAvailable('home'),
     serverLimit: ns.cloud.getServerLimit(),
     ramLimit,

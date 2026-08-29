@@ -2,7 +2,7 @@ import type { AppComponentProps } from '../../../types'
 import type { CloudServerRow } from '../../../utils/cloud-list'
 import { useCloudServers } from '../logic/use-cloud-servers'
 import { BuyForm } from './buy-form'
-import { ServerCard } from './server-card'
+import { CloudServerCard } from './server-card'
 import { SlaveNodeChecklist } from './slave-node-checklist'
 
 type Tab = 'purchased' | 'slaves'
@@ -96,7 +96,7 @@ export function CloudServersContent({ React }: AppComponentProps) {
                     )
                   : (
                       cs.cloudServers.map((s: CloudServerRow) => (
-                        <ServerCard key={s.hostname} React={React} cs={cs} s={s} />
+                        <CloudServerCard key={s.hostname} React={React} cs={cs} s={s} />
                       ))
                     )}
               </div>
