@@ -42,12 +42,12 @@ export function useGo(React: any) {
     setLoading(true)
     setError(null)
     try {
-      const [isRunning] = await Promise.all([
+      const [running] = await Promise.all([
         ns._isRunning(GO_SCRIPT, GO_HOST),
         refreshLiveState(),
         refreshLog(),
       ])
-      setRunning(isRunning)
+      setRunning(running)
     }
     catch (err) {
       setError(err instanceof Error ? err.message : String(err))

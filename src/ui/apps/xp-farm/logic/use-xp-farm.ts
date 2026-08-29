@@ -50,15 +50,15 @@ export function useXpFarm(React: any) {
     const next: XpFarmStatus = {}
     lists.forEach((processes, i) => {
       const host = hosts[i]
-      const grow = processes.find(p => p.filename === XP_FARM_GROW_SCRIPT)
-      const weaken = processes.find(p => p.filename === XP_FARM_WEAKEN_SCRIPT)
-      const target = (grow?.args[0] ?? weaken?.args[0]) as string | undefined
+      const pGrow = processes.find(p => p.filename === XP_FARM_GROW_SCRIPT)
+      const pWeaken = processes.find(p => p.filename === XP_FARM_WEAKEN_SCRIPT)
+      const target = (pGrow?.args[0] ?? pWeaken?.args[0]) as string | undefined
       if (target === undefined)
         return
       next[host] = {
         target,
-        growThreads: grow?.threads ?? 0,
-        weakenThreads: weaken?.threads ?? 0,
+        growThreads: pGrow?.threads ?? 0,
+        weakenThreads: pWeaken?.threads ?? 0,
       }
     })
     return next
