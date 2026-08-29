@@ -86,7 +86,7 @@ const ERROR_BACKOFF = 3000
 const GAME_LOG_TRIM_INTERVAL = 25
 const GAME_LOG_MAX_ENTRIES = 500
 
-function parseGoArgs(ns: NS): { boardSize: BoardSize, engine: GoEngineName, rotation: string[] } {
+function parseGoArgs(ns: NS): { boardSize: BoardSize, engine: GoEngineName, rotation: string[], notify: boolean } {
   const flags = parseArgs(ns, [
     { long: 'experimental', defaultValue: false, description: 'Use the experimental (real-faction-AI-inspired) move engine instead of the default heuristic one' },
     { long: 'netburners', defaultValue: false, description: 'Vs Netburners (90%)' },
@@ -95,6 +95,7 @@ function parseGoArgs(ns: NS): { boardSize: BoardSize, engine: GoEngineName, rota
     { long: 'tetrads', defaultValue: false, description: `Vs Tetrads (38%)` },
     { long: 'daedalus', defaultValue: false, description: `Vs Daedalus (10%)` },
     { long: 'illluminati', defaultValue: false, description: `Vs Illuminati (0%)` },
+    { long: 'notify', defaultValue: false, description: 'Notify for each game ended', short: 'n' },
   ] as const)
 
   let rotation: string[] = Object.entries({
@@ -112,7 +113,7 @@ function parseGoArgs(ns: NS): { boardSize: BoardSize, engine: GoEngineName, rota
   const boardArg = flags._[1] !== undefined ? Number(flags._[1]) : DEFAULT_BOARD_SIZE
   const boardSize = (BOARD_SIZES as readonly number[]).includes(boardArg) ? boardArg as BoardSize : DEFAULT_BOARD_SIZE
 
-  return { boardSize, engine, rotation }
+  return { boardSize, engine, rotation, notify: flags.notify }
 }
 
 function countStones(board: string[], stone: 'X' | 'O'): number {
@@ -153,7 +154,7 @@ export async function main(ns: NS) {
     return
   }
 
-  const { rotation, boardSize, engine } = parseGoArgs(ns)
+  const { rotation, boardSize, engine, notify } = parseGoArgs(ns)
   const pickMove = engine === 'experimental' ? pickExperimentalMove : pickHeuristicMove
   let rotationIndex = 0
   let gamesPlayed = 0
@@ -205,7 +206,7 @@ export async function main(ns: NS) {
     gameStartedAt = Date.now()
   }
 
-  function recordGameOver() {
+  function recordGameOver(notify: boolean) {
     const opponent = ns.go.getOpponent()
     const { blackScore, whiteScore } = ns.go.getGameState()
     const result: GoGameLogEntry[`result`] = blackScore > whiteScore ? `win` : blackScore < whiteScore ? `loss` : `tie`
@@ -214,11 +215,13 @@ export async function main(ns: NS) {
 
     ns.print(`Game vs ${opponent} over - ${resultLabel} (${summary}).`)
     pushEvent(`Game vs ${opponent} over - ${resultLabel} (${summary}).`)
-    ns.toast(
-      `IPvGO vs ${opponent}: ${resultLabel} (${summary})`,
-      result === `win` ? `success` : result === `loss` ? `warning` : `info`,
-      5000,
-    )
+    if (notify) {
+      ns.toast(
+        `IPvGO vs ${opponent}: ${resultLabel} (${summary})`,
+        result === `win` ? `success` : result === `loss` ? `warning` : `info`,
+        5000,
+      )
+    }
 
     const entry: GoGameLogEntry = {
       timestamp: Date.now(),
@@ -273,7 +276,7 @@ export async function main(ns: NS) {
           pushEvent(`(resume) Opponent passed.`)
         }
         if (result.type === `gameOver`)
-          recordGameOver()
+          recordGameOver(notify)
       }
       else {
         const board = ns.go.getBoardState()
@@ -312,7 +315,7 @@ export async function main(ns: NS) {
         }
 
         if (result.type === `gameOver`)
-          recordGameOver()
+          recordGameOver(notify)
       }
 
       writeLiveState(ns.go.getBoardState(), ns.go.getOpponent(), lastMove)
