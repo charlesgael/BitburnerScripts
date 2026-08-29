@@ -9,8 +9,8 @@ export interface BitburnerFlagSpec {
   description: string
 }
 
-export function arg(long: string, defaultValue: Value, description: string, short?: string): BitburnerFlagSpec {
-  return { long, defaultValue, description, short }
+export function arg(long: string, defaultValue: Value, description: string, short?: string) {
+  return { long, defaultValue, description, short } as const
 }
 
 type Expand<T> = { [K in keyof T]: T[K] } & {}
@@ -63,7 +63,7 @@ export function parseArgs<T extends readonly BitburnerFlagSpec[]>(
       typeLabel = ' <array>'
 
     helpTextRows.push(
-      `${`  -${item.short}, --${item.long}${typeLabel}`.padEnd(30)
+      `${`  ${item.short ? `-${item.short}, ` : ''}--${item.long}${typeLabel}`.padEnd(30)
       }${item.description}`,
     )
   }
