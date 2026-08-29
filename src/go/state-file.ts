@@ -31,8 +31,8 @@
  * `readXpFarmHosts` have, and for the same reason).
  */
 
-export const GO_LIVE_STATE_FILE = 'go-live-state.txt'
-export const GO_GAME_LOG_FILE = 'go-game-log.txt'
+export const GO_LIVE_STATE_FILE = 'log/go-live-state.txt'
+export const GO_GAME_LOG_FILE = 'log/go-game-log.txt'
 export const GO_SCRIPT = 'go.app.js'
 export const GO_HOST = 'home'
 
@@ -55,8 +55,6 @@ export interface GoLiveState {
   whiteScore: number
   komi: number
   lastMove: [number, number] | null
-  /** Whether go.app.ts is auto-rotating through every faction, vs pinned to one opponent via CLI args. */
-  rotating: boolean
   /** Most-recent-last, capped at `GO_LIVE_STATE_MAX_EVENTS`. */
   recentEvents: string[]
   /** Which move-selection engine is currently playing — see `GoEngineName`. */

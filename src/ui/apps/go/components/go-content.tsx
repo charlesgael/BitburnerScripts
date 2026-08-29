@@ -27,7 +27,7 @@ export function GoContent({ React }: AppComponentProps) {
         <div>
           {go.running ? '🟢 Running' : '⚪ Stopped'}
           {state ? ` — ${state.engine} engine` : ''}
-          {state?.rotating ? ', rotating factions' : ''}
+          , rotating factions
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
           <button onClick={() => void go.openLog()} className="bb-btn bb-btn--sm">

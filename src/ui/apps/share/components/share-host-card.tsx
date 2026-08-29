@@ -34,11 +34,11 @@ export function ShareHostCard({
             <div className="bb-text-error bb-wrap" style={{ fontSize: '11px' }}>
               Needs at least
               {' '}
-              {card.costPerThread?.toFixed(2)}
+              {card.costPerThread.toFixed(2)}
               {' '}
               GB shareable to share a single thread — only
               {' '}
-              {card.shareableRam?.toFixed(2)}
+              {card.shareableRam.toFixed(2)}
               {' '}
               GB is shareable here.
             </div>

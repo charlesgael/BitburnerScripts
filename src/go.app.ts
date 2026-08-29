@@ -86,21 +86,33 @@ const ERROR_BACKOFF = 3000
 const GAME_LOG_TRIM_INTERVAL = 25
 const GAME_LOG_MAX_ENTRIES = 500
 
-function parseGoArgs(ns: NS): { fixedOpponent: GoOpponent | null, boardSize: BoardSize, engine: GoEngineName } {
+function parseGoArgs(ns: NS): { boardSize: BoardSize, engine: GoEngineName, rotation: string[] } {
   const flags = parseArgs(ns, [
-    arg('experimental', false, 'Use the experimental (real-faction-AI-inspired) move engine instead of the default heuristic one', 'e'),
-  ])
-  const engine: GoEngineName = flags.experimental ? 'experimental' : 'heuristic'
+    { long: 'experimental', defaultValue: false, description: 'Use the experimental (real-faction-AI-inspired) move engine instead of the default heuristic one' },
+    { long: 'netburners', defaultValue: false, description: 'Vs Netburners (90%)' },
+    { long: 'snakes', defaultValue: false, description: `Vs Slum Snakes (65%)` },
+    { long: 'blackhand', defaultValue: false, description: `Vs The Black Hand (70%)` },
+    { long: 'tetrads', defaultValue: false, description: `Vs Tetrads (38%)` },
+    { long: 'daedalus', defaultValue: false, description: `Vs Daedalus (10%)` },
+    { long: 'illluminati', defaultValue: false, description: `Vs Illuminati (0%)` },
+  ] as const)
 
-  const opponentArg = flags._[0] !== undefined ? String(flags._[0]) : null
-  const fixedOpponent = opponentArg && (ALL_OPPONENTS as readonly string[]).includes(opponentArg)
-    ? opponentArg as GoOpponent
-    : null
+  let rotation: string[] = Object.entries({
+    'Netburners': flags.netburners,
+    'Slum Snakes': flags.snakes,
+    'The Black Hand': flags.blackhand,
+    'Tetrads': flags.tetrads,
+    'Daedalus': flags.daedalus,
+    'Illuminati': flags.illluminati,
+  }).filter(([,val]) => val).map(([key]) => key)
+  if (!rotation.length)
+    rotation = [...ROTATION]
+  const engine: GoEngineName = flags.experimental ? 'experimental' : 'heuristic'
 
   const boardArg = flags._[1] !== undefined ? Number(flags._[1]) : DEFAULT_BOARD_SIZE
   const boardSize = (BOARD_SIZES as readonly number[]).includes(boardArg) ? boardArg as BoardSize : DEFAULT_BOARD_SIZE
 
-  return { fixedOpponent, boardSize, engine }
+  return { boardSize, engine, rotation }
 }
 
 function countStones(board: string[], stone: 'X' | 'O'): number {
@@ -141,7 +153,7 @@ export async function main(ns: NS) {
     return
   }
 
-  const { fixedOpponent, boardSize, engine } = parseGoArgs(ns)
+  const { rotation, boardSize, engine } = parseGoArgs(ns)
   const pickMove = engine === 'experimental' ? pickExperimentalMove : pickHeuristicMove
   let rotationIndex = 0
   let gamesPlayed = 0
@@ -169,7 +181,6 @@ export async function main(ns: NS) {
       whiteScore: state.whiteScore,
       komi: state.komi,
       lastMove,
-      rotating: fixedOpponent === null,
       recentEvents: [...recentEvents],
       engine,
     }
@@ -229,18 +240,15 @@ export async function main(ns: NS) {
     trimGameLogIfNeeded(ns, gamesPlayed)
   }
 
-  ns.print(fixedOpponent
-    ? `Started (${engine} engine) - playing ${fixedOpponent} on a ${boardSize}x${boardSize} board.`
-    : `Started (${engine} engine) - rotating through all factions on a ${boardSize}x${boardSize} board for rep/favor.`)
+  ns.print(`Started (${engine} engine) - playing on a ${boardSize}x${boardSize} board for rep/favor.`)
 
   while (true) {
     try {
       let state = ns.go.getGameState()
 
       if (state.currentPlayer === `None`) {
-        const opponent = fixedOpponent ?? ROTATION[rotationIndex % ROTATION.length]
-        if (!fixedOpponent)
-          rotationIndex++
+        const opponent = rotation[rotationIndex % rotation.length]
+        rotationIndex++
         ns.print(`Starting new game vs ${opponent} (${boardSize}x${boardSize}).`)
         pushEvent(`Starting new game vs ${opponent} (${boardSize}x${boardSize}).`)
         ns.go.resetBoardState(opponent, boardSize)
