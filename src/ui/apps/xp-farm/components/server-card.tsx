@@ -30,6 +30,7 @@ export function XpFarmServerCard({
   const isEnabled = xf.enabled.has(s.hostname)
   const isOccupied = xf.busyHost === s.hostname
   const assignment = xf.status[s.hostname]
+  const hasProcess = !isEnabled && s.ramUsed > 0
 
   return (
     <ServerCard
@@ -46,13 +47,24 @@ export function XpFarmServerCard({
           gap: '8px',
         }}
       >
-        <button
-          onClick={() => void xf.toggle(s.hostname)}
-          disabled={isOccupied}
-          className={`bb-btn bb-btn--wide${isEnabled ? ' bb-btn-danger' : ''}`}
-        >
-          {isOccupied ? '...' : isEnabled ? 'Stop' : 'Start'}
-        </button>
+        {!hasProcess
+          ? (
+              <button
+                onClick={() => void xf.toggle(s.hostname)}
+                disabled={isOccupied}
+                className={`bb-btn bb-btn--wide${isEnabled ? ' bb-btn-danger' : ''}`}
+              >
+                {isOccupied ? '...' : isEnabled ? 'Stop' : 'Start'}
+              </button>
+            )
+          : (
+              <button
+                disabled
+                className="bb-btn bb-btn--wide bb-btn-warn"
+              >
+                Occupied
+              </button>
+            )}
         {isEnabled
           ? (
               <div className="bb-wrap" style={{ fontSize: '11px', opacity: 0.75 }}>

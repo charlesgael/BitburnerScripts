@@ -45,6 +45,10 @@ export const controlsStyle = `
     color: var(--bb-theme-error, #f55);
     border-color: var(--bb-theme-error, #f55);
 }
+.bb-btn-warn {
+    color: var(--bb-theme-warn, #cc0);
+    border-color: var(--bb-theme-warn, #cc0);
+}
 
 .bb-btn--sm {
     padding: 4px 8px;
