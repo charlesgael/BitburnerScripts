@@ -2,6 +2,7 @@ import type { ConfigEnv } from 'vite'
 import type { ViteBurnerUserConfig } from 'viteburner'
 // import commonjs from "@rollup/plugin-commonjs";
 import { resolve } from 'node:path'
+import { inlineCpyImportsPlugin } from './plugin/inline-cpy-imports'
 import { setupBundlePlugin, walk } from './plugin/setup-bundle'
 
 const srcDir = resolve(__dirname, 'src')
@@ -25,6 +26,7 @@ export default function (env: ConfigEnv): ViteBurnerUserConfig {
     return {
       ...base,
       plugins: [
+        inlineCpyImportsPlugin(),
         setupBundlePlugin(srcDir),
       ],
       build: {
@@ -52,6 +54,9 @@ export default function (env: ConfigEnv): ViteBurnerUserConfig {
   // `npm start` (viteburner dev server) — unchanged, just the live push.
   return {
     ...base,
+    plugins: [
+      inlineCpyImportsPlugin(),
+    ],
     viteburner: {
       watch: [
         {

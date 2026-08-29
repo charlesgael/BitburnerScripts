@@ -1,4 +1,5 @@
 import type { NS } from '@ns'
+import { formulas } from '../utils/formula-available' // cpy
 
 export async function main(ns: NS) {
   const host = ns.args[0] as string

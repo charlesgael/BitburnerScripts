@@ -245,7 +245,9 @@ The rest of `src/` — the top-level `*.app.ts` (application scripts), `*.lib.ts
 described above. `src/daemons/` mixes two genuinely different kinds of file, easy to conflate:
 
 - **Worker payloads / genuinely independent processes**, meant to keep running regardless of what the UI does:
-  `hack`/`grow`/`weaken`/`share.daemon.ts` (generic loops, launched with args by whichever app needs them),
+  `hack`/`grow`/`weaken`/`share.daemon.ts` (generic loops, launched with args by whichever app needs them; see
+  "The `// cpy` import-inlining marker" below for how one of these can pull in a small shared helper without
+  needing that helper `ns.scp`'d to every remote server too),
   `xp-farm.daemon.ts` (self-managing orchestrator — deliberately _not_ folded into the tiered daemon; see
   `docs/epic-cgd-namespace.md`'s "Daemon classification" table for why that would've been a regression), and
   `train.daemon.ts` (Singularity training loop, SF4/BitNode-4-gated, also deliberately independent — see the
@@ -261,3 +263,29 @@ referencing one by filename must use that `daemons/<name>.daemon.js` path, not t
 now has its own "Sidebar UI" section covering `start.ts`/`ui.app.ts`/the tiered daemon/every app under
 `ui/apps/` at a lighter, user-facing level of detail — this file and `docs/epic-cgd-namespace.md` stay the
 deeper, implementation-level reference.
+
+## The `// cpy` import-inlining marker
+
+A trailing `// cpy` on an import line (`import { formulas } from '../utils/formula-available' // cpy`, see
+`src/daemons/weaken.daemon.ts`) tells `plugin/inline-cpy-imports.ts` — a Vite `transform` plugin wired into both
+the `serve` and `build` branches of `vite.config.ts` — to splice the target file's own top-level declarations
+directly into the bottom of the compiled output instead of emitting a real import. This exists for worker payloads
+(see above): those get `ns.scp`'d to arbitrary remote servers to run their loop locally, and a real import would
+mean the imported file has to be copied to every one of those servers too. Marking the import `// cpy` keeps the
+source ergonomic — a normal, `tsc`-type-checked import against the real file — while the deployed script comes out
+self-contained, with nothing else to `scp` alongside it.
+
+Mechanics, if you're touching this:
+
+- Runs with `enforce: 'pre'`, ahead of Vite's core `vite:esbuild` transform, so it operates on raw TypeScript
+  (types intact) rather than already-stripped JS — the spliced-in declarations get stripped of their types by that
+  same later esbuild pass, like the rest of the file, rather than this plugin needing to run esbuild itself.
+- v1 scope is deliberately narrow, not general import-merging: only relative specifiers are resolved (no aliases
+  like `@react`); the target file's *own* imports must all be type-only, named, and unaliased (its `import type`
+  bindings get merged/deduped into the importing file's existing type imports) — a value-level import in the
+  target fails the build with a clear error rather than silently producing broken output; and the *entire* target
+  file's declarations are copied over, not just the specific names the flagged import listed.
+- Known gap: in `npm start`'s live dev push, editing the *target* file alone doesn't currently retrigger a re-push
+  of whichever file inlined it — touch the importing file to force a refresh. Viteburner's own chokidar-driven push
+  and Vite's `addWatchFile`-based module-graph invalidation are separate mechanisms; this plugin only wires up the
+  latter.
