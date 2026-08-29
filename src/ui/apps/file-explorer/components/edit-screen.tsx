@@ -1,4 +1,5 @@
 import type { FileExplorerState } from '../logic/use-file-explorer'
+import React from '@react'
 import { iconForFile, isEditable } from '../../../utils/file-types'
 
 /**
@@ -6,7 +7,7 @@ import { iconForFile, isEditable } from '../../../utils/file-types'
  * `fx.mode === "edit"`. See `../index.ts`'s header comment for the
  * View/Edit host restrictions this enforces.
  */
-export function EditScreen({ React, fx }: { React: any, fx: FileExplorerState }) {
+export function EditScreen({ fx }: { fx: FileExplorerState }) {
   const editingPath = fx.editingPath as string
   const editable = isEditable(editingPath)
   return (

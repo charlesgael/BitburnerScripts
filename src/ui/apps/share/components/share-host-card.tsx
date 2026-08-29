@@ -1,4 +1,5 @@
 import type { CloudServerRow } from '../../../utils/cloud-list'
+import React from '@react'
 import { ServerCard } from '../../../components/server-card'
 import { useShareHostCard } from '../logic/use-share-host-card'
 
@@ -7,22 +8,19 @@ import { useShareHostCard } from '../logic/use-share-host-card'
  * thread count while sharing), and its Start/Stop Sharing button.
  */
 export function ShareHostCard({
-  React,
   ns,
   host,
   onRamUsedChange,
 }: {
-  React: any
   ns: any
   host: CloudServerRow
   onRamUsedChange: (hostname: string, ramUsed: number) => void
 }) {
-  const card = useShareHostCard(React, ns, host, onRamUsedChange)
+  const card = useShareHostCard(ns, host, onRamUsedChange)
 
   return (
 
     <ServerCard
-      React={React}
       server={host}
       reserve={card.reservedRam}
     >

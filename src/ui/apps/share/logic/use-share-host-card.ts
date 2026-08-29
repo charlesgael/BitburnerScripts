@@ -1,5 +1,6 @@
 import type { CloudServerRow } from '../../../utils/cloud-list'
 import type { QueuedNS } from '../../../utils/ns-proxy'
+import React from '@react'
 import { isHome } from '../../../logic/is-home'
 import { spawnRemote } from '../../../utils/spawn-remote'
 import { threadTiers } from './thread-tiers'
@@ -32,18 +33,17 @@ const RESERVED_RAM_FRACTION = 0.2
  * `ui.app.js`'s measured RAM cost without the compiler ever catching it.
  */
 export function useShareHostCard(
-  React: any,
   ns: QueuedNS,
   host: CloudServerRow,
   onRamUsedChange: (hostname: string, usedRam: number) => void,
 ) {
-  const [pid, setPid] = React.useState(null) // non-null while a share daemon is running here
+  const [pid, setPid] = React.useState<number | null>(null) // non-null while a share daemon is running here
   const [runningThreads, setRunningThreads] = React.useState(0)
   const [selectedThreads, setSelectedThreads] = React.useState(1)
   const [threadsChosenByUser, setThreadsChosenByUser] = React.useState(false)
   const [costPerThread, setCostPerThread] = React.useState(0)
   const [busy, setBusy] = React.useState(false)
-  const [error, setError] = React.useState(null)
+  const [error, setError] = React.useState<string | null>(null)
 
   const sharing = pid != null
   const freeRam = host.maxRam - host.ramUsed

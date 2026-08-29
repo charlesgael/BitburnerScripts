@@ -1,4 +1,4 @@
-import type { AppComponentProps } from '../../../types'
+import React from '@react'
 import { formatDuration } from '../logic/format-duration'
 import { STATS, useTrainer } from '../logic/use-trainer'
 
@@ -9,8 +9,8 @@ const DAEMON_HOST = 'home'
  * the Start/Stop Training button. See `../index.ts`'s header comment for
  * what this app does and why.
  */
-export function TrainerContent({ React }: AppComponentProps) {
-  const t = useTrainer(React)
+export function TrainerContent() {
+  const t = useTrainer()
 
   return (
     <div>

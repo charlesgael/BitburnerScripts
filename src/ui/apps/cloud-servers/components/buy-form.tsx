@@ -1,11 +1,12 @@
 import type { CloudServersState } from '../logic/use-cloud-servers'
+import React from '@react'
 import { formatMoney } from '../logic/format-money'
 
 /**
  * The purchase form: hostname (blank = random), RAM tier picker, and the
  * Buy button.
  */
-export function BuyForm({ React, cs }: { React: any, cs: CloudServersState }) {
+export function BuyForm({ cs }: { cs: CloudServersState }) {
   return (
     <div style={{ paddingTop: '10px' }}>
       <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', marginBottom: '8px' }}>

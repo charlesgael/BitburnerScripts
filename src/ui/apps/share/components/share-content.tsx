@@ -1,4 +1,4 @@
-import type { AppComponentProps } from '../../../types'
+import React from '@react'
 import { useShare } from '../logic/use-share'
 import { ShareHostCard } from './share-host-card'
 
@@ -18,8 +18,8 @@ import { ShareHostCard } from './share-host-card'
  * `docs/epic-cgd-namespace.md`'s "Validated assumptions" for the fuller
  * writeup.
  */
-export function ShareContent({ React }: AppComponentProps) {
-  const shareState = useShare(React)
+export function ShareContent() {
+  const shareState = useShare()
 
   return (
     <div>
@@ -64,7 +64,6 @@ export function ShareContent({ React }: AppComponentProps) {
         {shareState.hosts.map(host => (
           <ShareHostCard
             key={host.hostname}
-            React={React}
             ns={shareState.ns}
             host={host}
             onRamUsedChange={shareState.updateCloudUsedRam}

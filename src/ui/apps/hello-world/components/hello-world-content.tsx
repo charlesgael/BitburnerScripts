@@ -1,4 +1,4 @@
-import type { AppComponentProps } from '../../../types'
+import React from '@react'
 import { useQueuedNs } from '../../../context/ns-queue-context'
 
 /**
@@ -7,9 +7,9 @@ import { useQueuedNs } from '../../../context/ns-queue-context'
  * just like calling `ns` directly, but the call is queued and serialized
  * against the script's main loop instead of racing it.
  */
-export function HelloWorldContent({ React }: AppComponentProps) {
+export function HelloWorldContent() {
   const ns = useQueuedNs()
-  const [hostname, setHostname] = React.useState(null)
+  const [hostname, setHostname] = React.useState<string | null>(null)
 
   async function fetchHostname() {
     setHostname(await ns._getHostname())

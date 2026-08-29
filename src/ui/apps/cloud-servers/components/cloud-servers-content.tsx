@@ -1,5 +1,5 @@
-import type { AppComponentProps } from '../../../types'
 import type { CloudServerRow } from '../../../utils/cloud-list'
+import React from '@react'
 import { useCloudServers } from '../logic/use-cloud-servers'
 import { BuyForm } from './buy-form'
 import { CloudServerCard } from './server-card'
@@ -13,9 +13,9 @@ type Tab = 'purchased' | 'slaves'
  * below it. See `../index.ts`'s header comment for what this app does and
  * why.
  */
-export function CloudServersContent({ React }: AppComponentProps) {
-  const cs = useCloudServers(React)
-  const [tab, setTab]: [Tab, (v: Tab) => void] = React.useState('purchased')
+export function CloudServersContent() {
+  const cs = useCloudServers()
+  const [tab, setTab] = React.useState<Tab>('purchased')
 
   return (
     <div>
@@ -96,7 +96,7 @@ export function CloudServersContent({ React }: AppComponentProps) {
                     )
                   : (
                       cs.cloudServers.map((s: CloudServerRow) => (
-                        <CloudServerCard key={s.hostname} React={React} cs={cs} s={s} />
+                        <CloudServerCard key={s.hostname} cs={cs} s={s} />
                       ))
                     )}
               </div>
@@ -109,7 +109,7 @@ export function CloudServersContent({ React }: AppComponentProps) {
                   )
                 : null}
 
-              <BuyForm React={React} cs={cs} />
+              <BuyForm cs={cs} />
             </div>
           )
         : (
@@ -140,7 +140,7 @@ export function CloudServersContent({ React }: AppComponentProps) {
                   )
                 : null}
 
-              <SlaveNodeChecklist React={React} cs={cs} />
+              <SlaveNodeChecklist cs={cs} />
             </div>
           )}
     </div>

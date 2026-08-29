@@ -1,3 +1,4 @@
+import React from '@react'
 /**
  * React's equivalent of Vue's provide/inject (see `ns-queue-context.ts` for
  * the fuller explanation) for the running script's child-process tracking.
@@ -16,10 +17,8 @@
  * components call to read the value it provides.
  */
 let ChildPidsContext: any = null
-let ReactRef: any = null
 
-export function initChildPidsContext(React: any) {
-  ReactRef = React
+export function initChildPidsContext() {
   ChildPidsContext = React.createContext(null)
   return ChildPidsContext
 }
@@ -32,9 +31,9 @@ export function useAddChildPid(): (pid: number) => void {
   if (!ChildPidsContext) {
     throw new Error('useAddChildPid() called before initChildPidsContext() ran')
   }
-  const addChildPid = ReactRef.useContext(ChildPidsContext)
+  const addChildPid = React.useContext(ChildPidsContext)
   if (!addChildPid) {
     throw new Error('useAddChildPid() called outside of a ChildPidsContext.Provider')
   }
-  return addChildPid
+  return addChildPid as any
 }

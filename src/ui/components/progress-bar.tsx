@@ -1,7 +1,6 @@
-import type { AppComponentProps } from '../types'
+import React from '@react'
 
 export function ProgressBar({
-  React,
   progress,
   max,
   guard,
@@ -9,7 +8,7 @@ export function ProgressBar({
   progress: number
   max: number
   guard?: number
-} & AppComponentProps) {
+}) {
   const pct = React.useMemo(() => Math.max(0, Math.min(progress, max)) / max * 100, [progress, max])
   const guardPct = React.useMemo(() => guard ? Math.max(0, Math.min(guard, max)) / max * 100 : null, [guard, max])
 

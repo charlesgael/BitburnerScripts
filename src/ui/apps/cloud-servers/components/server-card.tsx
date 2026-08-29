@@ -1,16 +1,15 @@
 import type { CloudServerRow } from '../../../utils/cloud-list'
 import type { CloudServersState } from '../logic/use-cloud-servers'
+import React from '@react'
 
 /**
  * One purchased server's card: hostname + used/total RAM, a thin usage
  * bar, and its Delete button (with an inline confirm step).
  */
 export function CloudServerCard({
-  React,
   cs,
   s,
 }: {
-  React: any
   cs: CloudServersState
   s: CloudServerRow
 }) {

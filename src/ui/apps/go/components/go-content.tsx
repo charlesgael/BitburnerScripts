@@ -1,4 +1,4 @@
-import type { AppComponentProps } from '../../../types'
+import React from '@react'
 import { useGo } from '../logic/use-go'
 import { GoBoard } from './go-board'
 import { GoSummaryTable } from './go-summary-table'
@@ -8,8 +8,8 @@ import { GoSummaryTable } from './go-summary-table'
  * game-log win-rate summary underneath. See `../index.ts`'s header comment
  * for what this app does and why it never touches `ns.go.*` itself.
  */
-export function GoContent({ React }: AppComponentProps) {
-  const go = useGo(React)
+export function GoContent() {
+  const go = useGo()
   const state = go.liveState
 
   return (
@@ -58,7 +58,7 @@ export function GoContent({ React }: AppComponentProps) {
           )
         : (
             <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
-              <GoBoard React={React} board={state.board} lastMove={state.lastMove} />
+              <GoBoard board={state.board} lastMove={state.lastMove} />
 
               <div style={{ minWidth: '180px', flex: 1, fontSize: '11px' }}>
                 <div style={{ marginBottom: '6px' }}>
@@ -109,7 +109,7 @@ export function GoContent({ React }: AppComponentProps) {
             </div>
           )}
 
-      <GoSummaryTable React={React} summary={go.summary} />
+      <GoSummaryTable summary={go.summary} />
     </div>
   )
 }

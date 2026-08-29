@@ -1,4 +1,5 @@
 import type { CgdQueue } from '../../cgd/types'
+import React from '@react'
 
 /**
  * React's equivalent of Vue's provide/inject (see `ns-queue-context.ts` for
@@ -17,10 +18,8 @@ import type { CgdQueue } from '../../cgd/types'
  * components call to read the value it provides.
  */
 let CgdActionsContext: any = null
-let ReactRef: any = null
 
-export function initCgdActionsContext(React: any) {
-  ReactRef = React
+export function initCgdActionsContext() {
   CgdActionsContext = React.createContext(null)
   return CgdActionsContext
 }
@@ -35,9 +34,9 @@ export function useCgdActions(): CgdQueue['enqueueAction'] {
   if (!CgdActionsContext) {
     throw new Error('useCgdActions() called before initCgdActionsContext() ran')
   }
-  const enqueueAction = ReactRef.useContext(CgdActionsContext)
+  const enqueueAction = React.useContext(CgdActionsContext)
   if (!enqueueAction) {
     throw new Error('useCgdActions() called outside of a CgdActionsContext.Provider')
   }
-  return enqueueAction
+  return enqueueAction as any
 }

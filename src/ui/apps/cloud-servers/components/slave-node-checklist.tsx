@@ -1,4 +1,5 @@
 import type { CloudServersState } from '../logic/use-cloud-servers'
+import React from '@react'
 
 /**
  * The Slave Nodes tab's body: every rooted, non-purchased, non-`home` host
@@ -10,10 +11,8 @@ import type { CloudServersState } from '../logic/use-cloud-servers'
  * step.
  */
 export function SlaveNodeChecklist({
-  React,
   cs,
 }: {
-  React: any
   cs: CloudServersState
 }) {
   const designated = new Set(cs.slaveServers.map(s => s.hostname))

@@ -1,5 +1,6 @@
 import type { Server } from '@ns'
 import type { CloudServerRow } from '../../../utils/cloud-list'
+import React from '@react'
 import { useCgdActions } from '../../../context/cgd-actions-context'
 import { useQueuedNs } from '../../../context/ns-queue-context'
 import { isHome } from '../../../logic/is-home'
@@ -12,7 +13,7 @@ import { readXpFarmHosts } from '../../../utils/xp-farm-config'
  * plus `home` itself, and the RAM-patch callback each card reports back
  * through. Per-card state/behavior lives in `use-share-host-card.ts`.
  */
-export function useShare(React: any) {
+export function useShare() {
   const ns = useQueuedNs()
   const callAction = useCgdActions()
 
@@ -22,16 +23,10 @@ export function useShare(React: any) {
   // would key its own `ns._ps(host.hostname)` effect off that same
   // `undefined`, firing once for garbage before re-firing for real once
   // `homeServer` actually arrives.
-  const [homeServer, setHomeServer]: [
-    Server | null,
-    (v: Server | null | ((prev: Server | null) => Server | null)) => void,
-  ] = React.useState(null)
-  const [cloudServers, setCloudServers]: [
-    CloudServerRow[],
-    (v: CloudServerRow[] | ((prev: CloudServerRow[]) => CloudServerRow[])) => void,
-  ] = React.useState([])
+  const [homeServer, setHomeServer] = React.useState<Server | null>(null)
+  const [cloudServers, setCloudServers] = React.useState<CloudServerRow[]>([])
   const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState(null)
+  const [error, setError] = React.useState<string | null>(null)
 
   async function refresh() {
     setLoading(true)

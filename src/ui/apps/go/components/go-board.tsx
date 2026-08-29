@@ -1,3 +1,5 @@
+import React from '@react'
+
 /**
  * The IPvGO board itself: a CSS grid of stone cells. Genuinely bespoke,
  * non-thematic layout (see CLAUDE.md's styling note on `ui/apps/`), so this
@@ -11,7 +13,7 @@
  * "[0][0] is bottom-left" convention (see `go/heuristic-engine.ts`'s
  * header comment).
  */
-export function GoBoard({ React, board, lastMove }: { React: any, board: string[], lastMove: [number, number] | null }) {
+export function GoBoard({ board, lastMove }: { board: string[], lastMove: [number, number] | null }) {
   const size = board.length
   if (size === 0)
     return null

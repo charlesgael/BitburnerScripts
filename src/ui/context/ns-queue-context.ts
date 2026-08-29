@@ -1,4 +1,5 @@
 import type { QueuedNS } from '../utils/ns-proxy'
+import React from '@react'
 
 /**
  * React's equivalent of Vue's provide/inject: a `Context.Provider` higher
@@ -20,10 +21,8 @@ import type { QueuedNS } from '../utils/ns-proxy'
  * yourself.
  */
 let NsQueueContext: any = null
-let ReactRef: any = null
 
-export function initNsQueueContext(React: any) {
-  ReactRef = React
+export function initNsQueueContext() {
   NsQueueContext = React.createContext(null)
   return NsQueueContext
 }
@@ -36,9 +35,9 @@ export function useQueuedNs(): QueuedNS {
   if (!NsQueueContext) {
     throw new Error('useQueuedNs() called before initNsQueueContext() ran')
   }
-  const queuedNs = ReactRef.useContext(NsQueueContext)
+  const queuedNs = React.useContext(NsQueueContext)
   if (!queuedNs) {
     throw new Error('useQueuedNs() called outside of an NsQueueContext.Provider')
   }
-  return queuedNs
+  return queuedNs as any
 }

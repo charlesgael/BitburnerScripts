@@ -1,5 +1,6 @@
 import type { CloudServerRow } from '../../../utils/cloud-list'
 import type { ManagedAppDefinition, Task } from './types'
+import React from '@react'
 import { useCgdActions } from '../../../context/cgd-actions-context'
 import { useDaemonTier } from '../../../context/daemon-tier-context'
 import { useHomeRam } from '../../../context/home-ram-context'
@@ -27,7 +28,7 @@ function delay(ms: number): Promise<void> {
  * per host, why `oneShot` apps are excluded from the running-task scan,
  * why spawned pids aren't tracked via `useAddChildPid`, etc).
  */
-export function useTaskManager(React: any, apps: ManagedAppDefinition[], runnableApps: ManagedAppDefinition[]) {
+export function useTaskManager(apps: ManagedAppDefinition[], runnableApps: ManagedAppDefinition[]) {
   const ns = useQueuedNs()
   const homeRam = useHomeRam()
   const daemonTier = useDaemonTier()
@@ -37,22 +38,22 @@ export function useTaskManager(React: any, apps: ManagedAppDefinition[], runnabl
   const appByScript = Object.fromEntries(apps.map(a => [a.script, a]))
 
   const [appRam, setAppRam] = React.useState(() => Object.fromEntries(apps.map(a => [a.script, 0])))
-  const [cloudServers, setCloudServers]: [CloudServerRow[], (v: CloudServerRow[]) => void] = React.useState([])
-  const [tasks, setTasks]: [Task[], (v: Task[] | ((prev: Task[]) => Task[])) => void] = React.useState([])
+  const [cloudServers, setCloudServers] = React.useState<CloudServerRow[]>([])
+  const [tasks, setTasks] = React.useState<Task[]>([])
   // Which app's cloud-host popup menu is open, if any — at most one
   // at a time. Keyed by script.
-  const [openMenuFor, setOpenMenuFor] = React.useState(null as string | null)
+  const [openMenuFor, setOpenMenuFor] = React.useState<string | null>(null)
   const [spawnBusy, setSpawnBusy] = React.useState(() => new Set())
   // Keyed by taskKey() — a task's own (script, host) pair — since
   // several tasks for the same script can be busy independently.
   const [taskBusy, setTaskBusy] = React.useState(() => new Set())
   const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState(null as string | null)
+  const [error, setError] = React.useState<string | null>(null)
   // Fetched once alongside `appRam` below (see that effect) — an app's
   // `isAvailable` (see `logic/types.ts`) needs `ownedSF`/`currentNode`,
   // which only `ns.getResetInfo()` can supply; neither can change without
   // a reset that kills this script too, so no poller is needed.
-  const [resetInfo, setResetInfo] = React.useState({ ownedSF: new Map() as Map<number, number>, currentNode: 0 })
+  const [resetInfo, setResetInfo] = React.useState<{ ownedSF: Map<number, number>, currentNode: number }>(() => ({ ownedSF: new Map(), currentNode: 0 }))
 
   // Non-fatal on failure (e.g. no daemon registered, or it's at tier 0) —
   // this app just offers "home" as the only spawn target and can't find
@@ -216,16 +217,16 @@ export function useTaskManager(React: any, apps: ManagedAppDefinition[], runnabl
   // in the chain runs.
   async function spawnTask(app: ManagedAppDefinition, host: string) {
     setError(null)
-    setSpawnBusy((prev: Set<string>) => new Set(prev).add(app.script))
+    setSpawnBusy(prev => new Set(prev).add(app.script))
     try {
       const chain = dependencyChainFor(app, host) ?? []
       for (const depApp of chain) {
-        setSpawnBusy((prev: Set<string>) => new Set(prev).add(depApp.script))
+        setSpawnBusy(prev => new Set(prev).add(depApp.script))
         try {
           await launchOne(depApp, host)
         }
         finally {
-          setSpawnBusy((prev: Set<string>) => {
+          setSpawnBusy((prev) => {
             const next = new Set(prev)
             next.delete(depApp.script)
             return next
@@ -240,7 +241,7 @@ export function useTaskManager(React: any, apps: ManagedAppDefinition[], runnabl
       setError(err instanceof Error ? err.message : String(err))
     }
     finally {
-      setSpawnBusy((prev: Set<string>) => {
+      setSpawnBusy((prev) => {
         const next = new Set(prev)
         next.delete(app.script)
         return next
@@ -251,7 +252,7 @@ export function useTaskManager(React: any, apps: ManagedAppDefinition[], runnabl
   async function killTask(task: Task) {
     const key = taskKey(task)
     setError(null)
-    setTaskBusy((prev: Set<string>) => new Set(prev).add(key))
+    setTaskBusy(prev => new Set(prev).add(key))
     try {
       await ns._kill(task.pid)
       setTasks((prev: Task[]) => prev.filter(t => taskKey(t) !== key))
@@ -261,7 +262,7 @@ export function useTaskManager(React: any, apps: ManagedAppDefinition[], runnabl
       setError(err instanceof Error ? err.message : String(err))
     }
     finally {
-      setTaskBusy((prev: Set<string>) => {
+      setTaskBusy((prev) => {
         const next = new Set(prev)
         next.delete(key)
         return next

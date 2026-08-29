@@ -1,4 +1,5 @@
 import type { GoLiveState, GoLogSummary } from '../../../../go/state-file'
+import React from '@react'
 import {
   GO_GAME_LOG_FILE,
   GO_HOST,
@@ -18,15 +19,15 @@ import { useQueuedNs } from '../../../context/ns-queue-context'
  * already on that allow-list (see `daemons/lv1.daemon.ts`), reading the two
  * files `go.app.ts` writes (see `go/state-file.ts`).
  */
-export function useGo(React: any) {
+export function useGo() {
   const ns = useQueuedNs()
 
-  const [liveState, setLiveState]: [GoLiveState | null, (v: GoLiveState | null) => void] = React.useState(null)
-  const [summary, setSummary]: [GoLogSummary | null, (v: GoLogSummary | null) => void] = React.useState(null)
+  const [liveState, setLiveState] = React.useState<GoLiveState | null>(null)
+  const [summary, setSummary] = React.useState<GoLogSummary | null>(null)
   const [running, setRunning] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
   const [loading, setLoading] = React.useState(true)
-  const [error, setError]: [string | null, (v: string | null) => void] = React.useState(null)
+  const [error, setError] = React.useState<string | null>(null)
 
   async function refreshLiveState() {
     const raw = await ns._read(GO_LIVE_STATE_FILE)

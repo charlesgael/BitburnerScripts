@@ -1,13 +1,12 @@
 import type { Server } from '@ns'
-import type { AppComponentProps } from '../types'
+import React from '@react'
 import { ProgressBar } from './progress-bar'
 
 export function ServerCard({
-  React,
   server,
   reserve,
   children,
-}: AppComponentProps & {
+}: {
   server: Server
   reserve?: number
   children?: any
@@ -37,7 +36,6 @@ export function ServerCard({
       {/* Thin per-server RAM usage bar, with a blue band marking the
               reserve zone kept off-limits to sharing on `home`. */}
       <ProgressBar
-        React={React}
         progress={server.ramUsed}
         max={server.maxRam}
         guard={reserve}

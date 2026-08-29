@@ -1,3 +1,4 @@
+import React from '@react'
 import { useAddChildPid } from '../../../context/child-pids-context'
 import { useHomeRam } from '../../../context/home-ram-context'
 import { useQueuedNs } from '../../../context/ns-queue-context'
@@ -21,7 +22,7 @@ const DAEMON_HOST = 'home'
  * why this app never calls `ns.singularity.*` itself and instead launches
  * `daemons/train.daemon.ts`.
  */
-export function useTrainer(React: any) {
+export function useTrainer() {
   const ns = useQueuedNs()
   const addChildPid = useAddChildPid()
   const homeRam = useHomeRam()
@@ -30,11 +31,11 @@ export function useTrainer(React: any) {
   const [selectedStat, setSelectedStat] = React.useState(STATS[0].key)
   const [targetLevel, setTargetLevel] = React.useState(50)
   const [focus, setFocusEnabled] = React.useState(true)
-  const [pid, setPid] = React.useState(null) // non-null while we know a daemon is running
+  const [pid, setPid] = React.useState<number | null>(null) // non-null while we know a daemon is running
   const [busy, setBusy] = React.useState(false)
-  const [error, setError] = React.useState(null)
-  const [sessionStartLevel, setSessionStartLevel] = React.useState(null)
-  const [sessionStartTime, setSessionStartTime] = React.useState(null)
+  const [error, setError] = React.useState<string | null>(null)
+  const [sessionStartLevel, setSessionStartLevel] = React.useState<number | null>(null)
+  const [sessionStartTime, setSessionStartTime] = React.useState<number | null>(null)
   const [daemonRam, setDaemonRam] = React.useState(0) // GB daemons/train.daemon.js needs to run
 
   const training = pid != null

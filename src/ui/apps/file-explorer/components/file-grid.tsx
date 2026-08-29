@@ -1,8 +1,9 @@
 import type { FileExplorerState } from '../logic/use-file-explorer'
+import React from '@react'
 import { FOLDER_ICON, iconForFile } from '../../../utils/file-types'
 
 /** The folder/file grid for the current host + path. */
-export function FileGrid({ React, fx }: { React: any, fx: FileExplorerState }) {
+export function FileGrid({ fx }: { fx: FileExplorerState }) {
   return (
     <div
       onClick={(ev: any) => {

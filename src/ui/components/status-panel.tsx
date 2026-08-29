@@ -1,5 +1,5 @@
 import type { CgdDaemon, CgdTier } from '../../cgd/types'
-import type { ReactGlobals } from '../types'
+import React, { ReactDOM } from '@react'
 
 const TIER_POLL_MS = 1000
 
@@ -23,19 +23,16 @@ const TIER_POLL_MS = 1000
  * (`setTimeout`) to a macrotask boundary instead.
  */
 export function createStatusPanel(
-  globals: ReactGlobals,
   container: any,
   getDaemon: () => CgdDaemon | undefined,
   onStop: () => void,
   onFullStop: () => void,
   onRestart: () => void,
 ) {
-  const { React } = globals
-
   let daemonTier: CgdTier = getDaemon()?._getTier() ?? 0
 
   function render() {
-    eval('window').ReactDOM.render(
+    ReactDOM.render(
       <div style={{ padding: '0 16px' }}>
         <hr className="MuiDivider-root MuiDivider-fullWidth css-8dakje" style={{ margin: '0 -16px 8px' }} />
         <div style={{ marginBottom: '8px', fontWeight: 'bold' }}>Bitburner UI</div>

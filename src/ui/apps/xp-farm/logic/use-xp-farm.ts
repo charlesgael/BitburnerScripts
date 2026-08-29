@@ -1,5 +1,6 @@
 import type { CloudServerRow } from '../../../utils/cloud-list'
 import type { XpFarmStatus } from '../../../utils/xp-farm-config'
+import React from '@react'
 import { useCgdActions } from '../../../context/cgd-actions-context'
 import { useQueuedNs } from '../../../context/ns-queue-context'
 import { fetchCloudList, sortByHostname } from '../../../utils/cloud-list'
@@ -19,12 +20,12 @@ import {
  * itself, the daemon's self-managing lifecycle, why dedicated hosts are
  * excluded from the Programs app, ...).
  */
-export function useXpFarm(React: any) {
+export function useXpFarm() {
   const ns = useQueuedNs()
   const callAction = useCgdActions()
 
-  const [servers, setServers]: [CloudServerRow[], (v: CloudServerRow[]) => void] = React.useState([])
-  const [enabled, setEnabled]: [Set<string>, (v: Set<string>) => void] = React.useState(() => new Set())
+  const [servers, setServers] = React.useState<CloudServerRow[]>([])
+  const [enabled, setEnabled] = React.useState<Set<string>>(() => new Set())
   // What each dedicated host's grow/weaken loops are actually doing right
   // now — read straight off `ns.ps(host)` (see fetchStatus below) rather
   // than trusted from a value the daemon last pushed into cgd.store. The
@@ -33,12 +34,12 @@ export function useXpFarm(React: any) {
   // full cycle, and it sometimes never resolved into a render at all. Tier
   // 1 already allow-lists `ps` (see `daemons/lv1.daemon.ts`), so this needs
   // nothing beyond what XP Farm's own `minDaemonTier: 2` already requires.
-  const [status, setStatus]: [XpFarmStatus, (v: XpFarmStatus) => void] = React.useState({})
+  const [status, setStatus] = React.useState<XpFarmStatus>({})
   const [daemonRunning, setDaemonRunning] = React.useState(false)
   const [daemonBusy, setDaemonBusy] = React.useState(false)
   const [loading, setLoading] = React.useState(true)
-  const [busyHost, setBusyHost]: [string | null, (v: string | null) => void] = React.useState(null)
-  const [error, setError]: [string | null, (v: string | null) => void] = React.useState(null)
+  const [busyHost, setBusyHost] = React.useState<string | null>(null)
+  const [error, setError] = React.useState<string | null>(null)
 
   // Reads the grow/weaken processes actually running on each `hosts` entry
   // and derives an assignment from them — `ns.ps` reports real threads/args

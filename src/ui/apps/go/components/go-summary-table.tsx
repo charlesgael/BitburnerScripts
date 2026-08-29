@@ -1,5 +1,5 @@
-import type { AppComponentProps } from '/src/ui/types'
 import type { GoLogSummary } from '../../../../go/state-file'
+import React from '@react'
 import { DonutChart } from '../../../components/chart/donut-chart'
 
 /**
@@ -12,7 +12,7 @@ import { DonutChart } from '../../../components/chart/donut-chart'
  * `GoGameLogEntry.engine` exists) — with only one engine represented it'd
  * just repeat the overall line above for no reason.
  */
-export function GoSummaryTable({ React, summary }: { summary: GoLogSummary | null } & AppComponentProps) {
+export function GoSummaryTable({ summary }: { summary: GoLogSummary | null }) {
   if (!summary || summary.games === 0) {
     return (
       <div style={{ fontSize: '11px', opacity: 0.7 }}>
@@ -92,8 +92,10 @@ export function GoSummaryTable({ React, summary }: { summary: GoLogSummary | nul
                 <td style={{ textAlign: 'right', padding: '4px 6px' }}>{row.wins}</td>
                 <td style={{ textAlign: 'right', padding: '4px 6px' }}>{row.losses}</td>
                 <td style={{ textAlign: 'right', padding: '4px 6px' }}>
-                  <DonutChart />
-                  {row.winRate.toFixed(0)}
+                  <span style={{ display: 'flex', gap: 3, justifyContent: 'flex-end', alignItems: 'center' }}>
+                    <span>{row.winRate.toFixed(0)}</span>
+                    <DonutChart percentage={row.winRate} color="var(--bb-theme-success)" size={11} />
+                  </span>
                 </td>
                 <td style={{ textAlign: 'right', padding: '4px 6px' }}>
                   {row.avgMargin > 0 ? '+' : ''}

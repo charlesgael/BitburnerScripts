@@ -1,4 +1,5 @@
 import type { ManagedAppDefinition } from '../logic/types'
+import React from '@react'
 import { taskKey } from '../logic/task-key'
 import { useTaskManager } from '../logic/use-task-manager'
 import { SpawnRow } from './spawn-row'
@@ -11,17 +12,15 @@ import { TaskRow } from './task-row'
  * full design.
  */
 export function TaskManagerBody({
-  React,
   apps,
   runnableApps,
   appByScript,
 }: {
-  React: any
   apps: ManagedAppDefinition[]
   runnableApps: ManagedAppDefinition[]
   appByScript: Record<string, ManagedAppDefinition>
 }) {
-  const tm = useTaskManager(React, apps, runnableApps)
+  const tm = useTaskManager(apps, runnableApps)
   // Left out of the Spawn list entirely when its `isAvailable` (see
   // `logic/types.ts`) fails — e.g. `backdoor.app.js` needs Singularity
   // access — same "hide, don't disable" treatment a regular app gets in
@@ -76,7 +75,7 @@ export function TaskManagerBody({
 
       <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>Spawn</div>
       {spawnableApps.map(app => (
-        <SpawnRow key={app.script} React={React} tm={tm} app={app} appByScript={appByScript} />
+        <SpawnRow key={app.script} tm={tm} app={app} appByScript={appByScript} />
       ))}
 
       <div style={{ fontSize: '12px', fontWeight: 'bold', margin: '14px 0 4px' }}>
@@ -94,7 +93,7 @@ export function TaskManagerBody({
             )
           : (
               tm.tasks.map(task => (
-                <TaskRow key={taskKey(task)} React={React} tm={tm} task={task} app={appByScript[task.script]} />
+                <TaskRow key={taskKey(task)} tm={tm} task={task} app={appByScript[task.script]} />
               ))
             )}
     </div>

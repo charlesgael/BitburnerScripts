@@ -52,18 +52,18 @@ that now live under `ns.singularity.*`), since it's unmaintained reference mater
 ## The RAM-cost model (read this before adding any `ns.*` call anywhere in `src/ui/` or `src/cgd/`)
 
 Bitburner statically analyzes a script's **entire reachable import graph** and charges RAM for every `ns.*` function
-*referenced* anywhere in it — whether or not that code path ever runs. This one fact drives several non-obvious
+_referenced_ anywhere in it — whether or not that code path ever runs. This one fact drives several non-obvious
 design decisions in this repo, and it's more aggressive than it first looks:
 
 - A function body that's imported but never called still costs its full RAM. Comments don't count (stripped before
   the analyzer sees them), but live, merely-unreached code does.
-- **The match is on identifier *text*, not on the receiver's real type or role.** It's not "a literal `ns.foo(...)`
-  call" — it's "any identifier that lexically equals a real `ns.*` function name, appearing *anywhere* as a call, a
+- **The match is on identifier _text_, not on the receiver's real type or role.** It's not "a literal `ns.foo(...)`
+  call" — it's "any identifier that lexically equals a real `ns.*` function name, appearing _anywhere_ as a call, a
   property access, or even a bare local variable declaration with nothing to do with `ns` at all." Two real
   instances this project hit: `ui/utils/ns-queue.ts`'s own history (`queue.run(...)` billed as `ns.run`, despite
   `queue` not being `ns`), and `ui.app.js` silently carrying `ns.share()`'s 2.4GB because one file had
   `const share = useShare(...)` — a variable name, never even called as `.share(`. If a script's reported RAM looks
-  wrong, grep for *any* identifier — call, property, or bare variable — matching a real NS function name, not just
+  wrong, grep for _any_ identifier — call, property, or bare variable — matching a real NS function name, not just
   literal `ns.something(` call sites.
 - **This is why `ui/utils/ns-proxy.ts`'s `QueuedNS` exposes every method `_`-prefixed** (`queuedNs._exec(...)`, not
   `.exec(...)`) — see that file's header comment. Every app's `ns.*` calls go through this proxy already (queued,
@@ -73,15 +73,15 @@ design decisions in this repo, and it's more aggressive than it first looks:
   RAM surprise found the hard way (which is exactly how this was discovered — see `docs/epic-cgd-namespace.md`'s
   "Validated assumptions" for the full story, including a decoy-reference trick used deliberately elsewhere: a
   `void ns.someMethod;` reference with nothing calling it is enough to reserve RAM for it without ever invoking it).
-- **A *computed* property access (`receiver[method](...args)`, `method` a runtime string) has no literal text to
-  match, so it doesn't inflate the *static* allocation** — this is what `cgd/dispatch.ts`'s `dispatchCall` relies
-  on. But Bitburner *also* tracks actual dynamic `ns.*` usage at **runtime** and kills the whole script with a
+- **A _computed_ property access (`receiver[method](...args)`, `method` a runtime string) has no literal text to
+  match, so it doesn't inflate the _static_ allocation** — this is what `cgd/dispatch.ts`'s `dispatchCall` relies
+  on. But Bitburner _also_ tracks actual dynamic `ns.*` usage at **runtime** and kills the whole script with a
   "RAM USAGE ERROR ... you somehow circumvented the static RAM calculation" the instant that usage exceeds what was
   statically reserved. So dynamic dispatch doesn't make a call free — it just makes it invisible to the static
   allocator, which is dangerous, not helpful, unless something else in that same script's reachable text reserves
   for it too (see the tiered-daemon allow-lists below). Don't reach for computed dispatch as a RAM-avoidance trick
   without reading `cgd/dispatch.ts`'s header comment first.
-- Singularity function costs in `NetscriptDefinitions.d.ts` are documented at the *best-case* Source-File 4 discount
+- Singularity function costs in `NetscriptDefinitions.d.ts` are documented at the _best-case_ Source-File 4 discount
   (`RAM cost: X GB * 16/4/1`). Without SF4 levels 2–3, the real cost is 16× that documented number.
 - **Consequence**: the primary mechanism for keeping `ui.app.js` cheap is now the tiered `cgd` daemon (see below),
   not one-shot scripts spawned on demand — but that older pattern still exists and is still correct for anything
@@ -104,9 +104,9 @@ under `src/ui/`:
   hook element (e.g. `#sidebar-extra-hook-3`) to exist before mounting into it, since the game's own React sidebar
   isn't guaranteed to have painted it yet the instant this script starts. `startReattachGuardian` runs a plain
   `setInterval` (no `ns` cost) to re-attach a container if the game's own sidebar tears down and rebuilds the hook
-  it lives in — this, and everything else here that's a periodic *plain-JS* check unrelated to `ns`, deliberately
+  it lives in — this, and everything else here that's a periodic _plain-JS_ check unrelated to `ns`, deliberately
   doesn't need the daemon at all.
-- `ui/utils/ns-proxy.ts` — wraps a *live* "current daemon" getter (`() => cgd.daemon`, re-resolved on every call —
+- `ui/utils/ns-proxy.ts` — wraps a _live_ "current daemon" getter (`() => cgd.daemon`, re-resolved on every call —
   see the daemon section) in a Proxy that reads like calling `ns` directly, `_`-prefixed (see the RAM-cost model
   section above for why). `useQueuedNs()` (`ui/context/ns-queue-context.ts`) is how a component gets one.
 - `ui/context/` — React Context providers (`useQueuedNs`, `useAddChildPid`, `useHomeRam`, `useDaemonTier`,
@@ -141,8 +141,8 @@ actual `react` runtime dependency: `tsconfig.json` sets `"jsx": "react"` (classi
 `React.createElement(...)` textually) rather than the automatic runtime, since the automatic runtime needs a real
 `react/jsx-runtime` module to import from and this project has none — React only exists as the game's `window.React`
 global (see `ui/utils/react-globals.ts`). The classic transform just needs an identifier literally named `React` in
-lexical scope, which is exactly what's already threaded through: a prop on every app's `Content` component
-(`{ React }: AppComponentProps`), or destructured from `ReactGlobals` in `ui/components/*.tsx`. Renaming that
+lexical scope, which is exactly what's already threaded through a special import named `@react` that is a shortcut
+to ui/utils/react-globals.ts which has a getter to always take React or ReactDOM. Renaming that
 identifier (e.g. aliasing `React.createElement` to a shorter `e`, the old pre-JSX pattern in this codebase) breaks
 JSX in that scope. `@types/react`/`@types/react-dom` are installed as devDependencies only (no runtime `react`
 package) purely so `tsconfig.json`'s `"types"` array can pull in the ambient global `JSX.IntrinsicElements` — needed
@@ -164,14 +164,14 @@ own comment in `vite.config.ts` for the exact mechanism).
 **The single most load-bearing architectural fact in this repo.** `ui.app.ts` doesn't keep a loop running and
 doesn't call `ns.*` for anything apps need — all of that lives in a separately-running, persistent daemon reached
 through `window.cgd`, the same `eval("window")` trick used to reach React/ReactDOM: every script here runs in the
-same real browser window regardless of which process created a reference to it, which is what makes a *shared*
+same real browser window regardless of which process created a reference to it, which is what makes a _shared_
 namespace across independently-running scripts possible at all. Full design record — including every course
 correction, several driven by live in-game RAM measurements rather than just reasoning — lives in
 `docs/epic-cgd-namespace.md`; read it before making structural changes here, this section is just the current-state
 summary.
 
 - **Shape**: `window.cgd = { daemon, store, reactApps }`. `daemon` (`src/cgd/types.ts`'s `CgdDaemon`) is present
-  only while a daemon is alive *and* ready to serve (see the handoff protocol below) — its mere presence is a
+  only while a daemon is alive _and_ ready to serve (see the handoff protocol below) — its mere presence is a
   trustworthy readiness signal, not just an existence check. `store` is a long-lived, hand-rolled pub-sub
   (`getState`/`setState`/`subscribe` — no `zustand` or any other dependency, see `src/cgd/store.ts`) that survives
   every daemon replacement, since a fresh instance per daemon would silently strand an already-subscribed consumer
@@ -180,15 +180,15 @@ summary.
   `docs/epic-cgd-namespace.md`'s tier table for the authoritative, current list. As of this writing: tier 0 (no
   caller-facing dispatch at all, just baseline stats pushed to the store), tier 1 (core `ns.*` dispatch — an
   **explicit, enumerated allow-list**, never "everything except reserved namespaces"; ~1.6GB), tier 2 (cloud-server
-  + slave-node management, as named compound actions, not raw dispatch). Tier 4 (Singularity) was planned and
-  explicitly decided against — Trainer/Backdoor Installer stay independent, unrestricted-`ns` processes gated on
-  SF4/BitNode-4, permanently, since folding a long-running loop into a tier would make every daemon at that tier
-  pay its RAM cost forever, not just while actually in use. `daemons/lv0/lv1/lv2.daemon.ts` form a strict
-  one-directional import chain (`lv1 ← lv2 ← ...`, see `docs/epic-cgd-namespace.md`'s import-chain section) — a
-  lower tier must never statically reference a higher tier's capability.
+  - slave-node management, as named compound actions, not raw dispatch). Tier 4 (Singularity) was planned and
+    explicitly decided against — Trainer/Backdoor Installer stay independent, unrestricted-`ns` processes gated on
+    SF4/BitNode-4, permanently, since folding a long-running loop into a tier would make every daemon at that tier
+    pay its RAM cost forever, not just while actually in use. `daemons/lv0/lv1/lv2.daemon.ts` form a strict
+    one-directional import chain (`lv1 ← lv2 ← ...`, see `docs/epic-cgd-namespace.md`'s import-chain section) — a
+    lower tier must never statically reference a higher tier's capability.
 - **Two ways an app reaches the daemon**, both via context hooks, never `window.cgd` directly:
   `useQueuedNs()` → a raw single-`ns.*`-method forward (`cgd/dispatch.ts`'s `dispatchCall`, genuinely computed
-  dispatch — see the RAM-cost model section above for why that matters and what it does *not* buy you), and
+  dispatch — see the RAM-cost model section above for why that matters and what it does _not_ buy you), and
   `useCgdActions()` → a named, tier-registered "compound action" (`cgd/types.ts`'s `CgdActionHandler`) for anything
   needing more than one `ns.*` call as a single atomic step (a network BFS in `cgd/actions/slave-nodes.ts`; a
   fetch-then-self-heal-a-config-file in `cgd/actions/cloud.ts`). Compound actions don't need the `_`-prefix
@@ -197,10 +197,10 @@ summary.
 - **Startup/handoff protocol** (`cgd/daemon-core.ts`'s `runTieredDaemon`, shared by every tier): on start, a
   daemon asks whatever's currently registered in `cgd.daemon` to stop (`_stop()`, which rejects everything pending
   on its queue and clears `cgd.daemon` via its own `ns.atExit`), polls until that's actually gone, then registers
-  itself — this is the *same* mechanism whether the incoming daemon is a different tier or a redeploy-and-relaunch
+  itself — this is the _same_ mechanism whether the incoming daemon is a different tier or a redeploy-and-relaunch
   of the tier that's already running. `cgd.daemon` is only assigned once the drain loop is genuinely ready.
 - **Self-healing across a background daemon swap or replacement**: the queue, the action dispatcher, app-grid
-  visibility, and the status panel's tier display all resolve against whichever daemon is *currently* registered
+  visibility, and the status panel's tier display all resolve against whichever daemon is _currently_ registered
   — a live getter (`() => cgd.daemon`), re-checked on every call (queue/actions) or every second (grid/status
   panel polling `_getTier()`) — never a reference or tier value snapshotted once at `ui.app.ts` mount time. This
   was found the hard way: a fixed reference kept pointing at a since-replaced daemon's dead queue, hanging forever
@@ -246,7 +246,7 @@ described above. `src/daemons/` mixes two genuinely different kinds of file, eas
 
 - **Worker payloads / genuinely independent processes**, meant to keep running regardless of what the UI does:
   `hack`/`grow`/`weaken`/`share.daemon.ts` (generic loops, launched with args by whichever app needs them),
-  `xp-farm.daemon.ts` (self-managing orchestrator — deliberately *not* folded into the tiered daemon; see
+  `xp-farm.daemon.ts` (self-managing orchestrator — deliberately _not_ folded into the tiered daemon; see
   `docs/epic-cgd-namespace.md`'s "Daemon classification" table for why that would've been a regression), and
   `train.daemon.ts` (Singularity training loop, SF4/BitNode-4-gated, also deliberately independent — see the
   daemon section above).

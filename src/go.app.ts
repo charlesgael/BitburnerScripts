@@ -3,7 +3,7 @@ import type { GoEngineName, GoGameLogEntry, GoLiveState } from './go/state-file'
 import { pickMove as pickExperimentalMove } from './go/experimental-engine'
 import { pickMove as pickHeuristicMove } from './go/heuristic-engine'
 import { GO_GAME_LOG_FILE, GO_LIVE_STATE_FILE, GO_LIVE_STATE_MAX_EVENTS } from './go/state-file'
-import { arg, parseArgs } from './utils/args'
+import { parseArgs } from './utils/args'
 
 /**
  * Autonomous IPvGO player. A persistent loop (spawned from the Programs app

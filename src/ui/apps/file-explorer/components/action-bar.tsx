@@ -1,4 +1,5 @@
 import type { FileExplorerState } from '../logic/use-file-explorer'
+import React from '@react'
 import { iconForFile, isCopyable, isDeletable, isMovable, isReadable, isRunnable } from '../../../utils/file-types'
 import { canViewFile } from '../logic/can-view-file'
 
@@ -8,7 +9,7 @@ import { canViewFile } from '../logic/can-view-file'
  * selected file's extension actually supports it (see
  * `ui/utils/file-types.ts`).
  */
-export function ActionBar({ React, fx }: { React: any, fx: FileExplorerState }) {
+export function ActionBar({ fx }: { fx: FileExplorerState }) {
   if (!fx.selected)
     return null
   const selected = fx.selected

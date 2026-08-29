@@ -1,14 +1,14 @@
 import type { CgdDaemon, CgdQueue, CgdStore, CgdTier } from '../../cgd/types'
 import type { HomeRam } from '../context/home-ram-context'
-import type { AppDefinition, ReactGlobals } from '../types'
+import type { AppDefinition } from '../types'
 import type { QueuedNS } from '../utils/ns-proxy'
+import React, { getWinGlobals, ReactDOM } from '@react'
 import { initCgdActionsContext } from '../context/cgd-actions-context'
 import { initChildPidsContext } from '../context/child-pids-context'
 import { initDaemonTierContext } from '../context/daemon-tier-context'
 import { initHomeRamContext } from '../context/home-ram-context'
 import { initNsQueueContext } from '../context/ns-queue-context'
 import { isAppVisible, ramShortfallReason } from '../utils/app-availability'
-import { getReactGlobals, getWinGlobals } from '../utils/react-globals'
 
 interface OpenWindow {
   id: string
@@ -43,7 +43,6 @@ interface OpenWindow {
  * component registers on `doc` (Escape key, and any in-progress drag).
  */
 export function createAppGrid(
-  globals: ReactGlobals,
   container: any,
   apps: AppDefinition[],
   queuedNs: QueuedNS,
@@ -52,17 +51,16 @@ export function createAppGrid(
   initialDaemonTier: CgdTier,
   getDaemon: () => CgdDaemon | undefined,
 ) {
-  const { React, doc } = globals
-
+  const { doc } = getWinGlobals()
   // Provides the queued `ns` proxy, the child-pid tracker, `home`'s live
   // RAM, the running daemon's tier, and its compound-action dispatcher to
   // every app's Content component via context, so none of them need to be
   // passed down as an explicit prop from here.
-  const NsQueueContext = initNsQueueContext(React)
-  const ChildPidsContext = initChildPidsContext(React)
-  const HomeRamContext = initHomeRamContext(React)
-  const DaemonTierContext = initDaemonTierContext(React)
-  const CgdActionsContext = initCgdActionsContext(React)
+  const NsQueueContext = initNsQueueContext()
+  const ChildPidsContext = initChildPidsContext()
+  const HomeRamContext = initHomeRamContext()
+  const DaemonTierContext = initDaemonTierContext()
+  const CgdActionsContext = initCgdActionsContext()
 
   // Resolves against whichever daemon is *currently* registered on every
   // call, not whatever was registered when this grid was created — same
@@ -446,14 +444,12 @@ export function createAppGrid(
                         place. */}
             <app.Content
               key={`${win.id}-${win.refreshCount}`}
-              React={React}
             />
           </div>
         </div>
       )
     })
 
-    const { ReactDOM } = getReactGlobals()!
     const portalContainer = makePortalContainer()
 
     ReactDOM.render(

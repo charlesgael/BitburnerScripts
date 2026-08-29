@@ -1,6 +1,7 @@
 import type { CgdQueue } from '../../../../cgd/types'
 import type { QueuedNS } from '../../../utils/ns-proxy'
 import type { Entry, HostEntry } from './types'
+import React from '@react'
 import { fetchCloudList } from '../../../utils/cloud-list'
 import { isRunnable } from '../../../utils/file-types'
 import { readNetworkHosts } from '../../../utils/network-hosts'
@@ -25,28 +26,27 @@ import { computeEntries } from './compute-entries'
  * `ui.app.js`'s measured RAM cost without the compiler ever catching it.
  */
 export function useFileExplorer(
-  React: any,
   ns: QueuedNS,
   addChildPid: (pid: number) => void,
   callAction: CgdQueue['enqueueAction'],
 ) {
-  const [hosts, setHosts]: [HostEntry[], (v: HostEntry[]) => void] = React.useState([
+  const [hosts, setHosts] = React.useState<HostEntry[]>([
     { hostname: 'home', icon: '🏠' },
   ])
   const [hostsLoading, setHostsLoading] = React.useState(true)
 
   const [selectedHost, setSelectedHost] = React.useState('home')
   const [currentPath, setCurrentPath] = React.useState('')
-  const [files, setFiles]: [string[], (v: string[]) => void] = React.useState([])
+  const [files, setFiles] = React.useState<string[]>([])
   const [filesLoading, setFilesLoading] = React.useState(true)
-  const [filesError, setFilesError]: [string | null, (v: string | null) => void] = React.useState(null)
+  const [filesError, setFilesError] = React.useState<string | null>(null)
   const [search, setSearch] = React.useState('')
 
-  const [selected, setSelected]: [string | null, (v: string | null) => void] = React.useState(null)
+  const [selected, setSelected] = React.useState<string | null>(null)
   const [selectedRunning, setSelectedRunning] = React.useState(false)
 
   const [mode, setMode] = React.useState('browse') // "browse" | "edit"
-  const [editingPath, setEditingPath]: [string | null, (v: string | null) => void] = React.useState(null)
+  const [editingPath, setEditingPath] = React.useState<string | null>(null)
   // Which host `editingPath` actually lives on — "home" for a plain local
   // (or already-cached, see `remote-file-bounce.ts`) file, or the origin
   // host when opened via that host's own listing, in which case Save
@@ -55,19 +55,19 @@ export function useFileExplorer(
   const [editContent, setEditContent] = React.useState('')
   const [editDirty, setEditDirty] = React.useState(false)
   const [editBusy, setEditBusy] = React.useState(false)
-  const [editError, setEditError]: [string | null, (v: string | null) => void] = React.useState(null)
+  const [editError, setEditError] = React.useState<string | null>(null)
   const [confirmDiscardEditor, setConfirmDiscardEditor] = React.useState(false)
 
-  const [renaming, setRenaming]: [string | null, (v: string | null) => void] = React.useState(null)
+  const [renaming, setRenaming] = React.useState<string | null>(null)
   const [renameValue, setRenameValue] = React.useState('')
-  const [confirmDelete, setConfirmDelete]: [string | null, (v: string | null) => void] = React.useState(null)
-  const [copyMenuFor, setCopyMenuFor]: [string | null, (v: string | null) => void] = React.useState(null)
+  const [confirmDelete, setConfirmDelete] = React.useState<string | null>(null)
+  const [copyMenuFor, setCopyMenuFor] = React.useState<string | null>(null)
 
   const [newFileOpen, setNewFileOpen] = React.useState(false)
   const [newFileName, setNewFileName] = React.useState('')
 
   const [actionBusy, setActionBusy] = React.useState(false)
-  const [actionError, setActionError]: [string | null, (v: string | null) => void] = React.useState(null)
+  const [actionError, setActionError] = React.useState<string | null>(null)
 
   async function loadHosts() {
     setHostsLoading(true)

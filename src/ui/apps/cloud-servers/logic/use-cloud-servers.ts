@@ -1,6 +1,7 @@
 import type { CloudListResult, CloudServerRow } from '../../../utils/cloud-list'
 import type { SlaveNodeHost } from '../../../utils/slave-nodes'
 import type { ActionResult } from './types'
+import React from '@react'
 import { useCgdActions } from '../../../context/cgd-actions-context'
 import { useQueuedNs } from '../../../context/ns-queue-context'
 import { fetchCloudList, sortByHostname } from '../../../utils/cloud-list'
@@ -16,39 +17,35 @@ import { fetchSlaveNodeHosts, readSlaveNodes, writeSlaveNodes } from '../../../u
  * call doesn't launch a new script, so there's no per-call RAM allocation
  * that could fail.
  */
-export function useCloudServers(React: any) {
+export function useCloudServers() {
   const ns = useQueuedNs()
   const callAction = useCgdActions()
 
-  const [servers, setServers]: [CloudServerRow[], (v: CloudServerRow[]) => void] = React.useState([])
+  const [servers, setServers] = React.useState<CloudServerRow[]>([])
   const [moneyAvailable, setMoneyAvailable] = React.useState(0)
   const [serverLimit, setServerLimit] = React.useState(0)
-  const [costByRam, setCostByRam]: [Record<number, number>, (v: Record<number, number>) => void] = React.useState(
-    {},
-  )
+  const [costByRam, setCostByRam] = React.useState<Record<number, number>>({})
   const [listLoading, setListLoading] = React.useState(true)
-  const [listError, setListError]: [string | null, (v: string | null) => void] = React.useState(null)
+  const [listError, setListError] = React.useState<string | null>(null)
 
   const [buyHostname, setBuyHostname] = React.useState('')
   const [buyRam, setBuyRam] = React.useState(2)
   const [buyBusy, setBuyBusy] = React.useState(false)
-  const [buyError, setBuyError]: [string | null, (v: string | null) => void] = React.useState(null)
+  const [buyError, setBuyError] = React.useState<string | null>(null)
 
-  const [confirmDeleteHost, setConfirmDeleteHost]: [string | null, (v: string | null) => void]
-    = React.useState(null)
-  const [deleteBusyHost, setDeleteBusyHost]: [string | null, (v: string | null) => void] = React.useState(null)
-  const [deleteError, setDeleteError]: [string | null, (v: string | null) => void] = React.useState(null)
+  const [confirmDeleteHost, setConfirmDeleteHost] = React.useState<string | null>(null)
+  const [deleteBusyHost, setDeleteBusyHost] = React.useState<string | null>(null)
+  const [deleteError, setDeleteError] = React.useState<string | null>(null)
 
   // --- Slave nodes (see `ui/utils/slave-nodes.ts`) ---
   // `slaveHosts` is every rooted/non-purchased/non-home host on the
   // network — the full checklist, independent of which are currently
   // designated (that's cross-referenced against `slaveServers` below).
-  const [slaveHosts, setSlaveHosts]: [SlaveNodeHost[], (v: SlaveNodeHost[]) => void] = React.useState([])
+  const [slaveHosts, setSlaveHosts] = React.useState<SlaveNodeHost[]>([])
   const [slaveHostsLoading, setSlaveHostsLoading] = React.useState(true)
-  const [slaveHostsError, setSlaveHostsError]: [string | null, (v: string | null) => void] = React.useState(null)
-  const [toggleSlaveBusyHost, setToggleSlaveBusyHost]: [string | null, (v: string | null) => void]
-    = React.useState(null)
-  const [toggleSlaveError, setToggleSlaveError]: [string | null, (v: string | null) => void] = React.useState(null)
+  const [slaveHostsError, setSlaveHostsError] = React.useState<string | null>(null)
+  const [toggleSlaveBusyHost, setToggleSlaveBusyHost] = React.useState<string | null>(null)
+  const [toggleSlaveError, setToggleSlaveError] = React.useState<string | null>(null)
 
   const busy = listLoading || buyBusy || deleteBusyHost != null
   // Purchased servers vs. slave nodes are the same `servers` snapshot

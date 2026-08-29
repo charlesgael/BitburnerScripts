@@ -1,5 +1,6 @@
 import type { CloudServerRow } from '../../../utils/cloud-list'
 import type { XpFarmState } from '../logic/use-xp-farm'
+import React from '@react'
 import { ServerCard } from '../../../components/server-card'
 import {
   XP_FARM_GROW_SCRIPT,
@@ -19,11 +20,9 @@ const linkStyle = {
  * Disable, and — once enabled — its current target/thread status line.
  */
 export function XpFarmServerCard({
-  React,
   xf,
   s,
 }: {
-  React: any
   xf: XpFarmState
   s: CloudServerRow
 }) {
@@ -34,7 +33,6 @@ export function XpFarmServerCard({
 
   return (
     <ServerCard
-      React={React}
       server={s}
     >
 

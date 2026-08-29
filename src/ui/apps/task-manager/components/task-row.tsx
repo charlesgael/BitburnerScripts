@@ -1,15 +1,14 @@
 import type { ManagedAppDefinition, Task } from '../logic/types'
 import type { TaskManagerState } from '../logic/use-task-manager'
+import React from '@react'
 import { taskKey } from '../logic/task-key'
 
 /** One running task's row: its label/host/RAM, and Tail/Kill buttons. */
 export function TaskRow({
-  React,
   tm,
   task,
   app,
 }: {
-  React: any
   tm: TaskManagerState
   task: Task
   app: ManagedAppDefinition | undefined

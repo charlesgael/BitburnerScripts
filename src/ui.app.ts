@@ -34,6 +34,7 @@
 
 import type { NS } from '@ns'
 import type { CgdNamespace } from './cgd/types'
+import { ReactDOM } from '@react'
 import { getCgd } from './cgd/window-cgd'
 import { APPS } from './ui/apps'
 import { createAppGrid } from './ui/components/app-grid'
@@ -41,7 +42,7 @@ import { createOverviewStats } from './ui/components/overview-stats'
 import { createStatusPanel } from './ui/components/status-panel'
 import { mountContainer, startReattachGuardian, unmountContainer } from './ui/utils/mount'
 import { createQueuedNs } from './ui/utils/ns-proxy'
-import { getReactGlobals } from './ui/utils/react-globals'
+import { getWinGlobals } from './ui/utils/react-globals'
 
 /**
  * Dismounts whatever's currently registered in `cgd.reactApps` (however it
@@ -62,10 +63,13 @@ function unmountReactApps(cgd: CgdNamespace): void {
 export async function main(ns: NS) {
   ns.disableLog('ALL')
 
-  const globals = getReactGlobals(ns)
-  if (!globals)
-    return
-  const { doc, win, ReactDOM } = globals
+  const globals = getWinGlobals()
+  if (!globals || !ReactDOM) {
+    ns.tprint(
+      `ERROR: can't reach DOM elements`,
+    )
+  }
+  const { doc, win } = globals
 
   const cgd = getCgd(win)
 
@@ -126,7 +130,6 @@ export async function main(ns: NS) {
   }
 
   const statusPanel = createStatusPanel(
-    globals,
     statusContainer,
     getDaemon,
     () => {
@@ -195,7 +198,6 @@ export async function main(ns: NS) {
     },
   )
   const appGrid = createAppGrid(
-    globals,
     gridContainer,
     APPS,
     queuedNs,

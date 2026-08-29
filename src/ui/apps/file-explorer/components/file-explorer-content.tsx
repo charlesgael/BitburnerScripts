@@ -1,4 +1,4 @@
-import type { AppComponentProps } from '../../../types'
+import React from '@react'
 import { useCgdActions } from '../../../context/cgd-actions-context'
 import { useAddChildPid } from '../../../context/child-pids-context'
 import { useQueuedNs } from '../../../context/ns-queue-context'
@@ -11,14 +11,14 @@ import { EditScreen } from './edit-screen'
  * browse and edit screens. See `../index.ts`'s header comment for what
  * this app does and why.
  */
-export function FileExplorerContent({ React }: AppComponentProps) {
+export function FileExplorerContent() {
   const ns = useQueuedNs()
   const addChildPid = useAddChildPid()
   const callAction = useCgdActions()
-  const fx = useFileExplorer(React, ns, addChildPid, callAction)
+  const fx = useFileExplorer(ns, addChildPid, callAction)
 
   if (fx.mode === 'edit' && fx.editingPath) {
-    return <EditScreen React={React} fx={fx} />
+    return <EditScreen fx={fx} />
   }
-  return <BrowseScreen React={React} fx={fx} />
+  return <BrowseScreen fx={fx} />
 }

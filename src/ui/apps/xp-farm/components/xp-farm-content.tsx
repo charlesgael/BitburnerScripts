@@ -1,5 +1,5 @@
-import type { AppComponentProps } from '../../../types'
 import type { CloudServerRow } from '../../../utils/cloud-list'
+import React from '@react'
 import { useXpFarm } from '../logic/use-xp-farm'
 import { XpFarmServerCard } from './server-card'
 
@@ -8,8 +8,8 @@ import { XpFarmServerCard } from './server-card'
  * row, and the per-server card grid. See `../index.ts`'s header comment
  * for what this app does and why.
  */
-export function XpFarmContent({ React }: AppComponentProps) {
-  const xf = useXpFarm(React)
+export function XpFarmContent() {
+  const xf = useXpFarm()
 
   // A CSS grid of cards rather than a stacked list — same idea and same
   // 260px column width as the Cloud Servers app's own server grid (see
@@ -18,7 +18,7 @@ export function XpFarmContent({ React }: AppComponentProps) {
   // the window reflows into more columns instead of a fixed-width list
   // stranded in empty space.
   const cards = xf.servers.map((s: CloudServerRow) => (
-    <XpFarmServerCard key={s.hostname} React={React} xf={xf} s={s} />
+    <XpFarmServerCard key={s.hostname} xf={xf} s={s} />
   ))
 
   return (

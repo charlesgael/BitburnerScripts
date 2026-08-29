@@ -1,4 +1,5 @@
 import type { CgdTier } from '../../cgd/types'
+import React from '@react'
 
 /**
  * React's equivalent of Vue's provide/inject (see `ns-queue-context.ts` for
@@ -22,10 +23,8 @@ import type { CgdTier } from '../../cgd/types'
  * components call to read the value it provides.
  */
 let DaemonTierContext: any = null
-let ReactRef: any = null
 
-export function initDaemonTierContext(React: any) {
-  ReactRef = React
+export function initDaemonTierContext() {
   DaemonTierContext = React.createContext(null)
   return DaemonTierContext
 }
@@ -38,9 +37,9 @@ export function useDaemonTier(): CgdTier {
   if (!DaemonTierContext) {
     throw new Error('useDaemonTier() called before initDaemonTierContext() ran')
   }
-  const daemonTier = ReactRef.useContext(DaemonTierContext)
+  const daemonTier = React.useContext(DaemonTierContext)
   if (daemonTier == null) {
     throw new Error('useDaemonTier() called outside of a DaemonTierContext.Provider')
   }
-  return daemonTier
+  return daemonTier as any
 }

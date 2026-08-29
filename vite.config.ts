@@ -5,12 +5,14 @@ import { resolve } from 'node:path'
 import { setupBundlePlugin, walk } from './plugin/setup-bundle'
 
 const srcDir = resolve(__dirname, 'src')
+const reactGlobals = resolve(__dirname, 'src', 'ui', 'utils', 'react-globals.ts')
 
 export default function (env: ConfigEnv): ViteBurnerUserConfig {
   const base: ViteBurnerUserConfig = {
     resolve: {
       alias: {
         '/src': srcDir,
+        '@react': reactGlobals,
       },
     },
   }

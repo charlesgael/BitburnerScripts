@@ -1,10 +1,11 @@
 import type { FileExplorerState } from '../logic/use-file-explorer'
+import React from '@react'
 
 /**
  * Up/breadcrumb/refresh/new-file toolbar, the new-file inline form, and
  * the search box — everything above the host sidebar + file grid.
  */
-export function BrowseToolbar({ React, fx }: { React: any, fx: FileExplorerState }) {
+export function BrowseToolbar({ fx }: { fx: FileExplorerState }) {
   return (
     <React.Fragment>
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', flexShrink: 0 }}>

@@ -1,5 +1,6 @@
 import type { ManagedAppDefinition } from '../logic/types'
 import type { TaskManagerState } from '../logic/use-task-manager'
+import React from '@react'
 
 /**
  * Same spawn row for both loop apps and one-shot reports: the main button
@@ -33,12 +34,10 @@ import type { TaskManagerState } from '../logic/use-task-manager'
  * `singleInstance`.
  */
 export function SpawnRow({
-  React,
   tm,
   app,
   appByScript,
 }: {
-  React: any
   tm: TaskManagerState
   app: ManagedAppDefinition
   appByScript: Record<string, ManagedAppDefinition>

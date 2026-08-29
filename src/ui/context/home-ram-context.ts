@@ -1,3 +1,4 @@
+import React from '@react'
 /**
  * React's equivalent of Vue's provide/inject (see `ns-queue-context.ts` for
  * the fuller explanation) for `home`'s live used/max RAM.
@@ -26,10 +27,8 @@ export interface HomeRam {
 }
 
 let HomeRamContext: any = null
-let ReactRef: any = null
 
-export function initHomeRamContext(React: any) {
-  ReactRef = React
+export function initHomeRamContext() {
   HomeRamContext = React.createContext(null)
   return HomeRamContext
 }
@@ -44,9 +43,9 @@ export function useHomeRam(): HomeRam {
   if (!HomeRamContext) {
     throw new Error('useHomeRam() called before initHomeRamContext() ran')
   }
-  const homeRam = ReactRef.useContext(HomeRamContext)
+  const homeRam = React.useContext(HomeRamContext)
   if (!homeRam) {
     throw new Error('useHomeRam() called outside of a HomeRamContext.Provider')
   }
-  return homeRam
+  return homeRam as any
 }

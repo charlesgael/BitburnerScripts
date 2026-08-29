@@ -1,4 +1,4 @@
-import type { AppComponentProps, AppDefinition } from '../../types'
+import type { AppDefinition } from '../../types'
 import type { ManagedAppDefinition } from './logic/types'
 import { TaskManagerBody } from './components/task-manager-body'
 
@@ -68,8 +68,8 @@ export function createTaskManagerApp(
   const runnableApps = apps.filter(a => !a.oneShot)
   const appByScript = Object.fromEntries(apps.map(a => [a.script, a]))
 
-  function TaskManagerContent({ React }: AppComponentProps) {
-    return TaskManagerBody({ React, apps, runnableApps, appByScript })
+  function TaskManagerContent() {
+    return TaskManagerBody({ apps, runnableApps, appByScript })
   }
 
   return {

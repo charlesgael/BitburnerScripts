@@ -4,31 +4,8 @@ import type { CgdTier } from '../cgd/types'
  * Shared types for the ui/ tree.
  */
 
-/**
- * The game's exposed React/ReactDOM globals, plus the document/window they
- * came from. Grabbed once via `getReactGlobals` and threaded through to
- * every component that needs to render.
- */
-export interface ReactGlobals {
-  doc: any
-  win: any
-  React: any
-  ReactDOM: any
-}
-
 /** Shorthand for `React.createElement`. */
 export type ReactCreateElement = (type: any, props?: any, ...children: any[]) => any
-
-/** Props every app's `Content` component receives. */
-export interface AppComponentProps {
-  /**
-   * The runtime React object (`window.React`) — use it for
-   * `React.createElement`, and for hooks like `React.useState`. For ns
-   * calls, use the `useQueuedNs()` hook (see
-   * `ui/context/ns-queue-context.ts`) instead of calling ns directly.
-   */
-  React: any
-}
 
 /**
  * One entry in the sidebar app grid. Register new apps in `ui/apps/index.ts`
@@ -40,11 +17,12 @@ export interface AppDefinition {
   label: string
   /**
    * The app's modal body. Rendered as a real React component (via
-   * `e(app.Content, props)`) rather than called directly, so it can use
-   * hooks — e.g. `useQueuedNs()` for ns.* calls, `React.useState` for
-   * local state.
+   * `<app.Content />`) rather than called directly, so it can use hooks —
+   * e.g. `useQueuedNs()` for ns.* calls, `React.useState` for local state
+   * (`React` itself comes from importing `@react` directly, not a prop —
+   * see `ui/utils/react-globals.ts`).
    */
-  Content: (props: AppComponentProps) => any
+  Content: () => any
   /**
    * Initial window size (CSS px) when this app is opened, e.g. an app
    * whose content is a wide responsive grid (see `cloud-servers.tsx`)

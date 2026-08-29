@@ -1,5 +1,5 @@
-import type { NS } from '@ns'
-import type { ReactGlobals } from '../types'
+import type React from 'react'
+import type * as ReactDOMOrig from 'react-dom'
 
 export function getWinGlobals() {
   const doc = eval('document')
@@ -8,23 +8,24 @@ export function getWinGlobals() {
   return { doc, win }
 }
 
-/**
- * Grabs the game's exposed React/ReactDOM globals via the classic
- * `eval("window")` trick — the standard, RAM-free way to reach the DOM/React
- * from a Netscript script. Returns null (after printing an error) if
- * React/ReactDOM aren't available.
- */
-export function getReactGlobals(ns?: NS): ReactGlobals | null {
-  const winGlob = getWinGlobals()
-  const React = winGlob.win.React
-  const ReactDOM = winGlob.win.ReactDOM
+type ReactInt = typeof React
+// The real `ReactDOM` module shape (`.render`, `.createPortal`, ...) — from
+// `react-dom`'s own types, not `react`'s. `react`'s types also declare a
+// `ReactDOM` symbol, but it's `React.ReactDOM`, a deprecated, unrelated
+// legacy interface (`ReactHTML & ReactSVG`, the old `React.DOM.div()`-style
+// factory helpers) that just happens to share the name.
+type ReactDOMInt = typeof ReactDOMOrig
 
-  if (!React || !ReactDOM) {
-    if (ns)
-      ns.tprint('ERROR: Could not access React/ReactDOM globals.')
-    else console.log('ERROR: Could not access React/ReactDOM globals.')
-    return null
-  }
-
-  return { ...winGlob, React, ReactDOM }
-}
+// A one-time snapshot, not a live reference: `export default <expr>` only
+// ever evaluates `<expr>` once, the first time this module loads in a given
+// script — every other file's `import React from '@react'` binds to that
+// same already-computed value, it doesn't re-run `getWinGlobals()`. That's
+// fine here (unlike `cgd.daemon`, which really does get replaced in-place
+// by a redeploy without a page reload — see `ns-proxy.ts`'s live-getter
+// Proxy for why *that* needs to re-resolve on every call): `window.React`/
+// `window.ReactDOM`'s object identity never changes during a tab's life,
+// since the game's own React instance is never torn down and remounted —
+// only a full page reload would do that, and that kills this script's
+// process too.
+export default getWinGlobals().win.React as ReactInt
+export const ReactDOM = getWinGlobals().win.ReactDOM as ReactDOMInt

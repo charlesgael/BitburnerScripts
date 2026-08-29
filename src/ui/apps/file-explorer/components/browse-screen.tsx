@@ -1,4 +1,5 @@
 import type { FileExplorerState } from '../logic/use-file-explorer'
+import React from '@react'
 import { ActionBar } from './action-bar'
 import { BrowseToolbar } from './browse-toolbar'
 import { FileGrid } from './file-grid'
@@ -8,7 +9,7 @@ import { HostSidebar } from './host-sidebar'
  * The main browse screen: toolbar, host sidebar + file grid, and the
  * selected-file action bar. Shown whenever `fx.mode !== "edit"`.
  */
-export function BrowseScreen({ React, fx }: { React: any, fx: FileExplorerState }) {
+export function BrowseScreen({ fx }: { fx: FileExplorerState }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '380px', fontSize: '12px' }}>
       {fx.copyMenuFor
@@ -28,14 +29,14 @@ export function BrowseScreen({ React, fx }: { React: any, fx: FileExplorerState 
           )
         : null}
 
-      <BrowseToolbar React={React} fx={fx} />
+      <BrowseToolbar fx={fx} />
 
       <div style={{ display: 'flex', flex: '1 1 auto', minHeight: 0, gap: '8px' }}>
-        <HostSidebar React={React} fx={fx} />
-        <FileGrid React={React} fx={fx} />
+        <HostSidebar fx={fx} />
+        <FileGrid fx={fx} />
       </div>
 
-      <ActionBar React={React} fx={fx} />
+      <ActionBar fx={fx} />
 
       <div style={{ fontSize: '10px', opacity: 0.6, marginTop: '4px', flexShrink: 0 }}>
         {fx.entries.length}
