@@ -240,11 +240,14 @@ from the store and follow the daemon's own lifecycle, not the store's.
 ### Store implementation
 
 Hand-rolled, **zero new dependencies** (no `zustand`) — a minimal vanilla store (`getState`/`setState`/`subscribe`)
-plus a small React hook built on `React.useSyncExternalStore` (the correct primitive for "subscribe to an external
-store, re-render only when a selector's result changes" — avoids the tearing/timing pitfalls of hand-rolling this
-with `useEffect`+`useState`). **Implementation-time check, not a design gap:** confirm the game's actual bundled
-`window.React` is 18+ (the `@types/react`/`@types/react-dom` devDependencies only pin the *type* version, not the
-runtime one the game ships).
+plus a small React hook, `CgdStore.use` (`src/cgd/store.ts`). `React.useSyncExternalStore` — the primitive that
+would normally be reached for here — is **not available**: confirmed in-game the bundled `window.React` is 17.0.2,
+matching what `@types/react`/`@types/react-dom` already pin, and `useSyncExternalStore` is React 18+ only. `use` is
+instead a manual `useEffect`+`useState` subscription: it subscribes/unsubscribes exactly once per mount (the
+selector is read through a `useRef` so passing a fresh inline selector each render doesn't force a resubscribe),
+and resyncs once inside the effect to cover the gap between the initial `useState()` call and the effect actually
+running. Subscribing directly in the render body (rather than inside `useEffect`) was tried first and leaked a
+listener per re-render — a real bug hit and fixed here, not just a hypothetical to avoid.
 
 ### Stat rendering
 

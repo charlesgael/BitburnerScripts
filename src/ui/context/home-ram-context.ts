@@ -26,26 +26,26 @@ export interface HomeRam {
   max: number
 }
 
-let HomeRamContext: any = null
+// let HomeRamContext: any = null
 
-export function initHomeRamContext() {
-  HomeRamContext = React.createContext(null)
-  return HomeRamContext
-}
+// export function initHomeRamContext() {
+//   HomeRamContext = React.createContext(null)
+//   return HomeRamContext
+// }
 
-/**
- * Reads `home`'s current `{ used, max }` RAM, kept fresh by
- * `ui.app.ts`'s main loop (see `ui/utils/home-ram-poller.ts`) and provided
- * by the nearest `HomeRamContext.Provider` (set up in
- * `ui/components/app-grid.tsx`).
- */
-export function useHomeRam(): HomeRam {
-  if (!HomeRamContext) {
-    throw new Error('useHomeRam() called before initHomeRamContext() ran')
-  }
-  const homeRam = React.useContext(HomeRamContext)
-  if (!homeRam) {
-    throw new Error('useHomeRam() called outside of a HomeRamContext.Provider')
-  }
-  return homeRam as any
-}
+// /**
+//  * Reads `home`'s current `{ used, max }` RAM, kept fresh by
+//  * `ui.app.ts`'s main loop (see `ui/utils/home-ram-poller.ts`) and provided
+//  * by the nearest `HomeRamContext.Provider` (set up in
+//  * `ui/components/app-grid.tsx`).
+//  */
+// export function useHomeRam(): HomeRam {
+//   if (!HomeRamContext) {
+//     throw new Error('useHomeRam() called before initHomeRamContext() ran')
+//   }
+//   const homeRam = React.useContext(HomeRamContext)
+//   if (!homeRam) {
+//     throw new Error('useHomeRam() called outside of a HomeRamContext.Provider')
+//   }
+//   return homeRam as any
+// }

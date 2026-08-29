@@ -6,7 +6,7 @@ import React, { getWinGlobals, ReactDOM } from '@react'
 import { initCgdActionsContext } from '../context/cgd-actions-context'
 import { initChildPidsContext } from '../context/child-pids-context'
 import { initDaemonTierContext } from '../context/daemon-tier-context'
-import { initHomeRamContext } from '../context/home-ram-context'
+// import { initHomeRamContext } from '../context/home-ram-context'
 import { initNsQueueContext } from '../context/ns-queue-context'
 import { isAppVisible, ramShortfallReason } from '../utils/app-availability'
 
@@ -58,7 +58,7 @@ export function createAppGrid(
   // passed down as an explicit prop from here.
   const NsQueueContext = initNsQueueContext()
   const ChildPidsContext = initChildPidsContext()
-  const HomeRamContext = initHomeRamContext()
+  // const HomeRamContext = initHomeRamContext()
   const DaemonTierContext = initDaemonTierContext()
   const CgdActionsContext = initCgdActionsContext()
 
@@ -455,14 +455,12 @@ export function createAppGrid(
     ReactDOM.render(
       <NsQueueContext.Provider value={queuedNs}>
         <ChildPidsContext.Provider value={addChildPid}>
-          <HomeRamContext.Provider value={homeRam}>
-            <DaemonTierContext.Provider value={daemonTier}>
-              <CgdActionsContext.Provider value={callAction}>
-                {grid}
-                {portalContainer ? ReactDOM.createPortal(windows, portalContainer, 'windows-portal') : windows}
-              </CgdActionsContext.Provider>
-            </DaemonTierContext.Provider>
-          </HomeRamContext.Provider>
+          <DaemonTierContext.Provider value={daemonTier}>
+            <CgdActionsContext.Provider value={callAction}>
+              {grid}
+              {portalContainer ? ReactDOM.createPortal(windows, portalContainer, 'windows-portal') : windows}
+            </CgdActionsContext.Provider>
+          </DaemonTierContext.Provider>
         </ChildPidsContext.Provider>
       </NsQueueContext.Provider>,
       container,

@@ -161,6 +161,7 @@ export interface CgdStore {
   getState: () => CgdStoreState
   setState: (partial: Partial<CgdStoreState>) => void
   subscribe: (listener: () => void) => () => void
+  use: <T>(getter: (state: CgdStoreState) => T) => T
 }
 
 export interface CgdReactAppHandle {

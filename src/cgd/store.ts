@@ -1,4 +1,6 @@
 import type { CgdNamespace, CgdStore, CgdStoreState } from './types'
+import React, { getWinGlobals } from '@react'
+import { getCgd } from './window-cgd'
 
 const INITIAL_STATE: CgdStoreState = {
   homeRam: { used: 0, max: 0 },
@@ -41,7 +43,36 @@ function createCgdStore(): CgdStore {
     return () => listeners.delete(listener)
   }
 
-  return { getState, setState, subscribe }
+  function use<T>(getter: (state: CgdStoreState) => T): T {
+    // `getter` is read through a ref so an inline selector (the common
+    // case) doesn't force a resubscribe every render - the effect below
+    // subscribes exactly once per mount and unsubscribes exactly once per
+    // unmount.
+    const getterRef = React.useRef(getter)
+    getterRef.current = getter
+
+    const [data, setData] = React.useState(() => getter(getState()))
+
+    React.useEffect(() => {
+      // State may have changed between the initial useState() call above
+      // and this effect running - resync once before subscribing so
+      // nothing's missed.
+      setData((prev) => {
+        const next = getterRef.current(getState())
+        return next === prev ? prev : next
+      })
+      return subscribe(() => {
+        setData((prev) => {
+          const next = getterRef.current(getState())
+          return next === prev ? prev : next
+        })
+      })
+    }, [])
+
+    return data
+  }
+
+  return { getState, setState, subscribe, use }
 }
 
 /**
@@ -57,4 +88,8 @@ export function ensureCgdStore(cgd: CgdNamespace): CgdStore {
     cgd.store = createCgdStore()
   }
   return cgd.store
+}
+
+export function getCgdStore(): CgdStore {
+  return ensureCgdStore(getCgd(getWinGlobals().win))
 }

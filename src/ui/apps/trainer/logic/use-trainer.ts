@@ -1,7 +1,7 @@
 import React from '@react'
 import { useAddChildPid } from '../../../context/child-pids-context'
-import { useHomeRam } from '../../../context/home-ram-context'
 import { useQueuedNs } from '../../../context/ns-queue-context'
+import { useHomeRam } from '../../../effects/home-ram.effect'
 
 export type StatKey = 'hacking' | 'charisma' | 'strength' | 'defense' | 'dexterity' | 'agility'
 
