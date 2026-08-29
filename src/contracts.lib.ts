@@ -49,21 +49,15 @@ export class SolveResult {
   }
 
   static success = (
-    filename: string,
-    host: string,
-    portId: number,
     data: any,
     answer: any,
     reward: string,
-  ) => new SolveResult(true, filename, host, portId, data, answer, reward)
+  ) => new SolveResult(true, data, answer, reward)
 
   static failure = (
-    filename: string,
-    host: string,
-    portId: number,
     data: any,
     answer: any,
-  ) => new SolveResult(false, filename, host, portId, data, answer)
+  ) => new SolveResult(false, data, answer)
 }
 
 export class ContractSolver {
@@ -95,18 +89,12 @@ export class ContractSolver {
     const reward = ns.codingcontract.attempt(answer, filename, host)
     if (reward === '') {
       return SolveResult.failure(
-        filename,
-        host,
-        portId,
         input,
         answer,
       )
     }
     else {
       return SolveResult.success(
-        filename,
-        host,
-        portId,
         input,
         answer,
         reward,

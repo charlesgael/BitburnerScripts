@@ -6,6 +6,8 @@ const CONTRACTS_LOG_MAX_ENTRIES = 500
 export const CONTRACTS_SCRIPT = 'contracts.app.js'
 export const CONTRACTS_HOST = 'home'
 
+export interface ContractsLogEntry extends SolveResult, Contract { }
+
 function trimLogIfNeeded(ns: NS, logFile: string, maxEntries: number) {
   const raw = ns.read(logFile)
   if (!raw)
@@ -15,6 +17,7 @@ function trimLogIfNeeded(ns: NS, logFile: string, maxEntries: number) {
     return
   ns.write(logFile, `${lines.slice(-(maxEntries * 0.8)).join(`\n`)}\n`, `w`)
 }
+
 export function recordContractResult(ns: NS, result: SolveResult, contract: Contract) {
   // ns.print(`Game vs ${opponent} over - ${resultLabel} (${summary}).`)
   // ns.toast(

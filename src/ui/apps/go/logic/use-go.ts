@@ -42,12 +42,12 @@ export function useGo(React: any) {
     setLoading(true)
     setError(null)
     try {
-      const [running] = await Promise.all([
-        ns._isRunning(GO_SCRIPT, GO_HOST),
+      const [processes] = await Promise.all([
+        ns._ps(GO_HOST),
         refreshLiveState(),
         refreshLog(),
       ])
-      setRunning(running)
+      setRunning(processes.some(it => it.filename === GO_SCRIPT))
     }
     catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -74,7 +74,8 @@ export function useGo(React: any) {
     let tick = 0
     const interval = setInterval(() => {
       tick++
-      ns._isRunning(GO_SCRIPT, GO_HOST).then(setRunning).catch(() => {})
+      ns._ps(GO_HOST).then(pr => pr.some(it => it.filename === GO_SCRIPT)).then(setRunning).catch(() => {})
+      // ns._isRunning(GO_SCRIPT, GO_HOST).then(setRunning).catch(() => {})
       refreshLiveState().catch(() => {})
       if (tick % LOG_POLL_EVERY_N_TICKS === 0)
         refreshLog().catch(() => {})

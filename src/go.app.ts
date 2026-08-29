@@ -89,12 +89,12 @@ const GAME_LOG_MAX_ENTRIES = 500
 function parseGoArgs(ns: NS): { boardSize: BoardSize, engine: GoEngineName, rotation: string[], notify: boolean } {
   const flags = parseArgs(ns, [
     { long: 'experimental', defaultValue: false, description: 'Use the experimental (real-faction-AI-inspired) move engine instead of the default heuristic one' },
-    { long: 'netburners', defaultValue: false, description: 'Vs Netburners (90%)' },
-    { long: 'snakes', defaultValue: false, description: `Vs Slum Snakes (65%)` },
-    { long: 'blackhand', defaultValue: false, description: `Vs The Black Hand (70%)` },
-    { long: 'tetrads', defaultValue: false, description: `Vs Tetrads (38%)` },
-    { long: 'daedalus', defaultValue: false, description: `Vs Daedalus (10%)` },
-    { long: 'illluminati', defaultValue: false, description: `Vs Illuminati (0%)` },
+    { long: 'netburners', defaultValue: false, description: 'Vs Netburners (82%)' },
+    { long: 'snakes', defaultValue: false, description: `Vs Slum Snakes (63%)` },
+    { long: 'blackhand', defaultValue: false, description: `Vs The Black Hand (49%)` },
+    { long: 'tetrads', defaultValue: false, description: `Vs Tetrads (20%)` },
+    { long: 'daedalus', defaultValue: false, description: `Vs Daedalus (24%)` },
+    { long: 'illluminati', defaultValue: false, description: `Vs Illuminati (5%)` },
     { long: 'notify', defaultValue: false, description: 'Notify for each game ended', short: 'n' },
   ] as const)
 
@@ -254,7 +254,7 @@ export async function main(ns: NS) {
         rotationIndex++
         ns.print(`Starting new game vs ${opponent} (${boardSize}x${boardSize}).`)
         pushEvent(`Starting new game vs ${opponent} (${boardSize}x${boardSize}).`)
-        ns.go.resetBoardState(opponent, boardSize)
+        ns.go.resetBoardState(opponent as any, boardSize)
         resetGameStats()
         state = ns.go.getGameState()
       }

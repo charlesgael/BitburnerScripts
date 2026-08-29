@@ -1,4 +1,6 @@
+import type { AppComponentProps } from '/src/ui/types'
 import type { GoLogSummary } from '../../../../go/state-file'
+import { DonutChart } from '../../../components/chart/donut-chart'
 
 /**
  * Per-opponent win-rate/margin breakdown from `GO_GAME_LOG_FILE`
@@ -10,7 +12,7 @@ import type { GoLogSummary } from '../../../../go/state-file'
  * `GoGameLogEntry.engine` exists) — with only one engine represented it'd
  * just repeat the overall line above for no reason.
  */
-export function GoSummaryTable({ React, summary }: { React: any, summary: GoLogSummary | null }) {
+export function GoSummaryTable({ React, summary }: { summary: GoLogSummary | null } & AppComponentProps) {
   if (!summary || summary.games === 0) {
     return (
       <div style={{ fontSize: '11px', opacity: 0.7 }}>
@@ -89,7 +91,10 @@ export function GoSummaryTable({ React, summary }: { React: any, summary: GoLogS
                 <td style={{ textAlign: 'right', padding: '4px 6px' }}>{row.games}</td>
                 <td style={{ textAlign: 'right', padding: '4px 6px' }}>{row.wins}</td>
                 <td style={{ textAlign: 'right', padding: '4px 6px' }}>{row.losses}</td>
-                <td style={{ textAlign: 'right', padding: '4px 6px' }}>{row.winRate.toFixed(0)}</td>
+                <td style={{ textAlign: 'right', padding: '4px 6px' }}>
+                  <DonutChart />
+                  {row.winRate.toFixed(0)}
+                </td>
                 <td style={{ textAlign: 'right', padding: '4px 6px' }}>
                   {row.avgMargin > 0 ? '+' : ''}
                   {row.avgMargin.toFixed(1)}
