@@ -7,9 +7,8 @@
     "module": "esnext",
     "moduleResolution": "Node",
     "paths": {
-      "/src/*": ["./src/*"],
       "@ns": ["./NetscriptDefinitions.d.ts"],
-      "@react": ["./src/ui/utils/react-globals.ts"]
+      "@react": ["./src/ui/utils/react-globals.ts"],
     },
     "resolveJsonModule": true,
     "types": ["vite/client", "node", "viteburner", "react"],
@@ -19,7 +18,7 @@
     "noEmit": true,
     "esModuleInterop": true,
     "isolatedModules": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
   },
   "include": [
     "src/**/*.ts",
@@ -29,6 +28,6 @@
     "NetscriptDefinitions.d.ts",
     "vite.config.ts",
     "vite.config.js",
-    "plugin/**/*.ts"
-  ]
+    "plugin/**/*.ts",
+  ],
 }

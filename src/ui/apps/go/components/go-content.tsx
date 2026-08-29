@@ -1,8 +1,8 @@
 import React from '@react'
+import { classNames } from '../../../utils/classnames'
 import { useGo } from '../logic/use-go'
 import { GoBoard } from './go-board'
 import { GoSummaryTable } from './go-summary-table'
-import { classNames } from '/src/ui/utils/classnames'
 
 /**
  * Root component: controls, the live board + score + event feed, and the

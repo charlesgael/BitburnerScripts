@@ -12,7 +12,6 @@ export default function (env: ConfigEnv): ViteBurnerUserConfig {
   const base: ViteBurnerUserConfig = {
     resolve: {
       alias: {
-        '/src': srcDir,
         '@react': reactGlobals,
       },
     },

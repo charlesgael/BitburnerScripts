@@ -1,5 +1,6 @@
 // @ts-check
 import antfu from '@antfu/eslint-config'
+import noAbsoluteImports from './eslint-rules/no-absolute-imports.mjs'
 
 export default antfu(
   {
@@ -15,6 +16,9 @@ export default antfu(
     // Bitburner's NS API is reached via the game's own globals
     // (`eval("window")`/`eval("document")`, see CLAUDE.md), and every
     // top-level script needs a `main` export the game calls directly.
+    plugins: {
+      local: { rules: { 'no-absolute-imports': noAbsoluteImports } },
+    },
     rules: {
       'no-eval': 'off',
       'no-console': 'off',
@@ -28,6 +32,11 @@ export default antfu(
       // React is v17.0.2, so .Provider is required for context
       'react/no-context-provider': 'off',
       'react/dom-no-render': 'off',
+      // tsconfig.json maps `/src/*` to `./src/*`, but every import in this
+      // codebase is otherwise relative (or a bare alias like `@react`) — a
+      // `/`-rooted specifier is an inconsistency this rule autofixes away.
+      // See eslint-rules/no-absolute-imports.mjs.
+      'local/no-absolute-imports': 'error',
     },
   },
 )
