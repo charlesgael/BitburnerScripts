@@ -124,7 +124,6 @@ export function useCloudServers() {
   // new RAM allocation, to check for on any given call.
   React.useEffect(() => {
     void refreshAll()
-    // eslint-disable-next-line react/exhaustive-deps
   }, [])
 
   async function handleBuy() {

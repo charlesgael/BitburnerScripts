@@ -125,7 +125,6 @@ export function useTaskManager(apps: ManagedAppDefinition[], runnableApps: Manag
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react/exhaustive-deps
   }, [])
 
   // Whether `app.isAvailable` (see `logic/types.ts`) passes for the

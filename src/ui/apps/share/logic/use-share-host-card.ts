@@ -79,7 +79,6 @@ export function useShareHostCard(
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react/exhaustive-deps
   }, [host.hostname])
 
   // Default the selection to the largest tier — "share everything
@@ -96,7 +95,6 @@ export function useShareHostCard(
     if (!threadsChosenByUser || !tiers.includes(selectedThreads)) {
       setSelectedThreads(tiers[tiers.length - 1])
     }
-    // eslint-disable-next-line react/exhaustive-deps
   }, [tiers.join(',')])
 
   // While sharing: notice if the daemon exited on its own (e.g. killed

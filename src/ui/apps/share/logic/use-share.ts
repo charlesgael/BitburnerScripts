@@ -60,7 +60,6 @@ export function useShare() {
   // exactly like a cloud host is, not treated as a special case.
   React.useEffect(() => {
     void refresh()
-    // eslint-disable-next-line react/exhaustive-deps
   }, [])
 
   // Patches a single cloud host's usedRam in place — how a card reports

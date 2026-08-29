@@ -134,7 +134,6 @@ export function useFileExplorer(
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react/exhaustive-deps
   }, [])
 
   // Whenever the selected file changes, check whether it's currently
@@ -154,7 +153,6 @@ export function useFileExplorer(
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react/exhaustive-deps
   }, [selected, selectedHost])
 
   function resetSelectionState() {

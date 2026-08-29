@@ -86,12 +86,17 @@ export function useXpFarm() {
       setLoading(false)
     }
   }
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      void refresh()
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [])
 
   // This component remounts every time the window is opened — fetch
   // everything fresh rather than trusting stale state.
   React.useEffect(() => {
     void refresh()
-    // eslint-disable-next-line react/exhaustive-deps
   }, [])
 
   // Neither "is the orchestrator process itself alive" nor "what are its
@@ -103,13 +108,12 @@ export function useXpFarm() {
   const STATUS_POLL_MS = 3000
   React.useEffect(() => {
     const hosts = [...enabled] as string[]
-    const interval = setInterval(() => {
+    const iFetchStatus = setInterval(() => {
       ns._isRunning(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST).then(setDaemonRunning).catch(() => {})
       if (hosts.length > 0)
         fetchStatus(hosts).then(setStatus).catch(() => {})
     }, STATUS_POLL_MS)
-    return () => clearInterval(interval)
-    // eslint-disable-next-line react/exhaustive-deps
+    return () => clearInterval(iFetchStatus)
   }, [enabled])
 
   async function openLog() {

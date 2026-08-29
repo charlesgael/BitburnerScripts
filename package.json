@@ -7,7 +7,8 @@
     "start": "viteburner",
     "build": "vite build",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "types": "tsc --noEmit"
   },
   "dependencies": {
     "arg": "^5.0.2"

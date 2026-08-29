@@ -62,7 +62,6 @@ export function useGo() {
   // everything fresh rather than trusting stale state.
   React.useEffect(() => {
     void refresh()
-    // eslint-disable-next-line react/exhaustive-deps
   }, [])
 
   // While the window's open: the board/score/event-feed change every turn
@@ -82,7 +81,6 @@ export function useGo() {
         refreshLog().catch(() => {})
     }, LIVE_POLL_MS)
     return () => clearInterval(interval)
-    // eslint-disable-next-line react/exhaustive-deps
   }, [])
 
   async function openLog() {

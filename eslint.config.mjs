@@ -37,6 +37,10 @@ export default antfu(
       // `/`-rooted specifier is an inconsistency this rule autofixes away.
       // See eslint-rules/no-absolute-imports.mjs.
       'local/no-absolute-imports': 'error',
+      'jsonc/comma-dangle': 'off',
+      'react/exhaustive-deps': 'off',
+      // This one does not exist yet in react 17
+      'react/no-use-context': 'off',
     },
   },
 )
