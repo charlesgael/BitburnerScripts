@@ -2,6 +2,7 @@ import React from '@react'
 import { useGo } from '../logic/use-go'
 import { GoBoard } from './go-board'
 import { GoSummaryTable } from './go-summary-table'
+import { classNames } from '/src/ui/utils/classnames'
 
 /**
  * Root component: controls, the live board + score + event feed, and the
@@ -36,7 +37,16 @@ export function GoContent() {
           <button onClick={() => void go.refresh()} disabled={go.loading} className="bb-btn bb-btn--sm">
             {go.loading ? '...' : 'Refresh'}
           </button>
-          <button onClick={() => void go.toggle()} disabled={go.busy} className="bb-btn bb-btn--sm">
+          <button
+            onClick={() => void go.toggle()}
+            disabled={go.busy}
+            className={classNames([
+              'bb-btn',
+              'bb-btn--sm',
+            ], {
+              'bb-btn-danger': go.running,
+            })}
+          >
             {go.busy ? '...' : go.running ? 'Stop' : 'Start'}
           </button>
         </div>
