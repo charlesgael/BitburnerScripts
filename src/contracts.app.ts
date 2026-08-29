@@ -1,14 +1,7 @@
 import type { NS } from '@ns'
-import { ContractSolver } from './contracts.lib'
+import { Contract, ContractSolver } from './contracts.lib'
+import { recordContractResult } from './contracts/state-file'
 import * as Ports from './ports.lib'
-
-class Contract {
-  constructor(
-    public title: string,
-    public filename: string,
-    public host: string,
-  ) {}
-}
 
 function getContractsFromHost(ns: NS, host: string) {
   const contracts = []
@@ -78,7 +71,8 @@ export async function main(ns: NS) {
         prefix = `Failure`
         failures.push(contract)
       }
-      ns.print(`    ${prefix}: ${result.message}`)
+      ns.print(`    ${prefix}: ${result.reward}`)
+      recordContractResult(ns, result, contract)
     }
 
     ns.print(`Failed to solve: ${failures.length}`)

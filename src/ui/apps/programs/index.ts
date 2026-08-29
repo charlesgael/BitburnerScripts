@@ -87,11 +87,8 @@ export const ProgramsApp: AppDefinition = createTaskManagerApp('programs', 'Prog
     singleInstance: true,
   },
   {
-    script: 'go.app.js',
-    label: 'IPvGO',
-    // Only one live IPvGO game exists at a time (account-global, not
-    // per-host state) - see go.app.ts's own dupe-check for the same rule
-    // enforced at the script level too, for a direct terminal launch.
+    script: 'contracts.app.js',
+    label: 'Contracts',
     singleInstance: true,
   },
 ])

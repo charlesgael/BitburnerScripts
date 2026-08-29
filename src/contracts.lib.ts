@@ -31,17 +31,39 @@ export const ContractTypes = {
   ENCRYPTION_2: `Encryption II: Vigenère Cipher`,
 }
 
-export class SolveResult {
-  public solved: boolean
-  public message: string
+export class Contract {
+  constructor(
+    public title: string,
+    public filename: string,
+    public host: string,
+  ) {}
+}
 
-  constructor(reward: string, failure: string) {
-    this.solved = failure === ''
-    this.message = this.solved ? reward : failure
+export class SolveResult {
+  constructor(
+    public solved: boolean,
+    public data: any,
+    public answer: any,
+    public reward?: string,
+  ) {
   }
 
-  static success = (message: string) => new SolveResult(message, '')
-  static failure = (message: string) => new SolveResult('', message)
+  static success = (
+    filename: string,
+    host: string,
+    portId: number,
+    data: any,
+    answer: any,
+    reward: string,
+  ) => new SolveResult(true, filename, host, portId, data, answer, reward)
+
+  static failure = (
+    filename: string,
+    host: string,
+    portId: number,
+    data: any,
+    answer: any,
+  ) => new SolveResult(false, filename, host, portId, data, answer)
 }
 
 export class ContractSolver {
@@ -73,11 +95,22 @@ export class ContractSolver {
     const reward = ns.codingcontract.attempt(answer, filename, host)
     if (reward === '') {
       return SolveResult.failure(
-        `Answer: ${answer}, Input: ${JSON.stringify(input)}`,
+        filename,
+        host,
+        portId,
+        input,
+        answer,
       )
     }
     else {
-      return SolveResult.success(reward)
+      return SolveResult.success(
+        filename,
+        host,
+        portId,
+        input,
+        answer,
+        reward,
+      )
     }
   }
 
