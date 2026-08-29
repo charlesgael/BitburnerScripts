@@ -30,14 +30,44 @@ import { parseArgs } from './utils/args'
  *     the daemon script to fit, and root access.
  */
 
+// Every tiered daemon's own `import`s (real, value-level ones — `import
+// type` is erased at build and never needs an entry here) resolve to
+// sibling module files it expects to find on whatever host it's actually
+// running on. On `home` that's a non-issue (Viteburner deploys the whole
+// tree there), but launching a daemon on a remote/slave host only ever
+// scp's `target.script` itself unless its dependency closure comes along
+// too — otherwise the remote copy fails RAM calculation at exec time with
+// "Module not found". Keep this list in sync with cgd/daemon-core.ts's
+// actual import graph (see CLAUDE.md's "cgd tiered daemon" section).
+const CGD_CORE_DEPS = [
+  'cgd/daemon-core.js',
+  'cgd/dispatch.js',
+  'cgd/queue.js',
+  'cgd/stat-push.js',
+  'cgd/stats.js',
+  'cgd/store.js',
+  'cgd/types.js',
+  'cgd/window-cgd.js',
+  // cgd/store.ts's useSyncExternalStore hook pulls in React itself via `@react`.
+  'ui/utils/react-globals.js',
+]
+
 // Daemon files that actually exist today, in descending tier order — see
 // docs/epic-cgd-namespace.md's execution order: lv3/lv4 were never built
 // (tier 4 was decided against; nothing has needed tier 3 yet). Extend this
-// list if/when a higher tier gets built.
-const AVAILABLE_TIERS: { tier: number, script: string }[] = [
-  { tier: 2, script: 'daemons/lv2.daemon.js' },
-  { tier: 1, script: 'daemons/lv1.daemon.js' },
-  { tier: 0, script: 'daemons/lv0.daemon.js' },
+// list if/when a higher tier gets built. `deps` is each tier's *additional*
+// module closure beyond CGD_CORE_DEPS — tier 2 imports named exports
+// straight out of lv1.daemon.ts (see that file's TIER_1_ACTIONS/
+// TIER_1_METHODS), so its own compiled file is a real runtime dependency,
+// not just a "run this instead" alternative.
+const AVAILABLE_TIERS: { tier: number, script: string, deps: string[] }[] = [
+  {
+    tier: 2,
+    script: 'daemons/lv2.daemon.js',
+    deps: [...CGD_CORE_DEPS, 'cgd/actions/cloud.js', 'cgd/actions/slave-nodes.js', 'daemons/lv1.daemon.js'],
+  },
+  { tier: 1, script: 'daemons/lv1.daemon.js', deps: CGD_CORE_DEPS },
+  { tier: 0, script: 'daemons/lv0.daemon.js', deps: CGD_CORE_DEPS },
 ]
 
 const READY_POLL_MS = 100
@@ -62,7 +92,7 @@ function homeUsableCeiling(maxRam: number): number {
  * not which host it's measured from (same convention `xp-farm.daemon.ts`
  * already relies on).
  */
-function chooseTier(ns: NS, freeRam: number): { tier: number, script: string } | null {
+function chooseTier(ns: NS, freeRam: number): typeof AVAILABLE_TIERS[number] | null {
   for (const candidate of AVAILABLE_TIERS) {
     const cost = ns.getScriptRam(candidate.script, 'home')
     if (cost > 0 && cost <= freeRam)
@@ -93,11 +123,23 @@ export async function main(ns: NS): Promise<void> {
   const needsDaemon = !cgd.daemon || (forcedTier !== undefined && forcedTier !== currentTier)
 
   if (needsDaemon || args['--force']) {
-    let target: { tier: number, script: string } | null
+    let target: typeof AVAILABLE_TIERS[number] | null
     if (forcedTier !== undefined && forcedTier !== 'max') {
       target = AVAILABLE_TIERS.find(t => t.tier === forcedTier) ?? null
       if (!target) {
         ns.tprint(`ERROR: start.js — tier ${forcedTier} isn't built yet.`)
+        return
+      }
+    }
+    else if (remote !== 'home') {
+      const maxRam = ns.getServerMaxRam(remote)
+      const usedRam = ns.getServerUsedRam(remote)
+      const freeRam = maxRam - usedRam
+      target = chooseTier(ns, freeRam)
+      if (!target) {
+        ns.tprint(
+          `ERROR: start.js — not enough free RAM on ${remote} for even the cheapest daemon tier (${freeRam.toFixed(1)} GB available).`,
+        )
         return
       }
     }
@@ -121,9 +163,12 @@ export async function main(ns: NS): Promise<void> {
         ns.tprint(`ERROR: start.js — no root access on ${remote}, can't launch the daemon there.`)
         return
       }
-      const copied = ns.scp(target.script, remote)
+      // Every module target.script's own imports resolve to at runtime has
+      // to land on `remote` too, or the game can't even calculate its RAM
+      // usage there ("Module not found") — see CGD_CORE_DEPS above.
+      const copied = ns.scp([target.script, ...target.deps], remote)
       if (!copied) {
-        ns.tprint(`ERROR: start.js — couldn't copy ${target.script} to ${remote}.`)
+        ns.tprint(`ERROR: start.js — couldn't copy ${target.script} and its dependencies to ${remote}.`)
         return
       }
     }
