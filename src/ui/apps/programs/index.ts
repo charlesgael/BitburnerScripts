@@ -86,9 +86,9 @@ export const ProgramsApp: AppDefinition = createTaskManagerApp('programs', 'Prog
     label: 'Hacknet',
     singleInstance: true,
   },
-  {
-    script: 'contracts.app.js',
-    label: 'Contracts',
-    singleInstance: true,
-  },
+  // {
+  //   script: 'contracts.app.js',
+  //   label: 'Contracts',
+  //   singleInstance: true,
+  // },
 ])

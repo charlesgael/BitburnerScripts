@@ -350,6 +350,38 @@ export const controlsStyle = `
     color: var(--bb-theme-error, #f55);
 }
 
+.bb-table th {
+  background: var(--bb-theme-welllight);
+}
+
+.bb-table th,
+.bb-table td {
+  border-bottom: 1px solid var(--bb-theme-welllight);
+  border-right: 1px solid var(--bb-theme-welllight);
+  padding: 1px 8px;
+  text-align: left;
+}
+
+.bb-table .smallest {
+  width: 0px;
+  whitespace: nowrap;
+}
+
+.bb-table th:last-child,
+.bb-table td:last-child {
+  border-right: none;
+}
+
+.bb-table tr:last-child th,
+.bb-table tr:last-child td {
+  border-bottom: none;
+}
+
+.bb-pill {
+  padding: 1px 8px;
+  border-radius: 10px;
+}
+
 /* Bitburner's own stylesheet sets white-space: nowrap broadly across the
    sidebar these apps are hosted in. Any text block that can run longer
    than a couple words — error messages especially — needs this to opt
@@ -359,5 +391,120 @@ export const controlsStyle = `
     white-space: normal;
     word-break: break-word;
     overflow-wrap: anywhere;
+}
+
+.bb-background-primarylight {
+  background: var(--bb-theme-primarylight, #DDDFC5);
+}
+.bb-background-primary {
+  background: var(--bb-theme-primary, #CDCFB6);
+}
+.bb-background-primarydark {
+  background: var(--bb-theme-primarydark, #9D9F8C);
+}
+.bb-background-successlight {
+  background: var(--bb-theme-successlight, #00EF00);
+}
+.bb-background-success {
+  background: var(--bb-theme-success, #00A500);
+}
+.bb-background-successdark {
+  background: var(--bb-theme-successdark, #007A00);
+}
+.bb-background-errorlight {
+  background: var(--bb-theme-errorlight, #F92672);
+}
+.bb-background-error {
+  background: var(--bb-theme-error, #CA1C5C);
+}
+.bb-background-errordark {
+  background: var(--bb-theme-errordark, #90274A);
+}
+.bb-background-secondarylight {
+  background: var(--bb-theme-secondarylight, #AAA);
+}
+.bb-background-secondary {
+  background: var(--bb-theme-secondary, #888);
+}
+.bb-background-secondarydark {
+  background: var(--bb-theme-secondarydark, #666);
+}
+.bb-background-warninglight {
+  background: var(--bb-theme-warninglight, #D3D300);
+}
+.bb-background-warning {
+  background: var(--bb-theme-warning, #cc0);
+}
+.bb-background-warningdark {
+  background: var(--bb-theme-warningdark, #990);
+}
+.bb-background-infolight {
+  background: var(--bb-theme-infolight, #69f);
+}
+.bb-background-info {
+  background: var(--bb-theme-info, #36c);
+}
+.bb-background-infodark {
+  background: var(--bb-theme-infodark, #039);
+}
+.bb-background-welllight {
+  background: var(--bb-theme-welllight, #444);
+}
+.bb-background-well {
+  background: var(--bb-theme-well, #00010A);
+}
+.bb-background-white {
+  background: var(--bb-theme-white, #fff);
+}
+.bb-background-black {
+  background: var(--bb-theme-black, #020509);
+}
+.bb-background-hp {
+  background: var(--bb-theme-hp, #dd3434);
+}
+.bb-background-money {
+  background: var(--bb-theme-money, #ffd700);
+}
+.bb-background-hack {
+  background: var(--bb-theme-hack, #8CCF27);
+}
+.bb-background-combat {
+  background: var(--bb-theme-combat, #faffdf);
+}
+.bb-background-cha {
+  background: var(--bb-theme-cha, #a671d1);
+}
+.bb-background-int {
+  background: var(--bb-theme-int, #6495ed);
+}
+.bb-background-rep {
+  background: var(--bb-theme-rep, #faffdf);
+}
+.bb-background-disabled {
+  background: var(--bb-theme-disabled, #66cfbc);
+}
+.bb-background-backgroundprimary {
+  background: var(--bb-theme-backgroundprimary, #080C11);
+}
+.bb-background-backgroundsecondary {
+  background: var(--bb-theme-backgroundsecondary, #03080F);
+}
+.bb-background-button {
+  background: var(--bb-theme-button, #00010A);
+}
+.bb-background-maplocation {
+  background: var(--bb-theme-maplocation, #ffffff);
+}
+.bb-background-bnlvl0 {
+  background: var(--bb-theme-bnlvl0, #ffff00);
+}
+.bb-background-bnlvl1 {
+  background: var(--bb-theme-bnlvl1, #ff0000);
+}
+.bb-background-bnlvl2 {
+  background: var(--bb-theme-bnlvl2, #48d1cc);
+}
+.bb-background-bnlvl3 {
+  background: var(--bb-theme-bnlvl3, #0000ff);
 }
 `.trim()

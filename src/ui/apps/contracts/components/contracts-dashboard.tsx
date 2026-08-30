@@ -11,6 +11,7 @@ import CrossCircle from '../../../svg/cross-circle.svg'
 import Document from '../../../svg/document.svg'
 import { useAsyncState } from '../../../utils/use-async-state'
 import { ContractsByHost } from './contracts-by-host'
+import { ContractsLog } from './contracts-log'
 import { HeroStat } from './hero-stat'
 import { RewardsSummary } from './rewards-summary'
 
@@ -201,11 +202,14 @@ export function ContractsDashboard() {
               gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
               gridAutoFlow: 'dense',
               gridAutoRows: '1fr',
+              marginBottom: 6,
             }}
           >
             <RewardsSummary rewards={state.rewards} style={{ gridColumn: 'span 3', height: 'auto' }} />
             <ContractsByHost byHost={state.byHost} style={{ gridColumn: 'span 2', height: 'auto' }} />
           </div>
+
+          <ContractsLog log={state.log} />
         </>
       )}
       {/* <ContractSelector onContractSelected={setContract} />
