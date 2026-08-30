@@ -9,5 +9,5 @@ export const CONTRACTS_HOST = 'home'
 export interface ContractsLogEntry extends SolveResult, Contract { }
 
 export function recordContractResult(ns: NS, result: SolveResult, contract: Contract) {
-  addLog(ns, CONTRACTS_LOG_FILE, JSON.stringify({ ...result, ...contract }))
+  addLog(ns, CONTRACTS_LOG_FILE, { ...result, ...contract })
 }

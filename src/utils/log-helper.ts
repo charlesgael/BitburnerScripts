@@ -15,9 +15,15 @@ export function trimLogIfNeeded(ns: NS, logFile: string, cleanDelay = AUTO_CLEAN
     return
   ns.write(logFile, `${lines.slice(-maxEntries).join(`\n`)}\n`, `w`)
 }
-
-export function addLog(ns: NS, logFile: string, line: string, cleanDelay = AUTO_CLEAN_ROUNDS, maxEntries = LOG_MAX_ENTRIES) {
-  ns.write(logFile, `${line}\n`, `a`)
+export function addLog(ns: NS, logFile: string, line: string, cleanDelay?: number, maxEntries?: number): void
+export function addLog(ns: NS, logFile: string, input: any, cleanDelay?: number, maxEntries?: number): void
+export function addLog(ns: NS, logFile: string, input: any, cleanDelay = AUTO_CLEAN_ROUNDS, maxEntries = LOG_MAX_ENTRIES) {
+  if (typeof input === 'object') {
+    ns.write(logFile, `${JSON.stringify({ ts: Date.now(), ...input })}\n`, `a`)
+  }
+  else {
+    ns.write(logFile, `${Date.now()} ${input}\n`, `a`)
+  }
   saves++
   trimLogIfNeeded(ns, logFile, cleanDelay, maxEntries)
 }
