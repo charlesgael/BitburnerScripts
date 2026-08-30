@@ -1,5 +1,5 @@
 import React from '@react'
-import { formatDuration } from '../logic/format-duration'
+import { formatDuration } from '../../../../utils/format/dates'
 import { STATS, useTrainer } from '../logic/use-trainer'
 
 const DAEMON_HOST = 'home'

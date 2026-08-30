@@ -1,6 +1,6 @@
 import type { CloudServersState } from '../logic/use-cloud-servers'
 import React from '@react'
-import { formatMoney } from '../logic/format-money'
+import { floorMoney } from '../logic/format-money'
 
 /**
  * The purchase form: hostname (blank = random), RAM tier picker, and the
@@ -33,7 +33,7 @@ export function BuyForm({ cs }: { cs: CloudServersState }) {
               {ram}
               {' '}
               GB —
-              {formatMoney(cs.costByRam[ram])}
+              {floorMoney(cs.costByRam[ram])}
             </option>
           ))}
         </select>
@@ -60,7 +60,7 @@ export function BuyForm({ cs }: { cs: CloudServersState }) {
         title={cs.insufficientMoney ? 'Not enough money' : undefined}
         className="bb-btn bb-btn--block"
       >
-        {cs.buyBusy ? '...' : `Buy (${formatMoney(cs.selectedCost)})`}
+        {cs.buyBusy ? '...' : `Buy (${floorMoney(cs.selectedCost)})`}
       </button>
     </div>
   )

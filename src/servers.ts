@@ -1,4 +1,5 @@
 import type { NS } from '@ns'
+import { formatMoney } from './utils/format/numbers'
 
 async function buy_servers(ns: NS, ram: number) {
   while (ns.cloud.getServerNames().length < ns.cloud.getServerLimit()) {
@@ -57,13 +58,7 @@ export async function main(ns: NS) {
       = ns.cloud.getServerCost(next_upgrade * 2)
         * ns.cloud.getServerLimit()
 
-    const formatted_cost = new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: 'USD',
-      currencyDisplay: 'narrowSymbol',
-      currencySign: 'accounting',
-      maximumFractionDigits: 3,
-    }).format(upgrade_cost)
+    const formatted_cost = formatMoney(upgrade_cost)
 
     ns.tprint(`Next upgrade (${next_upgrade * 2}) at ${formatted_cost}`)
     return
@@ -73,13 +68,7 @@ export async function main(ns: NS) {
       = ns.cloud.getServerCost(next_upgrade)
         * ns.cloud.getServerLimit()
 
-    const formatted_cost = new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: 'USD',
-      currencyDisplay: 'narrowSymbol',
-      currencySign: 'accounting',
-      maximumFractionDigits: 3,
-    }).format(upgrade_cost)
+    const formatted_cost = formatMoney(upgrade_cost)
 
     ns.tprint(`Next upgrade (${next_upgrade}) at ${formatted_cost}`)
     return

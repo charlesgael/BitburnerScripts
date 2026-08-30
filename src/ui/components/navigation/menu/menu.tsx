@@ -1,7 +1,7 @@
 import type { AnyMenuNode, DataMenuNode, MenuDividerOption, MenuGroupOption, MenuOption, MenuProps } from './types'
 import React from '@react'
+import { noop } from '../../../../utils/function/noop'
 import { classNames } from '../../../utils/classnames'
-import { noop } from '../../../utils/function/noop'
 
 /* eslint-disable-next-line ts/no-empty-object-type */
 function isSep<TData = {}>(el: AnyMenuNode<TData>): el is MenuDividerOption {

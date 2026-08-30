@@ -1,5 +1,6 @@
 import type { NS, Server } from '@ns'
 import { parseArgs } from './utils/args'
+import { formatMoney } from './utils/format/numbers'
 
 /**
  * `React` only exists as the game's `window.React` global (see
@@ -58,16 +59,6 @@ const THEME = {
 }
 
 const MONOSPACE = `ui-monospace, "SF Mono", Consolas, "Courier New", monospace`
-
-function formatMoney(amount: number): string {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: 'USD',
-    currencyDisplay: 'narrowSymbol',
-    currencySign: 'accounting',
-    maximumFractionDigits: 3,
-  }).format(amount)
-}
 
 function parseDisplayFlags(ns: NS) {
   return parseArgs(ns, [

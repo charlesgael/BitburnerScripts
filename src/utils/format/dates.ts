@@ -11,3 +11,10 @@ export function formatDuration(totalSeconds: number): string {
     return `${m}m ${sec}s`
   return `${sec}s`
 }
+
+export function formatHour(ts: number): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeStyle: 'short',
+    hourCycle: 'h23',
+  }).format(new Date(ts))
+}
