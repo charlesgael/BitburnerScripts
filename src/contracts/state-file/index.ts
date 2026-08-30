@@ -2,9 +2,8 @@ import type { NS } from '@ns'
 import type { Contract, SolveResult } from '../../contracts.lib'
 import type { ContractsLogEntry } from './types'
 import { addLog, parseLog } from '../../utils/log-helper'
-import { contractsLogEntrySchema } from './types'
 
-export { summarizeContractLog } from './make-stats'
+import { contractsLogEntrySchema } from './types'
 
 export const CONTRACTS_LOG_FILE = 'log/contracts-log.txt'
 export const CONTRACTS_SCRIPT = 'contracts.app.js'

@@ -1,12 +1,11 @@
 import type { AppDefinition } from '../../types'
-import { ContractsBrowse } from './components/contracts-dashboardard'
+import { ContractsDashboard } from './components/contracts-dashboard'
 
 export const ContractsApp: AppDefinition = {
   id: 'contracts',
   icon: '📄',
   label: 'Contracts',
-  Content: ContractsBrowse,
-  preferredWidth: 900,
-  preferredHeight: 600,
-  unmanaged: true,
+  Content: ContractsDashboard,
+  preferredWidth: 1200,
+  preferredHeight: 700,
 }
