@@ -1,6 +1,7 @@
 // @ts-check
 import antfu from '@antfu/eslint-config'
 import noAbsoluteImports from './eslint-rules/no-absolute-imports.mjs'
+import noReactImport from './eslint-rules/no-react-import.mjs'
 
 export default antfu(
   {
@@ -17,7 +18,12 @@ export default antfu(
     // (`eval("window")`/`eval("document")`, see CLAUDE.md), and every
     // top-level script needs a `main` export the game calls directly.
     plugins: {
-      local: { rules: { 'no-absolute-imports': noAbsoluteImports } },
+      local: {
+        rules: {
+          'no-absolute-imports': noAbsoluteImports,
+          'no-react-imports': noReactImport,
+        },
+      },
     },
     rules: {
       'no-eval': 'off',
@@ -37,6 +43,7 @@ export default antfu(
       // `/`-rooted specifier is an inconsistency this rule autofixes away.
       // See eslint-rules/no-absolute-imports.mjs.
       'local/no-absolute-imports': 'error',
+      'local/no-react-imports': 'error',
       'jsonc/comma-dangle': 'off',
       'react/exhaustive-deps': 'off',
       // This one does not exist yet in react 17
