@@ -44,9 +44,15 @@ export function ContractsDashboard() {
     }
   }
 
-  function openLog() {
-    void ns._ui._openTail(CONTRACTS_SCRIPT, CONTRACTS_HOST)
-    ns._ui._moveTail(285, 5, running)
+  async function openLog() {
+    const {
+      args,
+      pid,
+    } = await ns._ps(CONTRACTS_HOST).then(pr => pr.find(it => it.filename === CONTRACTS_SCRIPT)) ?? {}
+    if (args && pid) {
+      await ns._ui._openTail(CONTRACTS_SCRIPT, CONTRACTS_HOST, ...args)
+      ns._ui._moveTail(285, 5, pid)
+    }
   }
 
   async function toggle() {
