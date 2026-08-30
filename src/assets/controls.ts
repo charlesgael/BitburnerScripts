@@ -264,6 +264,11 @@ export const controlsStyle = `
     border-color: var(--bb-theme-primary, #0f0);
 }
 
+.bb-list-item--group {
+    color: var(--bb-theme-secondary, #888);
+    cursor: default;
+}
+
 /* A well-background, primarydark-bordered scroll panel (File Explorer's
    file grid). */
 .bb-panel {
