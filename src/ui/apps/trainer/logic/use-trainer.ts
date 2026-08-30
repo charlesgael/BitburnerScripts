@@ -30,7 +30,7 @@ export function useTrainer() {
   const [levels, setLevels] = React.useState(() => Object.fromEntries(STATS.map(s => [s.key, 0])))
   const [selectedStat, setSelectedStat] = React.useState(STATS[0].key)
   const [targetLevel, setTargetLevel] = React.useState(50)
-  const [focus, setFocusEnabled] = React.useState(true)
+  const [focus, setFocus] = React.useState(true)
   const [pid, setPid] = React.useState<number | null>(null) // non-null while we know a daemon is running
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -80,7 +80,7 @@ export function useTrainer() {
 
       setSelectedStat(stat as StatKey)
       setTargetLevel(Number(target))
-      setFocusEnabled(focusArg === undefined ? true : Boolean(focusArg))
+      setFocus(focusArg === undefined ? true : Boolean(focusArg))
       setPid(proc.pid)
       setSessionStartLevel(nextLevels[stat as string])
       setSessionStartTime(Date.now())
@@ -196,7 +196,7 @@ export function useTrainer() {
     targetLevel,
     setTargetLevel,
     focus,
-    setFocusEnabled,
+    setFocusEnabled: setFocus,
     busy,
     error,
     training,

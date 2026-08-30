@@ -1,6 +1,7 @@
 import type { AnyMenuNode, DataMenuNode, MenuDividerOption, MenuGroupOption, MenuOption, MenuProps } from './types'
 import React from '@react'
 import { noop } from '../../../../utils/function/noop'
+import { usePropState } from '../../../effects/use-prop-state'
 import { classNames } from '../../../utils/classnames'
 
 /* eslint-disable-next-line ts/no-empty-object-type */
@@ -79,13 +80,7 @@ export function Menu<TData = {}>(menuProps: MenuProps<TData>) {
     value,
     onValueChange = noop,
   } = menuProps
-  const [selected, setSelected] = React.useState<string | null>(value || null)
-
-  React.useEffect(() => {
-    if (value !== selected) {
-      setSelected(value || null)
-    }
-  }, [value])
+  const [selected, setSelected] = usePropState(value || null)
 
   function find(key: string, options: AnyMenuNode<TData>[]): MenuOption<TData> | undefined {
     const dataNodes = options

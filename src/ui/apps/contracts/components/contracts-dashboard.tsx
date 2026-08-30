@@ -3,7 +3,6 @@ import React from '@react'
 import { CONTRACTS_LOG_FILE, parseContractLog } from '../../../../contracts/state-file'
 import { summarizeContractLog } from '../../../../contracts/state-file/make-stats'
 import { formatDuration, formatHour } from '../../../../utils/format/dates'
-import { LoadingDot } from '../../../components/feedback/loading-dot'
 import { useQueuedNs } from '../../../context/ns-queue-context'
 import CheckCircle from '../../../svg/check-circle.svg'
 import ClockFive from '../../../svg/clock-five.svg'
@@ -21,7 +20,7 @@ export function ContractsDashboard() {
   const { state, execute: refresh } = useAsyncState<ContractLogSummary | null>(async () => {
     return summarizeContractLog(parseContractLog(await ns._read(CONTRACTS_LOG_FILE)))
   }, null, { resetOnExecute: false })
-  const [lastHour, setLastHour] = React.useState(Date.now() - hourDuration)
+  const [lastHour, setLastHour] = React.useState(() => Date.now() - hourDuration)
 
   // [] — mount once. Without it this effect reruns on every render, tearing
   // down and re-arming the interval each time (it happens to still poll
