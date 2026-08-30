@@ -1,6 +1,7 @@
 import { controlsStyle } from './controls'
 import { overviewStyle } from './overview'
 import { scrollbarStyle } from './scrollbar'
+import { segoe } from './segoe'
 import { uiScaleStyle } from './ui-scale'
 
 /**
@@ -13,4 +14,5 @@ export const ALL_STYLES: { name: string, css: string }[] = [
   { name: 'overview', css: overviewStyle },
   { name: 'scrollbar', css: scrollbarStyle },
   { name: 'controls', css: controlsStyle },
+  { name: 'segoe', css: segoe },
 ]

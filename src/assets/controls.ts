@@ -197,6 +197,13 @@ export const controlsStyle = `
     min-width: 0;
 }
 
+.bb-card-header {
+    border-bottom: 1px solid var(--bb-theme-primarydark, #0b0f0b);
+    padding: 8px;
+    font-size: 1.2em;
+    margin: -6px -8px 4px;
+}
+
 /* --- Everything below centralizes what was left of theme.*-driven inline
    styles across ui/apps + ui/components, one recurring pattern at a time,
    the same way .bb-btn/.bb-field/.bb-card did above. */
