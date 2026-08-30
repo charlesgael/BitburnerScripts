@@ -424,7 +424,6 @@ export function createAppGrid(
           </div>
           <div
             style={{
-              padding: '12px',
               // Grow to fill whatever height the outer window
               // (native-resized or viewport-capped) leaves
               // available, and scroll internally rather than
@@ -435,7 +434,12 @@ export function createAppGrid(
               // window taller than its maxHeight.
               flex: '1 1 auto',
               minHeight: 0,
-              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              ...(!app.unmanaged && {
+                padding: '12px',
+                overflowY: 'auto',
+              }),
             }}
           >
             {/* Keying on refreshCount forces React to unmount and

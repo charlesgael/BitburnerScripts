@@ -88,6 +88,10 @@ export interface AppDefinition {
    * `ui/utils/app-availability.ts`.
    */
   isAvailable?: (ctx: AppAvailabilityContext) => true | string
+  /**
+   * Optional flag to enable no padding border to border display
+   */
+  unmanaged?: boolean
 }
 
 /**
