@@ -35,8 +35,6 @@ export function useXpFarm() {
   // 1 already allow-lists `ps` (see `daemons/lv1.daemon.ts`), so this needs
   // nothing beyond what XP Farm's own `minDaemonTier: 2` already requires.
   const [status, setStatus] = React.useState<XpFarmStatus>({})
-  const [daemonRunning, setDaemonRunning] = React.useState(false)
-  const [daemonBusy, setDaemonBusy] = React.useState(false)
   const [loading, setLoading] = React.useState(true)
   const [busyHost, setBusyHost] = React.useState<string | null>(null)
   const [error, setError] = React.useState<string | null>(null)
@@ -69,14 +67,12 @@ export function useXpFarm() {
     setLoading(true)
     setError(null)
     try {
-      const [cloudList, hosts, running] = await Promise.all([
+      const [cloudList, hosts] = await Promise.all([
         fetchCloudList(callAction),
         readXpFarmHosts(ns),
-        ns._isRunning(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST),
       ])
       setServers(sortByHostname(cloudList.servers))
       setEnabled(new Set(hosts))
-      setDaemonRunning(running)
       setStatus(await fetchStatus(hosts))
     }
     catch (err) {
@@ -109,16 +105,11 @@ export function useXpFarm() {
   React.useEffect(() => {
     const hosts = [...enabled] as string[]
     const iFetchStatus = setInterval(() => {
-      ns._isRunning(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST).then(setDaemonRunning).catch(() => {})
       if (hosts.length > 0)
         fetchStatus(hosts).then(setStatus).catch(() => {})
     }, STATUS_POLL_MS)
     return () => clearInterval(iFetchStatus)
   }, [enabled])
-
-  async function openLog() {
-    await ns._ui._openTail(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST)
-  }
 
   // Opens a specific dedicated host's own grow/weaken loop tail, from the
   // "Ng / Mw" thread counts in its card below — filename+host+args have to
@@ -141,37 +132,7 @@ export function useXpFarm() {
     // Not tracked via addChildPid on purpose — see `../index.ts`'s
     // header comment: the daemon is meant to outlive this window/
     // ui.app.js.
-    setDaemonRunning(true)
     return null
-  }
-
-  // Manual override of the daemon's otherwise self-managing lifecycle
-  // (see `../index.ts`'s header comment) — a single button whose label
-  // flips between Spawn and Kill depending on whether the orchestrator is
-  // currently running. Killing it here doesn't touch `xp-farm-config.txt`
-  // or any dedicated host's own grow/weaken loops — it's purely stopping
-  // the orchestrator; re-spawning it (or re-enabling any server) picks up
-  // right where the config file says it should.
-  async function toggleDaemon() {
-    setError(null)
-    setDaemonBusy(true)
-    try {
-      if (daemonRunning) {
-        await ns._kill(XP_FARM_DAEMON_SCRIPT, XP_FARM_DAEMON_HOST)
-        setDaemonRunning(false)
-      }
-      else {
-        const launchError = await ensureDaemonRunning()
-        if (launchError)
-          setError(launchError)
-      }
-    }
-    catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    }
-    finally {
-      setDaemonBusy(false)
-    }
   }
 
   async function toggle(hostname: string) {
@@ -219,15 +180,11 @@ export function useXpFarm() {
     servers,
     enabled,
     status,
-    daemonRunning,
-    daemonBusy,
     loading,
     busyHost,
     error,
     refresh,
-    openLog,
     openLoopLog,
-    toggleDaemon,
     toggle,
   }
 }

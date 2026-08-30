@@ -3,6 +3,7 @@ import React from '@react'
 import { CONTRACTS_HOST, CONTRACTS_LOG_FILE, CONTRACTS_SCRIPT, parseContractLog } from '../../../../contracts/state-file'
 import { summarizeContractLog } from '../../../../contracts/state-file/make-stats'
 import { formatDuration, formatHour } from '../../../../utils/format/dates'
+import { InstanceManager } from '../../../components/instance-manager'
 import { TitlebarToolbar } from '../../../components/window/titlebar-toolbar'
 import { useQueuedNs } from '../../../context/ns-queue-context'
 import CheckCircle from '../../../svg/check-circle.svg'
@@ -19,80 +20,18 @@ export function ContractsDashboard() {
   const ns = useQueuedNs()
   const hourDuration = 60 * 60 * 1000
 
-  const { state, execute: reloadContractLogSummary } = useAsyncState<ContractLogSummary | null>(async () => {
+  const { state, error, execute: reloadContractLogSummary } = useAsyncState<ContractLogSummary | null>(async () => {
     return summarizeContractLog(parseContractLog(await ns._read(CONTRACTS_LOG_FILE)))
-  }, null, { resetOnExecute: false, immediate: false })
+  }, null, { resetOnExecute: false })
   const [lastHour, setLastHour] = React.useState(() => Date.now() - hourDuration)
-  const [running, setRunning] = React.useState(0)
-  const [error, setError] = React.useState<string | null>(null)
-  const [_loading, setLoading] = React.useState(false)
-  const [busy, setBusy] = React.useState(false)
-
-  async function refresh() {
-    setLoading(true)
-    try {
-      const [processes] = await Promise.all([
-        ns._ps(CONTRACTS_HOST),
-        reloadContractLogSummary(),
-      ])
-      setRunning(processes.find(it => it.filename === CONTRACTS_SCRIPT)?.pid ?? 0)
-    }
-    catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    }
-    finally {
-      setLoading(false)
-    }
-  }
-
-  async function openLog() {
-    const {
-      args,
-      pid,
-    } = await ns._ps(CONTRACTS_HOST).then(pr => pr.find(it => it.filename === CONTRACTS_SCRIPT)) ?? {}
-    if (args && pid) {
-      await ns._ui._openTail(CONTRACTS_SCRIPT, CONTRACTS_HOST, ...args)
-      ns._ui._moveTail(285, 5, pid)
-    }
-  }
-
-  async function toggle() {
-    setError(null)
-    setBusy(true)
-    try {
-      if (running) {
-        await ns._kill(CONTRACTS_SCRIPT, CONTRACTS_HOST)
-        setRunning(0)
-      }
-      else {
-        const pid = await ns._exec(CONTRACTS_SCRIPT, CONTRACTS_HOST, 1)
-        if (pid === 0) {
-          setError(`Couldn't launch ${CONTRACTS_SCRIPT} — enough free RAM on ${CONTRACTS_HOST}?`)
-        }
-        else {
-          // Not tracked via addChildPid on purpose, same reasoning as
-          // every other Programs-launched daemon: this is meant to
-          // outlive this window/ui.app.js, not die with it.
-          setRunning(pid)
-        }
-      }
-    }
-    catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    }
-    finally {
-      setBusy(false)
-    }
-  }
 
   // [] — mount once. Without it this effect reruns on every render, tearing
   // down and re-arming the interval each time (it happens to still poll
   // roughly every 3s here because refresh() itself triggers those renders,
   // but that's incidental, not something to rely on).
   React.useEffect(() => {
-    void refresh()
-    const interval = setInterval(async () => {
-      await refresh()
+    const interval = setInterval(() => {
+      void reloadContractLogSummary()
       setLastHour(Date.now() - hourDuration)
     }, 3000)
     return () => clearInterval(interval)
@@ -101,37 +40,10 @@ export function ContractsDashboard() {
   return (
     <>
       <TitlebarToolbar>
-        <span
-          style={{
-            color: running ? 'var(--bb-theme-success)' : 'var(--bb-theme-error)',
-            padding: '0 6px',
-            cursor: 'default',
-          }}
-          title={running ? 'Running' : 'Stopped'}
-        >
-          ⏺
-          {' '}
-          {running ? 'Live' : 'Halted'}
-        </span>
-        <button
-          onClick={() => void openLog()}
-          disabled={!running}
-          className="bb-icon-link"
-          title={running ? 'Open log' : 'App not running'}
-        >
-          📃
-        </button>
-        <button
-          className="bb-icon-link"
-          style={{
-            color: running ? 'var(--bb-theme-error)' : 'var(--bb-theme-success)',
-          }}
-          title={running ? 'Stop' : 'Launch'}
-          onClick={toggle}
-          disabled={busy}
-        >
-          {running ? '◼' : '▶'}
-        </button>
+        <InstanceManager
+          scriptFile={CONTRACTS_SCRIPT}
+          host={CONTRACTS_HOST}
+        />
       </TitlebarToolbar>
       {error
         ? (
