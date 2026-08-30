@@ -1,5 +1,4 @@
 import type { CgdDaemon, CgdQueue, CgdStore, CgdTier } from '../../cgd/types'
-import type { HomeRam } from '../context/home-ram-context'
 import type { AppDefinition } from '../types'
 import type { QueuedNS } from '../utils/ns-proxy'
 import React, { getWinGlobals, ReactDOM } from '@react'
@@ -80,7 +79,7 @@ export function createAppGrid(
   // lifecycle") rather than pushed in externally — subscribed just below
   // so HomeRamContext's consumers see every update the daemon pushes,
   // independent of whichever daemon generation currently produces it.
-  let homeRam: HomeRam = cgdStore.getState().homeRam
+  let homeRam = cgdStore.getState().homeRam
   const unsubscribeCgdStore = cgdStore.subscribe(() => {
     const state = cgdStore.getState()
     if (state.homeRam !== homeRam) {
