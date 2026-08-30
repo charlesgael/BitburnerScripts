@@ -29,5 +29,6 @@
     "vite.config.ts",
     "vite.config.js",
     "plugin/**/*.ts",
+    "svg.d.ts",
   ],
 }

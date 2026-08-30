@@ -4,6 +4,7 @@ import type { ViteBurnerUserConfig } from 'viteburner'
 import { resolve } from 'node:path'
 import { inlineCpyImportsPlugin } from './plugin/inline-cpy-imports'
 import { setupBundlePlugin, walk } from './plugin/setup-bundle'
+import { svgToReactPlugin } from './plugin/svg-to-react'
 
 const srcDir = resolve(__dirname, 'src')
 const reactGlobals = resolve(__dirname, 'src', 'ui', 'utils', 'react-globals.ts')
@@ -25,6 +26,7 @@ export default function (env: ConfigEnv): ViteBurnerUserConfig {
     return {
       ...base,
       plugins: [
+        svgToReactPlugin(),
         inlineCpyImportsPlugin(),
         setupBundlePlugin(srcDir),
       ],
@@ -42,7 +44,15 @@ export default function (env: ConfigEnv): ViteBurnerUserConfig {
           output: {
             preserveModules: true,
             preserveModulesRoot: srcDir,
-            entryFileNames: '[name].js',
+            // A plain `'[name].js'` template only strips one of Rollup's
+            // own known extensions (.ts/.tsx/.js/...) when computing
+            // `[name]` — `.svg` isn't in that list, so a `document.svg`
+            // module (see plugin/svg-to-react.ts) would come out named
+            // `document.svg.js` instead of `document.js`. Rollup already
+            // rewrites every chunk's own import specifiers to match
+            // whatever name we return here, so this function-form is a
+            // drop-in replacement for the template, not just an SVG patch.
+            entryFileNames: chunkInfo => `${chunkInfo.name.replace(/\.svg$/, '')}.js`,
             format: 'es',
           },
         },
@@ -54,10 +64,24 @@ export default function (env: ConfigEnv): ViteBurnerUserConfig {
   return {
     ...base,
     plugins: [
+      svgToReactPlugin(),
       inlineCpyImportsPlugin(),
     ],
     viteburner: {
       watch: [
+        {
+          pattern: 'src/**/*.svg',
+          transform: true,
+          // Same reasoning as the `.tsx` override just below: the deployed
+          // file is JS generated from the SVG's markup (see
+          // plugin/svg-to-react.ts), so its upload path must end in `.js`,
+          // not `.svg` — and `fixImportPath` (viteburner's own AST-based
+          // import-rewriter, see its README) then rewrites any `./foo.svg`
+          // import in a sibling file to match this actual upload path
+          // automatically, so source files keep writing the real `.svg`
+          // specifier.
+          location: file => ({ filename: file.replace(/^src\//, '').replace(/\.svg$/, '.js') }),
+        },
         {
           pattern: 'src/**/*.{js,ts,tsx}',
           transform: true,
