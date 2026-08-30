@@ -77,5 +77,6 @@ export function createTaskManagerApp(
     icon,
     label,
     Content: TaskManagerContent,
+    refreshBtn: true,
   }
 }

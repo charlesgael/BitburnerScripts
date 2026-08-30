@@ -1,32 +1,14 @@
-import type { CgdDaemon, CgdQueue, CgdStore, CgdTier } from '../../cgd/types'
-import type { AppDefinition } from '../types'
-import type { QueuedNS } from '../utils/ns-proxy'
+import type { CgdDaemon, CgdQueue, CgdStore, CgdTier } from '../../../cgd/types'
+import type { AppDefinition } from '../../types'
+import type { QueuedNS } from '../../utils/ns-proxy'
+import type { OpenWindow } from './types'
 import React, { getWinGlobals, ReactDOM } from '@react'
-import { initCgdActionsContext } from '../context/cgd-actions-context'
-import { initChildPidsContext } from '../context/child-pids-context'
-import { initDaemonTierContext } from '../context/daemon-tier-context'
+import { initCgdActionsContext } from '../../context/cgd-actions-context'
+import { initChildPidsContext } from '../../context/child-pids-context'
+import { initDaemonTierContext } from '../../context/daemon-tier-context'
 // import { initHomeRamContext } from '../context/home-ram-context'
-import { initNsQueueContext } from '../context/ns-queue-context'
-import { isAppVisible, ramShortfallReason } from '../utils/app-availability'
-
-interface OpenWindow {
-  id: string
-  x: number
-  y: number
-  z: number
-  refreshCount: number
-  /**
-   * The app's `preferredWidth`/`preferredHeight` (see `ui/types.ts`),
-   * captured once at open time. Applied to the DOM node imperatively via
-   * a `ref` (see `sizeWindowNode` below) rather than through React's
-   * `style` prop, so it only ever sets the *starting* size — if it were
-   * a normal style prop, every re-render (e.g. every mousemove while
-   * dragging the title bar) would reassert it and stomp whatever size
-   * the player dragged the window's own resize handle to.
-   */
-  width?: number
-  height?: number
-}
+import { initNsQueueContext } from '../../context/ns-queue-context'
+import { isAppVisible, ramShortfallReason } from '../../utils/app-availability'
 
 /**
  * Small icon launcher grid, meant for a sidebar hook. Clicking an icon opens
@@ -57,7 +39,6 @@ export function createAppGrid(
   // passed down as an explicit prop from here.
   const NsQueueContext = initNsQueueContext()
   const ChildPidsContext = initChildPidsContext()
-  // const HomeRamContext = initHomeRamContext()
   const DaemonTierContext = initDaemonTierContext()
   const CgdActionsContext = initCgdActionsContext()
 
@@ -400,17 +381,19 @@ export function createAppGrid(
                 gap: '0px',
               }}
             >
-              <button
+              {app.refreshBtn && (
+                <button
                 // Dragging starts on the title bar's mousedown before
                 // this click fires — stop it from also being read as
                 // a drag-start on the button itself.
-                onMouseDown={(ev: any) => ev.stopPropagation()}
-                onClick={() => refreshApp(win.id)}
-                title="Refresh"
-                className="bb-icon-link"
-              >
-                🗘
-              </button>
+                  onMouseDown={(ev: any) => ev.stopPropagation()}
+                  onClick={() => refreshApp(win.id)}
+                  title="Refresh"
+                  className="bb-icon-link"
+                >
+                  🗘
+                </button>
+              )}
               <button
                 onMouseDown={(ev: any) => ev.stopPropagation()}
                 onClick={() => closeApp(win.id)}

@@ -3,6 +3,7 @@ import type { CgdActionHandlers } from '../cgd/types'
 import { runTieredDaemon } from '../cgd/daemon-core'
 import { makeStatPusher } from '../cgd/stat-push'
 import { BASELINE_STAT_PROVIDERS } from '../cgd/stats'
+import { TIER_0_METHODS } from './lv0.daemon'
 
 /**
  * Tier 1's dispatchable surface — an explicit, enumerated list, not "every
@@ -39,6 +40,7 @@ import { BASELINE_STAT_PROVIDERS } from '../cgd/stats'
  * `docs/epic-cgd-namespace.md`'s import-chain section made concrete.
  */
 export const TIER_1_METHODS: readonly string[] = [
+  ...TIER_0_METHODS,
   'exec',
   'fileExists',
   'getHostname',
@@ -57,7 +59,6 @@ export const TIER_1_METHODS: readonly string[] = [
   'read',
   'rm',
   'scp',
-  'ui.openTail',
   'write',
 ]
 

@@ -1,5 +1,6 @@
 import type { CloudServerRow } from '../../../utils/cloud-list'
 import React from '@react'
+import { TitlebarToolbar } from '../../../components/window/titlebar-toolbar'
 import { useXpFarm } from '../logic/use-xp-farm'
 import { XpFarmServerCard } from './server-card'
 
@@ -22,116 +23,120 @@ export function XpFarmContent() {
   ))
 
   return (
-    <div>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          fontSize: '12px',
-          marginBottom: '8px',
-        }}
-      >
-        <span>
-          Dedicated:
-          {xf.enabled.size}
-        </span>
+    <>
+      <TitlebarToolbar>
         <button
           onClick={() => void xf.refresh()}
           disabled={xf.loading}
-          className="bb-btn bb-btn--wide"
+          className="bb-icon-link"
         >
-          {xf.loading ? '...' : 'Refresh'}
+          🗘
         </button>
-      </div>
-
-      <div
-        className="bb-divider-bottom"
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          fontSize: '12px',
-          marginBottom: '10px',
-          paddingBottom: '8px',
-        }}
-      >
-        <span
+      </TitlebarToolbar>
+      <div>
+        <div
           style={{
-            display: 'inline-flex',
+            display: 'flex',
+            justifyContent: 'space-between',
             alignItems: 'center',
-            gap: '6px',
+            fontSize: '12px',
+            marginBottom: '8px',
           }}
         >
-          Daemon:
-          {' '}
-          {xf.daemonRunning ? 'Running' : 'Stopped'}
-        </span>
-        <div style={{ display: 'flex', gap: '6px' }}>
-          {xf.daemonRunning
-            ? (
-                <button
-                  onClick={() => void xf.openLog()}
-                  title="Open the daemon's log window"
-                  className="bb-btn"
-                >
-                  📃
-                </button>
-              )
-            : null}
-          <button
-            onClick={() => void xf.toggleDaemon()}
-            disabled={xf.daemonBusy}
-            className={`bb-btn bb-btn--wide${xf.daemonRunning ? ' bb-btn-danger' : ''}`}
-          >
-            {xf.daemonBusy
-              ? '...'
-              : xf.daemonRunning
-                ? 'Kill'
-                : 'Spawn'}
-          </button>
+          <span>
+            Dedicated:
+            {xf.enabled.size}
+          </span>
         </div>
-      </div>
 
-      {xf.error
-        ? (
-            <div
-              className="bb-text-error bb-wrap"
-              style={{
-                fontSize: '11px',
-                marginBottom: '8px',
-              }}
+        <div
+          className="bb-divider-bottom"
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            fontSize: '12px',
+            marginBottom: '10px',
+            paddingBottom: '8px',
+          }}
+        >
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            Daemon:
+            {' '}
+            {xf.daemonRunning ? 'Running' : 'Stopped'}
+          </span>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            {xf.daemonRunning
+              ? (
+                  <button
+                    onClick={() => void xf.openLog()}
+                    title="Open the daemon's log window"
+                    className="bb-btn"
+                  >
+                    📃
+                  </button>
+                )
+              : null}
+            <button
+              onClick={() => void xf.toggleDaemon()}
+              disabled={xf.daemonBusy}
+              className={`bb-btn bb-btn--wide${xf.daemonRunning ? ' bb-btn-danger' : ''}`}
             >
-              {xf.error}
-            </div>
-          )
-        : null}
+              {xf.daemonBusy
+                ? '...'
+                : xf.daemonRunning
+                  ? 'Kill'
+                  : 'Spawn'}
+            </button>
+          </div>
+        </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns:
-                        'repeat(auto-fill, minmax(260px, 1fr))',
-          gap: '8px',
-        }}
-      >
-        {xf.servers.length === 0 && !xf.loading
+        {xf.error
           ? (
               <div
+                className="bb-text-error bb-wrap"
                 style={{
-                  gridColumn: '1 / -1',
-                  fontSize: '12px',
-                  opacity: 0.7,
+                  fontSize: '11px',
+                  marginBottom: '8px',
                 }}
               >
-                No purchased servers yet — buy one in the Cloud Servers
-                app first.
+                {xf.error}
               </div>
             )
-          : (
-              cards
-            )}
+          : null}
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns:
+                        'repeat(auto-fill, minmax(260px, 1fr))',
+            gap: '8px',
+          }}
+        >
+          {xf.servers.length === 0 && !xf.loading
+            ? (
+                <div
+                  style={{
+                    gridColumn: '1 / -1',
+                    fontSize: '12px',
+                    opacity: 0.7,
+                  }}
+                >
+                  No purchased servers yet — buy one in the Cloud Servers
+                  app first.
+                </div>
+              )
+            : (
+                cards
+              )}
+        </div>
       </div>
-    </div>
+    </>
   )
 }

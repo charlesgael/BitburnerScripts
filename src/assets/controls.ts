@@ -342,6 +342,10 @@ export const controlsStyle = `
     color: var(--bb-theme-primary, #0f0);
 }
 
+.bb-icon-link:disabled {
+  opacity: 0.4
+}
+
 .bb-icon-link--danger {
     color: var(--bb-theme-error, #f55);
 }

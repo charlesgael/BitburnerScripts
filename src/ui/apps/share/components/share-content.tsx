@@ -1,4 +1,5 @@
 import React from '@react'
+import { TitlebarToolbar } from '../../../components/window/titlebar-toolbar'
 import { useShare } from '../logic/use-share'
 import { ShareHostCard } from './share-host-card'
 
@@ -22,54 +23,48 @@ export function ShareContent() {
   const shareState = useShare()
 
   return (
-    <div>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          fontSize: '12px',
-          marginBottom: '8px',
-        }}
-      >
+    <>
+      <TitlebarToolbar>
         <button
           onClick={() => void shareState.refresh()}
           disabled={shareState.loading}
-          className="bb-btn"
+          className="bb-icon-link"
         >
-          {shareState.loading ? '...' : 'Refresh'}
+          🗘
         </button>
-      </div>
+      </TitlebarToolbar>
+      <div>
+        {shareState.error
+          ? (
+              <div
+                className="bb-text-error bb-wrap"
+                style={{
+                  fontSize: '11px',
+                  marginBottom: '8px',
+                }}
+              >
+                {shareState.error}
+              </div>
+            )
+          : null}
 
-      {shareState.error
-        ? (
-            <div
-              className="bb-text-error bb-wrap"
-              style={{
-                fontSize: '11px',
-                marginBottom: '8px',
-              }}
-            >
-              {shareState.error}
-            </div>
-          )
-        : null}
-
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-          gap: '8px',
-        }}
-      >
-        {shareState.hosts.map(host => (
-          <ShareHostCard
-            key={host.hostname}
-            ns={shareState.ns}
-            host={host}
-            onRamUsedChange={shareState.updateCloudUsedRam}
-          />
-        ))}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+            gap: '8px',
+          }}
+        >
+          {shareState.hosts.map(host => (
+            <ShareHostCard
+              key={host.hostname}
+              ns={shareState.ns}
+              host={host}
+              onRamUsedChange={shareState.updateCloudUsedRam}
+            />
+          ))}
+        </div>
       </div>
-    </div>
+    </>
   )
 }

@@ -1,13 +1,13 @@
 import type { GoLiveState, GoLogSummary } from '../../../../go/state-file'
 import React from '@react'
 import {
-  GO_GAME_LOG_FILE,
-  GO_HOST,
-  GO_LIVE_STATE_FILE,
-  GO_SCRIPT,
-  parseGameLog,
-  parseLiveState,
-  summarizeGameLog,
+    GO_GAME_LOG_FILE,
+    GO_HOST,
+    GO_LIVE_STATE_FILE,
+    GO_SCRIPT,
+    parseGameLog,
+    parseLiveState,
+    summarizeGameLog,
 } from '../../../../go/state-file'
 import { useQueuedNs } from '../../../context/ns-queue-context'
 
@@ -24,7 +24,7 @@ export function useGo() {
 
   const [liveState, setLiveState] = React.useState<GoLiveState | null>(null)
   const [summary, setSummary] = React.useState<GoLogSummary | null>(null)
-  const [running, setRunning] = React.useState(false)
+  const [running, setRunning] = React.useState(0)
   const [busy, setBusy] = React.useState(false)
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
@@ -48,7 +48,7 @@ export function useGo() {
         refreshLiveState(),
         refreshLog(),
       ])
-      setRunning(processes.some(it => it.filename === GO_SCRIPT))
+      setRunning(processes.find(it => it.filename === GO_SCRIPT)?.pid ?? 0)
     }
     catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -74,7 +74,7 @@ export function useGo() {
     let tick = 0
     const interval = setInterval(() => {
       tick++
-      ns._ps(GO_HOST).then(pr => pr.some(it => it.filename === GO_SCRIPT)).then(setRunning).catch(() => {})
+      ns._ps(GO_HOST).then(pr => pr.find(it => it.filename === GO_SCRIPT)?.pid ?? 0).then(setRunning).catch(() => {})
       // ns._isRunning(GO_SCRIPT, GO_HOST).then(setRunning).catch(() => {})
       refreshLiveState().catch(() => {})
       if (tick % LOG_POLL_EVERY_N_TICKS === 0)
@@ -84,7 +84,8 @@ export function useGo() {
   }, [])
 
   async function openLog() {
-    await ns._ui._openTail(GO_SCRIPT, GO_HOST)
+    await ns._ui._renderTail(running)
+    ns._ui._moveTail(285, 5, running)
   }
 
   async function toggle() {
@@ -92,8 +93,8 @@ export function useGo() {
     setBusy(true)
     try {
       if (running) {
-        await ns._kill(GO_SCRIPT, GO_HOST)
-        setRunning(false)
+        await ns._kill(running)
+        setRunning(0)
       }
       else {
         const pid = await ns._exec(GO_SCRIPT, GO_HOST, 1)
@@ -104,7 +105,7 @@ export function useGo() {
           // Not tracked via addChildPid on purpose, same reasoning as
           // every other Programs-launched daemon: this is meant to
           // outlive this window/ui.app.js, not die with it.
-          setRunning(true)
+          setRunning(pid)
         }
       }
     }

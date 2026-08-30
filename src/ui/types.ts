@@ -23,6 +23,7 @@ export interface AppDefinition {
    * see `ui/utils/react-globals.ts`).
    */
   Content: () => any
+  refreshBtn?: boolean
   /**
    * Initial window size (CSS px) when this app is opened, e.g. an app
    * whose content is a wide responsive grid (see `cloud-servers.tsx`)

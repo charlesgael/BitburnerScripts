@@ -17,10 +17,14 @@ import { BASELINE_STAT_PROVIDERS } from '../cgd/stats'
  *
  * Usage: `run daemons/lv0.daemon.js`
  */
-const NO_METHODS: ReadonlySet<string> = new Set()
+export const TIER_0_METHODS: readonly string[] = [
+  'ui.openTail',
+  'ui.renderTail',
+  'ui.moveTail',
+]
 
 export async function main(ns: NS): Promise<void> {
-  await runTieredDaemon(ns, 0, 'daemons/lv0.daemon.js', NO_METHODS, {
+  await runTieredDaemon(ns, 0, 'daemons/lv0.daemon.js', new Set(TIER_0_METHODS), {
     onIdle: makeStatPusher(BASELINE_STAT_PROVIDERS),
   })
 }
