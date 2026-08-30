@@ -40,24 +40,25 @@ import { BASELINE_STAT_PROVIDERS } from '../cgd/stats'
  */
 export const TIER_1_METHODS: readonly string[] = [
   'exec',
-  'kill',
-  'scp',
-  'rm',
-  'ls',
-  'isRunning',
   'fileExists',
-  'getScriptRam',
-  'getResetInfo',
-  'getPlayer',
-  'hacknet.numNodes',
-  'hacknet.getNodeStats',
-  'ps',
-  'ui.openTail',
-  'read',
-  'write',
-  'mv',
-  'getServerUsedRam',
   'getHostname',
+  'getPlayer',
+  'getPortHandle',
+  'getResetInfo',
+  'getScriptRam',
+  'getServerUsedRam',
+  'hacknet.getNodeStats',
+  'hacknet.numNodes',
+  'isRunning',
+  'kill',
+  'ls',
+  'mv',
+  'ps',
+  'read',
+  'rm',
+  'scp',
+  'ui.openTail',
+  'write',
 ]
 
 /**
@@ -77,24 +78,25 @@ export const TIER_1_METHODS: readonly string[] = [
  */
 export function reserveTier1Ram(ns: NS): void {
   void ns.exec
-  void ns.kill
-  void ns.scp
-  void ns.rm
-  void ns.ls
-  void ns.isRunning
   void ns.fileExists
-  void ns.getScriptRam
-  void ns.getResetInfo
-  void ns.getPlayer
-  void ns.hacknet.numNodes
-  void ns.hacknet.getNodeStats
-  void ns.ps
-  void ns.ui.openTail
-  void ns.read
-  void ns.write
-  void ns.mv
-  void ns.getServerUsedRam
   void ns.getHostname
+  void ns.getPlayer
+  void ns.getPortHandle
+  void ns.getResetInfo
+  void ns.getScriptRam
+  void ns.getServerUsedRam
+  void ns.hacknet.getNodeStats
+  void ns.hacknet.numNodes
+  void ns.isRunning
+  void ns.kill
+  void ns.ls
+  void ns.mv
+  void ns.ps
+  void ns.read
+  void ns.rm
+  void ns.scp
+  void ns.ui.openTail
+  void ns.write
 }
 
 /**

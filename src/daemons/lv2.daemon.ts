@@ -10,6 +10,7 @@ import { reserveTier1Ram, TIER_1_ACTIONS, TIER_1_METHODS } from './lv1.daemon'
 const TIER_2_METHODS = [
   ...TIER_1_METHODS,
   'getServer',
+  'run',
 ]
 
 /**
@@ -46,6 +47,7 @@ const TIER_2_ACTIONS: CgdActionHandlers = {
 function reserveTier2Ram(ns: NS) {
   reserveTier1Ram(ns)
   void ns.getServer
+  void ns.run
 }
 
 export async function main(ns: NS): Promise<void> {

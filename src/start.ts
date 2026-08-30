@@ -111,7 +111,7 @@ export async function main(ns: NS): Promise<void> {
       defaultValue: false,
       description: 'Force daemon replacement',
     },
-  ])
+  ] as const)
 
   const win = eval('window')
   const cgd = getCgd(win)
@@ -120,9 +120,9 @@ export async function main(ns: NS): Promise<void> {
   const remote = args._[1] !== undefined ? String(args._[1]) : 'home'
 
   const currentTier = cgd.daemon?._getTier()
-  const needsDaemon = !cgd.daemon || (forcedTier !== undefined && forcedTier !== currentTier)
+  const needsDaemon = !cgd.daemon || (forcedTier !== undefined && forcedTier !== currentTier) || args.force
 
-  if (needsDaemon || args['--force']) {
+  if (needsDaemon) {
     let target: typeof AVAILABLE_TIERS[number] | null
     if (forcedTier !== undefined && forcedTier !== 'max') {
       target = AVAILABLE_TIERS.find(t => t.tier === forcedTier) ?? null
