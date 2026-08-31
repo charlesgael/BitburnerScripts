@@ -1,6 +1,6 @@
 import type { ContractLogSummary } from '../../../../contracts/state-file/make-stats'
 import React from '@react'
-import { formatCompact } from '../../../../utils/format/numbers'
+import { formatMoney, formatNumber } from '../../../../utils/format/game'
 import { pluralize } from '../../../../utils/format/string'
 import { HeroStat } from './hero-stat'
 
@@ -44,14 +44,14 @@ export function RewardsSummary(props: {
       >
         <HeroStat
           title="Money Earned"
-          value={`$${formatCompact(rewards.money)}`}
+          value={`${formatMoney(rewards.money)}`}
           style={{ flex: 1 }}
           numSize={24}
           color="var(--bb-theme-success)"
         />
         <HeroStat
           title="Company Reputation"
-          value={`${formatCompact(compRep)}`}
+          value={`${formatNumber(compRep)}`}
           sub={`Across ${pluralize(compCount, 'company', 'companies')}`}
           style={{ flex: 1 }}
           numSize={24}
@@ -59,7 +59,7 @@ export function RewardsSummary(props: {
         />
         <HeroStat
           title="Faction Reputation"
-          value={`${formatCompact(factRep)}`}
+          value={`${formatNumber(factRep)}`}
           sub={`Across ${pluralize(factCount, 'faction', 'factions')}`}
           style={{ flex: 1 }}
           numSize={24}
@@ -77,7 +77,7 @@ export function RewardsSummary(props: {
           {companiesArr.map(([company, val]) => (
             <div key={company} style={{ display: 'flex' }}>
               <div style={{ flex: 1 }}>{company}</div>
-              <div>{formatCompact(val)}</div>
+              <div>{formatNumber(val)}</div>
             </div>
           ))}
         </div>
@@ -86,7 +86,7 @@ export function RewardsSummary(props: {
           {factionsArr.map(([company, val]) => (
             <div key={company} style={{ display: 'flex' }}>
               <div style={{ flex: 1 }}>{company}</div>
-              <div>{formatCompact(val)}</div>
+              <div>{formatNumber(val)}</div>
             </div>
           ))}
         </div>

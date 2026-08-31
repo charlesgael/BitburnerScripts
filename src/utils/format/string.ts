@@ -1,4 +1,4 @@
-export function pluralize(count: number, word: string, pluralForm: string) {
+export function pluralize(count: number, word: string, pluralForm: string, insertNumber = true) {
   // 1. Initialize the plural rules for the language
   const pr = new Intl.PluralRules('en')
 
@@ -6,5 +6,7 @@ export function pluralize(count: number, word: string, pluralForm: string) {
   const rule = pr.select(count)
 
   // 3. Return the correct word based on the category
-  return rule === 'one' ? `${count} ${word}` : `${count} ${pluralForm}`
+  if (insertNumber)
+    return rule === 'one' ? `${count} ${word}` : `${count} ${pluralForm}`
+  return rule === 'one' ? `${word}` : `${pluralForm}`
 }

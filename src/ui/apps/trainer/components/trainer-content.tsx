@@ -1,5 +1,6 @@
 import React from '@react'
 import { formatDuration } from '../../../../utils/format/dates'
+import { formatRam } from '../../../../utils/format/game'
 import { STATS, useTrainer } from '../logic/use-trainer'
 
 const DAEMON_HOST = 'home'
@@ -148,16 +149,16 @@ export function TrainerContent() {
             >
               Needs
               {' '}
-              {t.daemonRam.toFixed(2)}
+              {formatRam(t.daemonRam)}
               {' '}
-              GB free on
+              free on
               {DAEMON_HOST}
               {' '}
               to launch daemons/train.daemon.js — only
               {' '}
-              {t.freeRam.toFixed(2)}
+              {formatRam(t.freeRam)}
               {' '}
-              GB is free. Free up RAM (e.g. stop other scripts) and this unlocks
+              is free. Free up RAM (e.g. stop other scripts) and this unlocks
               automatically.
             </div>
           )

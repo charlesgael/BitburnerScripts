@@ -1,5 +1,5 @@
 import type { ContractsLogEntry } from './types'
-import { formatCompact } from '../../utils/format/numbers'
+import { formatMoney, formatNumber } from '../../utils/format/game'
 import { pluralize } from '../../utils/format/string'
 
 /// TYPES
@@ -195,15 +195,15 @@ export function summarizeContractLog(
         let rString = ''
         switch (reward.type) {
           case 'money':
-            rString = `+$${formatCompact(reward.amount)}`
+            rString = `+${formatMoney(reward.amount)}`
             break
 
           case 'company':
-            rString = `+${reward.amount.toFixed(0)} to ${reward.company}`
+            rString = `+${formatNumber(reward.amount)} to ${reward.company}`
             break
 
           case 'faction':
-            rString = `+${reward.amount.toFixed(0)} to ${pluralize(reward.factions.length, 'faction', 'factions')}`
+            rString = `+${formatNumber(reward.amount)} to ${pluralize(reward.factions.length, 'faction', 'factions')}`
             break
         }
         return {

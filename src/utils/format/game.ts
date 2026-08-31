@@ -1,0 +1,257 @@
+/*
+ * All the formatter from game (without configuration from game, so you have to report the configs here)
+ */
+
+const Settings = {
+  Locale: 'en-US',
+  useEngineeringNotation: false,
+  disableSuffixes: false,
+  hideThousandsSeparator: false,
+  fractionalDigits: 2,
+  hideTrailingDecimalZeros: true,
+  UseIEC60027_2: false,
+  CurrencySymbol: '$',
+  CurrencySymbolAfterValue: false,
+}
+
+const numberSuffixList = ['', 'k', 'm', 'b', 't', 'q', 'Q', 's', 'S', 'o', 'n']
+// exponents associated with each suffix
+const numberExpList = numberSuffixList.map((_, i) => Number.parseFloat(`1e${i * 3}`))
+
+// Ram suffixes
+const decByteSuffixes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB']
+const binByteSuffixes = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB']
+
+// Items that get initialized in the initializer function.
+let digitFormats = {} as Record<number, Intl.NumberFormat | undefined>
+let percentFormats = {} as Record<number, Intl.NumberFormat | undefined>
+
+// Initialization function
+// Clear all cached formatters
+digitFormats = {}
+percentFormats = {}
+const exponentialFormatter = makeFormatter(3, { notation: Settings.useEngineeringNotation ? 'engineering' : 'scientific' })
+const basicFormatter = new Intl.NumberFormat([Settings.Locale, 'en'], { useGrouping: !Settings.hideThousandsSeparator })
+const [unitSuffixes, unitLogFn, unitLogDivisor] = Settings.UseIEC60027_2
+  ? [binByteSuffixes, Math.log2, 10]
+  : [decByteSuffixes, Math.log10, 3]
+const unitExpList = unitSuffixes.map((_, i) => (Settings.UseIEC60027_2 ? 1024 : 1000) ** i)
+
+/** Makes a new formatter */
+function makeFormatter(fractionalDigits: number, otherOptions: Intl.NumberFormatOptions = {}): Intl.NumberFormat {
+  if (Settings.hideThousandsSeparator)
+    otherOptions.useGrouping = false
+  return new Intl.NumberFormat([Settings.Locale, 'en'], {
+    minimumFractionDigits: Settings.hideTrailingDecimalZeros ? 0 : fractionalDigits,
+    maximumFractionDigits: fractionalDigits,
+    ...otherOptions,
+  })
+}
+/** Returns a cached formatter if it already exists, otherwise makes and returns a new formatter */
+function getFormatter(
+  fractionalDigits: number,
+  formatList = digitFormats,
+  options: Intl.NumberFormatOptions = {},
+): Intl.NumberFormat {
+  if (formatList[fractionalDigits]) {
+    return formatList[fractionalDigits]!
+  }
+  return (formatList[fractionalDigits] = makeFormatter(fractionalDigits, options))
+}
+
+/** Display standard byte formatting. */
+export function formatBytes(n: number, fractionalDigits = 1): string {
+  return formatSize(n, fractionalDigits, 0)
+}
+
+/** Display standard ram formatting. */
+export function formatRam(n: number, fractionalDigits = 2): string {
+  return formatSize(n, fractionalDigits, 3)
+}
+
+function formatSize(n: number, fractionalDigits = 2, unitOffset = 3) {
+  const base = Settings.UseIEC60027_2 ? 1024 : 1000
+  const nAbs = Math.abs(n)
+
+  // Special handling for NaN, Infinities and zero
+  if (Number.isNaN(n))
+    return `NaN${unitSuffixes[0 + unitOffset]}`
+  if (nAbs === Infinity)
+    return `${n < 0 ? '-∞' : '∞'}${unitSuffixes.at(-1)}`
+
+  // Early return if using first suffix.
+  if (nAbs < base)
+    return getFormatter(fractionalDigits).format(n) + unitSuffixes[unitOffset]
+
+  // convert input units to bytes
+  let nBytes = n * base ** unitOffset
+
+  const suffixIndex = Math.min(Math.floor(unitLogFn(nBytes) / unitLogDivisor), unitSuffixes.length - 1)
+  nBytes /= unitExpList[suffixIndex]
+  /* Not really concerned with 1000-rounding or 1024-rounding for ram due to the actual values ram gets displayed at.
+  If display of e.g. 1,000.00GB instead of 1.00TB for 999.995GB, or 1,024.00GiB instead of 1.00TiB for 1,023.995GiB
+  becomes an actual issue we can add smart rounding, but ram values like that really don't happen ingame so it's
+  probably not worth the performance overhead to check and correct these. */
+  return getFormatter(fractionalDigits).format(nBytes) + unitSuffixes[suffixIndex]
+}
+
+function formatExponential(n: number) {
+  return exponentialFormatter.format(n).toLocaleLowerCase()
+}
+
+// Default suffixing starts at 1e9 % which is 1e7.
+export function formatPercent(n: number, fractionalDigits = 2, multStart = 1e6) {
+  // NaN does not get formatted
+  if (Number.isNaN(n))
+    return 'NaN%'
+  const nAbs = Math.abs(n)
+
+  // Special handling for Infinities
+  if (nAbs * 100 === Infinity)
+    return n < 0 ? '-∞%' : '∞%'
+
+  // Mult form. There are probably some areas in the game this wouldn't make sense, but they hopefully won't ever have huge %.
+  if (nAbs >= multStart)
+    return `x${formatNumber(n, fractionalDigits)}`
+
+  return getFormatter(fractionalDigits, percentFormats, { style: 'percent' }).format(n)
+}
+
+export function formatNumber(
+  n: number,
+  fractionalDigits = Settings.fractionalDigits,
+  suffixStart = 1000,
+  isInteger = false,
+) {
+  // NaN does not get formatted
+  if (Number.isNaN(n))
+    return 'NaN'
+  const nAbs = Math.abs(n)
+
+  // Special handling for Infinities
+  if (nAbs === Infinity)
+    return n < 0 ? '-∞' : '∞'
+  if (suffixStart < 1000) {
+    throw new Error('suffixStart must be greater than or equal to 1000')
+  }
+
+  // Early return for non-suffix or if number and suffix are 0
+  if (nAbs < suffixStart) {
+    if (isInteger)
+      return basicFormatter.format(n)
+    return getFormatter(fractionalDigits).format(n)
+  }
+
+  // Exponential form
+  if (Settings.disableSuffixes || nAbs >= 1e33)
+    return formatExponential(n)
+
+  // Calculate suffix index. 1000 = 10^3
+  let suffixIndex = Math.floor(Math.log10(nAbs) / 3)
+
+  n /= numberExpList[suffixIndex]
+  // Todo: Find a better way to detect if number is rounding to 1000${suffix}, or find a simple way to truncate to x digits instead of rounding
+  // Detect if number rounds to 1000.000 (based on number of digits given)
+  if (Math.abs(n).toFixed(fractionalDigits).length === fractionalDigits + 5 && numberSuffixList[suffixIndex + 1]) {
+    suffixIndex += 1
+    n = n < 0 ? -1 : 1
+  }
+  return getFormatter(fractionalDigits).format(n) + numberSuffixList[suffixIndex]
+}
+
+/** Format a number without suffixes. Still show exponential form if >= 1e33. */
+export function formatNumberNoSuffix(n: number, fractionalDigits = 0) {
+  return formatNumber(n, fractionalDigits, 1e33)
+}
+export const formatFavor = (n: number) => formatNumberNoSuffix(n, 3)
+
+/** Standard noninteger formatting with no options set. Collapses to suffix at 1000 and shows 3 fractional digits. */
+export const formatBigNumber = (n: number) => formatNumber(n)
+export const formatExp = formatBigNumber
+export function formatHashes(n: number) {
+  if (n < 0.00001) {
+    return formatNumber(n, 8)
+  }
+  if (n < 0.001) {
+    return formatNumber(n, 6)
+  }
+  if (n < 0.01) {
+    return formatNumber(n, 4)
+  }
+  return formatNumber(n)
+}
+export const formatReputation = formatBigNumber
+export const formatPopulation = formatBigNumber
+export const formatSecurity = formatBigNumber
+export const formatStamina = formatBigNumber
+export const formatStaneksGiftCharge = formatBigNumber
+export const formatCorpMultiplier = (n: number) => `×${formatBigNumber(n)}`
+
+/** Format a number with suffixes starting at 1000 and 2 fractional digits */
+export const formatQuality = (n: number) => formatNumber(n, 2)
+
+/** Format an integer that uses suffixed form at 1000 and 3 fractional digits. */
+export const formatInt = (n: number) => formatNumber(n, 3, 1000, true)
+export const formatSleeveMemory = formatInt
+export const formatShares = formatInt
+
+/**
+ * Format a number using basicFormatter for values below 1e6, and a suffixed form with up to 3 fractional digits for
+ * values at or above 1e6. This uses formatNumber, so check that function for nuanced details.
+ *
+ * Values in the range (0, 0.001) are displayed in exponential notation.
+ */
+export function formatHp(n: number) {
+  if (n > 0 && n < 0.001) {
+    return formatExponential(n)
+  }
+  return formatNumber(n, 3, 1e6, true)
+}
+export const formatThreads = formatHp
+
+/** Display an integer up to 999,999,999 before collapsing to suffixed form with 3 fractional digits */
+export const formatSkill = (n: number) => formatNumber(n, 3, 1e9, true)
+
+/** Display standard money formatting, including the currency symbol. */
+export function formatMoney(n: number, useExponentialFormForSmallValue = false): string {
+  const value = !useExponentialFormForSmallValue || n === 0 || n >= 0.001 ? formatNumber(n) : n.toExponential(3)
+  return Settings.CurrencySymbolAfterValue
+    ? `${value}${Settings.CurrencySymbol}`
+    : `${Settings.CurrencySymbol}${value}`
+}
+
+/** Display a decimal number with increased precision (5 fractional digits) */
+export const formatRespect = (n: number) => formatNumber(n, 5)
+export const formatWanted = formatRespect
+export const formatPreciseMultiplier = formatRespect
+
+/** Format a number with 3 fractional digits. */
+export const formatMaterialSize = (n: number) => formatNumber(n, 3)
+
+/** Format a number with no suffix and 2 fractional digits. */
+export const formatMultiplier = (n: number) => formatNumberNoSuffix(n, 2)
+export const formatStaneksGiftPower = formatMultiplier
+export const formatMatPurchaseAmount = formatMultiplier
+
+/** Format a number with no suffix and 3 fractional digits. */
+export const formatSleeveShock = (n: number) => formatNumberNoSuffix(n, 3)
+export const formatSleeveSynchro = formatSleeveShock
+export const formatCorpStat = formatSleeveShock
+
+/** Parsing numbers does not use the locale as this causes complications. */
+export function parseBigNumber(str: string): number {
+  str = str.trim()
+  // Remove all commas in case the player is typing a longform number
+  str = str.replace(/,/g, '')
+  // Handle special returns
+  if (['infinity', 'Infinity', '∞'].includes(str))
+    return Infinity
+  if (['-infinity', '-Infinity', '-∞'].includes(str))
+    return -Infinity
+
+  const suffixIndex = numberSuffixList.indexOf(str.substring(str.length - 1))
+  // If there's no valid suffix at the end, just return parseFloated string
+  if (suffixIndex === -1)
+    return Number.parseFloat(str)
+  return Number.parseFloat(`${str.substring(0, str.length - 1)}e${suffixIndex * 3}`)
+}

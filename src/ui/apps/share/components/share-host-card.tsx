@@ -1,8 +1,8 @@
 import type { CloudServerRow } from '../../../utils/cloud-list'
 import React from '@react'
+import { formatRam } from '../../../../utils/format/game'
 import { ServerCard } from '../../../components/server-card'
 import { useShareHostCard } from '../logic/use-share-host-card'
-
 /**
  * One host's share card: usage bar, thread-tier picker (or the running
  * thread count while sharing), and its Start/Stop Sharing button.
@@ -32,13 +32,13 @@ export function ShareHostCard({
             <div className="bb-text-error bb-wrap" style={{ fontSize: '11px' }}>
               Needs at least
               {' '}
-              {card.costPerThread.toFixed(2)}
+              {formatRam(card.costPerThread)}
               {' '}
-              GB shareable to share a single thread — only
+              shareable to share a single thread — only
               {' '}
-              {card.shareableRam.toFixed(2)}
+              {formatRam(card.shareableRam)}
               {' '}
-              GB is shareable here.
+              is shareable here.
             </div>
           )
         : (
@@ -55,14 +55,7 @@ export function ShareHostCard({
                     >
                       {card.tiers.map(threads => (
                         <option key={threads} value={threads}>
-                          {(threads * card.costPerThread).toFixed(0)}
-                          {' '}
-                          GB —
-                          {' '}
-                          {threads}
-                          {' '}
-                          thread
-                          {threads === 1 ? '' : 's'}
+                          {formatRam(threads * card.costPerThread)}
                         </option>
                       ))}
                     </select>
@@ -71,15 +64,7 @@ export function ShareHostCard({
                     <div>
                       Sharing
                       {' '}
-                      {(card.runningThreads * card.costPerThread).toFixed(0)}
-                      {' '}
-                      GB —
-                      {' '}
-                      {card.runningThreads}
-                      {' '}
-                      thread
-                      {card.runningThreads === 1 ? '' : 's'}
-                      .
+                      {formatRam(card.runningThreads * card.costPerThread)}
                     </div>
                   )}
               <button

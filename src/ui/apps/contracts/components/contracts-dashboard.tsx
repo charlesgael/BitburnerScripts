@@ -3,6 +3,7 @@ import React from '@react'
 import { CONTRACTS_HOST, CONTRACTS_LOG_FILE, CONTRACTS_SCRIPT, parseContractLog } from '../../../../contracts/state-file'
 import { summarizeContractLog } from '../../../../contracts/state-file/make-stats'
 import { formatDuration, formatHour } from '../../../../utils/format/dates'
+import { formatPercent } from '../../../../utils/format/game'
 import { InstanceManager } from '../../../components/instance-manager'
 import { TitlebarToolbar } from '../../../components/window/titlebar-toolbar'
 import { useQueuedNs } from '../../../context/ns-queue-context'
@@ -80,14 +81,14 @@ export function ContractsDashboard() {
               value={state.solved}
               // toFixed(1): successRate is a raw fraction (e.g. 5/7), so an
               // unrounded percentage can print a long repeating decimal.
-              sub={`${(state.successRate * 100).toFixed(1)}% success rate`}
+              sub={`${formatPercent(state.successRate)} success rate`}
               icon={<CheckCircle />}
               color="var(--bb-theme-success)"
             />
             <HeroStat
               title="Failed"
               value={state.failed}
-              sub={`${((1 - state.successRate) * 100).toFixed(1)}% failure rate`}
+              sub={`${formatPercent((1 - state.successRate))} failure rate`}
               icon={<CrossCircle />}
               color="var(--bb-theme-error)"
             />

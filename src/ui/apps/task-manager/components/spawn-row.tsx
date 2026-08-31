@@ -1,6 +1,7 @@
 import type { ManagedAppDefinition } from '../logic/types'
 import type { TaskManagerState } from '../logic/use-task-manager'
 import React from '@react'
+import { formatRam } from '../../../../utils/format/game'
 
 /**
  * Same spawn row for both loop apps and one-shot reports: the main button
@@ -139,9 +140,9 @@ export function SpawnRow({
                       {o.host}
                       {' '}
                       (
-                      {o.freeRam.toFixed(1)}
+                      {formatRam(o.freeRam)}
                       {' '}
-                      GB free)
+                      free)
                     </button>
                   ))}
                 </div>
@@ -191,9 +192,8 @@ export function SpawnRow({
         {app.label}
         {' '}
         (
-        {required.toFixed(2)}
-        {' '}
-        GB)
+        {formatRam(required)}
+        )
         {requiresBadge}
         {singleInstanceBadge}
       </span>
