@@ -1,9 +1,9 @@
-import type { CloudServerRow } from '../../../utils/cloud-list'
-import React from '@react'
-import { InstanceManager } from '../../../components/instance-manager'
-import { TitlebarToolbar } from '../../../components/window/titlebar-toolbar'
-import { useXpFarm } from '../logic/use-xp-farm'
-import { XpFarmServerCard } from './server-card'
+import React from '@react';
+import { InstanceManager } from '../../../components/instance-manager';
+import { TitlebarToolbar } from '../../../components/window/titlebar-toolbar';
+import type { CloudServerRow } from '../../../utils/cloud-list';
+import { useXpFarm } from '../logic/use-xp-farm';
+import { XpFarmServerCard } from './server-card';
 
 /**
  * Root component: the dedicated-count/refresh header, the daemon status
@@ -27,7 +27,7 @@ export function XpFarmContent() {
     <>
       <TitlebarToolbar>
         <InstanceManager
-          scriptFile="daemons/xp-farm.daemon.js"
+          filename="daemons/xp-farm.daemon.js"
           host="home"
         />
         <button

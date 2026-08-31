@@ -1,16 +1,21 @@
-import React from '@react'
+import { useRef, useState } from '@react'
 
 export function usePropState<T>(
   incomingValue: T,
 ) {
   // Store the previous value in a ref so mutating it doesn't trigger a new render pass
-  const [state, setState] = React.useState<T>(incomingValue)
-  const prevRef = React.useRef<T>(incomingValue)
+  const [state, setState] = useState<T>(incomingValue)
+  const prevRef = useRef<T>(incomingValue)
 
-  if (incomingValue !== prevRef.current) {
+  // 1. Detect change during render
+  const hasChanged = incomingValue !== prevRef.current
+
+  if (hasChanged) {
     prevRef.current = incomingValue // Update the ref immediately
     setState(incomingValue) // Schedule the local state adjustment
   }
 
-  return [state, setState] as const
+  const updatedState = hasChanged ? incomingValue : state
+
+  return [updatedState, setState] as const
 }
