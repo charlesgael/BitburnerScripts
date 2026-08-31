@@ -293,10 +293,8 @@ function nodeColor(
   if (server.purchasedByPlayer)
     return THEME.blue
   if (
-    server.requiredHackingSkill
-    && server.requiredHackingSkill <= playerHackLevel
-    && server.numOpenPortsRequired
-    && server.numOpenPortsRequired <= exploitCount
+    (server.requiredHackingSkill || 0) <= playerHackLevel
+    && (server.numOpenPortsRequired || 0) <= exploitCount
   ) {
     return THEME.red
   }
