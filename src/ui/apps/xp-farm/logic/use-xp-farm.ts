@@ -72,8 +72,23 @@ export function useXpFarm() {
         readXpFarmHosts(ns),
       ])
       setServers(sortByHostname(cloudList.servers))
-      setEnabled(new Set(hosts))
-      setStatus(await fetchStatus(hosts))
+
+      // Self-heal: installing an augmentation wipes every purchased server,
+      // but xp-farm-config.txt survives the reset untouched — the daemon
+      // isn't necessarily running to prune it itself (it exits once its
+      // managed list goes empty, and a reset doesn't restart it), so a
+      // stale hostname here would otherwise reach fetchStatus below and
+      // throw calling ns.ps on a host that no longer exists. Cross-check
+      // against the cloud list just fetched (the actual ground truth for
+      // what's still there) instead of ns.serverExists, which isn't on
+      // tier 1/2's dispatch allow-list.
+      const existing = new Set(cloudList.servers.map(s => s.hostname))
+      const validHosts = hosts.filter(h => existing.has(h))
+      if (validHosts.length !== hosts.length)
+        await writeXpFarmHosts(ns, validHosts)
+
+      setEnabled(new Set(validHosts))
+      setStatus(await fetchStatus(validHosts))
     }
     catch (err) {
       setError(err instanceof Error ? err.message : String(err))
