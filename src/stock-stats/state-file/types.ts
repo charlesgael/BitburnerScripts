@@ -7,6 +7,11 @@ import { record } from '../../utils/tiny-schema/record'
 export const stockPriceSchema = object({
   ask: number(),
   bid: number(),
+  // Only present when the collecting life has has4SDataTixApi() - the
+  // game's own forecast/volatility model, not derived by us, so useful as
+  // ground truth to validate our own stats against when it's available.
+  forecast: number().optional(),
+  volatility: number().optional(),
 })
 export type StockPrice = InferSchema<typeof stockPriceSchema>
 
