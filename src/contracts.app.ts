@@ -1,7 +1,7 @@
 import type { NS } from '@ns'
-import { Contract, ContractSolver } from './contracts.lib'
+import { Contract, ContractSolver } from './contracts/contracts.lib'
 import { recordContractResult } from './contracts/state-file'
-import * as Ports from './ports.lib'
+import * as Ports from './utils/ports.lib'
 
 function getContractsFromHost(ns: NS, host: string) {
   const contracts = []

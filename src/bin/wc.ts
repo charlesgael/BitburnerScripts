@@ -1,5 +1,5 @@
-import type { NS } from '@ns';
-import { parseArgs } from './utils/args';
+import type { NS } from '@ns'
+import { parseArgs } from '../utils/args'
 
 /** @param {NS} ns */
 export async function main(ns: NS) {

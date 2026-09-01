@@ -2,7 +2,6 @@ import type { NS, Server } from '@ns'
 import type { Mode, WorkerStatus } from '../ui/utils/money-farm-log/types'
 import type { BatchPlan } from '../utils/hack-math'
 import { getCgdStore } from '../cgd/store'
-import { MONEY_FARM_PORT } from '../ports.lib'
 import {
   MONEY_FARM_CONFIG_FILE as CONFIG_FILE,
   MONEY_FARM_GROW_SCRIPT as GROW_SCRIPT,
@@ -11,6 +10,7 @@ import {
 } from '../ui/utils/money-farm-config'
 import { addMoneyFarmLog } from '../ui/utils/money-farm-log'
 import { BATCH_SPACING, computeBatchPlan, computeHackMath } from '../utils/hack-math'
+import { MONEY_FARM_PORT } from '../utils/ports.lib'
 import { distributeThreads } from '../utils/thread-balance'
 
 /**

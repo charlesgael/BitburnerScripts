@@ -1,6 +1,6 @@
 import type { NS, Server } from '@ns'
-import { parseArgs } from './utils/args'
-import { formatMoney } from './utils/format/game'
+import { parseArgs } from '../utils/args'
+import { formatMoney } from '../utils/format/game'
 
 /**
  * `React` only exists as the game's `window.React` global (see
