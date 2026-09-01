@@ -31,13 +31,14 @@ export async function main(ns: NS) {
     if (delay > 0)
       await ns.sleep(delay)
     const startedAt = Date.now()
-    await ns.grow(host)
+    const growth = await ns.grow(host)
     if (flags.port > 0) {
       ns.writePort(flags.port, {
         action: 'grow',
         target: host,
         threads,
         duration: Date.now() - startedAt,
+        growth,
       })
     }
   } while (!flags.once)

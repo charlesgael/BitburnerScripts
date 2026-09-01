@@ -262,6 +262,26 @@ export function useFileExplorer(
     setEditError(null)
   }
 
+  // Auto-refreshes the editor's content from disk every 3s while viewing a
+  // home file that hasn't been locally modified — lets a long-lived file
+  // (e.g. a daemon's own activity log) update live without the player
+  // needing to manually reopen it. Lives here, not in `EditScreen`, so
+  // every ns.* interaction for this feature stays in this one hook — see
+  // this file's own header comment. Depends on the real edit-mode fields
+  // (`editingHost`/`editingPath`), not the browse-mode `selectedHost`/
+  // `currentPath` a prior version of this polling mistakenly read (those
+  // track whatever folder/host was last browsed, not the file actually
+  // open in the editor).
+  React.useEffect(() => {
+    if (mode !== 'edit' || editingHost !== 'home' || editDirty || !editingPath)
+      return
+    const path = editingPath
+    const interval = setInterval(() => {
+      ns._read(path).then(setEditContent)
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [mode, editingHost, editDirty, editingPath])
+
   async function runFile(path: string) {
     setActionBusy(true)
     setActionError(null)

@@ -12,6 +12,13 @@ const changeTarget = object({
   action: string('change-target'),
   oldTarget: string(),
   target: string(),
+  /**
+   * The new target's own money/sec score at pick time (`pickTarget`'s
+   * `moneyMax * hackChance / weakenTime` formula) — logged once here,
+   * at the moment of the actual switch, rather than repeated on every
+   * periodic `update-server` snapshot below.
+   */
+  score: number(),
 })
 const changeModeSchema = object({
   action: string('change-mode'),
@@ -19,16 +26,28 @@ const changeModeSchema = object({
   oldMode: string(),
   mode: modeSchema,
 })
-const setSecuritySchema = object({
+const updateServer = object({
   /**
-   * `'set-security'` for a mode-transition checkpoint (see above).
+   * `'update-server'`: a periodic snapshot of an active session's target,
+   * written by `tickSession` every `STATE_CHECK_INTERVAL` for both
+   * primary and secondary — independent of `change-target`/`change-mode`,
+   * which only fire on an actual transition. Doubles as the
+   * absolute-security checkpoint a `deltaSecurity`-summing reader should
+   * re-anchor its running total to (this used to be a separate
+   * `'set-security'` action, fired only on mode transitions — merged in
+   * once `update-server` started running from the same unconditional
+   * per-tick call site in `tickSession`, which made a second entry
+   * carrying overlapping information pointless).
    */
-  action: string('set-security'),
+  action: string('update-server'),
   target: string(),
+  /** The target's live `moneyAvailable`/`moneyMax` at snapshot time. */
+  money: number(),
+  maxMoney: number(),
   /**
-   * `'set-security'` only: the target's actual *absolute* live security at
-   * that moment — a checkpoint, not a delta. Never populated on a hack/
-   * grow/weaken entry — see `deltaSecurity` above.
+   * The target's actual *absolute* live security at snapshot time — not
+   * a delta. See `deltaSecurity` below for why hack/grow/weaken entries
+   * use a differently-named field for their own, unrelated meaning.
    */
   security: number(),
   minSecurity: number(),
@@ -40,25 +59,42 @@ const hgwSchema = object({
   action: string('hack', 'grow', 'weaken'),
   target: string(),
   threads: number(),
-  /**
-   * Wall-clock ms this specific call took to complete — 0 for a
-   * `'set-security'` checkpoint (not a timed action).
-   */
+  /** Wall-clock ms this specific call took to complete. */
   duration: number(),
-  /**
-   * Dollars stolen (hack only — grow/weaken/set-security never populate
-   * this).
-   */
+  /** Dollars stolen (hack only — grow/weaken never populate this). */
   money: number().optional(),
   /**
-   * hack/grow/weaken only: net security *change* from this call —
-   * positive means security increased (hack/grow), negative means it
-   * decreased (weaken). Never populated on a `'set-security'` entry —
-   * see `security` below.
+   * hack/grow/weaken: net security *change* from this call — positive
+   * means security increased (hack/grow), negative means it decreased
+   * (weaken). grow's own worker never computes this directly (see
+   * grow.daemon.ts's header comment) — money-farm.daemon.ts's
+   * drainStatusPort fills it in via growthAnalyzeSecurity before logging,
+   * so a grow entry still carries a value here despite the worker itself
+   * never populating it. Named differently from `update-server`'s
+   * `security` (an absolute value, not a delta) on purpose — see that
+   * schema's own comment.
    */
   deltaSecurity: number().optional(),
+  /**
+   * grow only: the raw multiplier `ns.grow()` itself returned for this
+   * call — *not* a dollar amount, and not summable/comparable across
+   * entries the way `money`/`deltaSecurity` are. Turning it into an exact
+   * dollar delta would need the target's `moneyAvailable` at the instant
+   * this specific call resolved, which isn't reliably knowable here:
+   * many batches deliberately land hack/grow/weaken calls on the same
+   * target concurrently (the whole point of the HWGW pipeline), so any
+   * "before" value captured at dispatch or drain time can already be
+   * stale by the time this grow() actually completes — not an
+   * implementation gap, a structural consequence of that concurrency.
+   * Useful only as a per-call diagnostic: compare it, over many samples,
+   * against what `computeBatchPlan`'s `growThreadsFor` predicted, to see
+   * whether grow is actually performing as the daemon's own math expects.
+   */
+  growth: number().optional(),
 })
-const orSchema = or(setSecuritySchema, hgwSchema, changeTarget, changeModeSchema)
+export type WorkerStatus = InferSchema<typeof hgwSchema>
+
+const orSchema = or(updateServer, hgwSchema, changeTarget, changeModeSchema)
 export type AddLogInput = InferSchema<typeof orSchema>
 
 export const moneyFarmLogEntrySchema = logSchema(orSchema)

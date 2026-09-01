@@ -1,5 +1,5 @@
 import type { NS, Server } from '@ns'
-import type { Mode } from '../ui/utils/money-farm-log/types'
+import type { Mode, WorkerStatus } from '../ui/utils/money-farm-log/types'
 import type { BatchPlan } from '../utils/hack-math'
 import { MONEY_FARM_PORT } from '../ports.lib'
 import {
@@ -159,12 +159,27 @@ interface InFlightBatch {
   pids: number[]
 }
 
+/**
+ * The `money`/`maxMoney`/`security`/`minSecurity` values from this
+ * session's last *logged* `'update-server'` entry — compared against on
+ * every `tickSession` call so an unchanged snapshot doesn't get re-written
+ * every `STATE_CHECK_INTERVAL` tick. `null` until the first entry is ever
+ * logged for this session.
+ */
+interface ServerSnapshot {
+  money: number
+  maxMoney: number
+  security: number
+  minSecurity: number
+}
+
 interface TargetSession {
   target: string
   mode: Mode | null
   batchPlan: BatchPlan | null
   desyncStrikes: number
   inFlightBatches: InFlightBatch[]
+  lastLoggedSnapshot: ServerSnapshot | null
 }
 
 function readHosts(ns: NS): string[] {
@@ -211,8 +226,14 @@ function scanNetwork(ns: NS): string[] {
  * only replaces it by scoring at least 1.5x higher, not just momentarily
  * ahead. `currentTarget` is treated as unset if it's in `exclude` (can
  * happen transiently right after a session hand-off).
+ *
+ * Returns the winning target's own score alongside it — not logged here
+ * (this function doesn't know whether its result is actually a *change*
+ * worth recording; that's `reconcileTargets`' call, which folds it into
+ * its `change-target` log entry) — so callers get it for free rather than
+ * recomputing the same formula a second time.
  */
-function pickTarget(ns: NS, currentTarget: string | null, exclude: Set<string>): string | null {
+function pickTarget(ns: NS, currentTarget: string | null, exclude: Set<string>): { target: string | null, score: number } {
   const effectiveCurrent = currentTarget && !exclude.has(currentTarget) ? currentTarget : null
   const hackingLevel = ns.getHackingLevel()
   let best: Server | null = null
@@ -237,16 +258,18 @@ function pickTarget(ns: NS, currentTarget: string | null, exclude: Set<string>):
     }
   }
   if (!best)
-    return effectiveCurrent
+    return { target: effectiveCurrent, score: 0 }
   if (!effectiveCurrent || best.hostname === effectiveCurrent)
-    return best.hostname
+    return { target: best.hostname, score: bestScore }
 
   const currentServer = ns.getServer(effectiveCurrent)
   const currentWeakenTime = ns.getWeakenTime(effectiveCurrent)
   const currentScore = currentWeakenTime > 0
     ? (currentServer.moneyMax ?? 0) * ns.hackAnalyzeChance(effectiveCurrent) / currentWeakenTime
     : 0
-  return bestScore > currentScore * 1.5 ? best.hostname : effectiveCurrent
+  return bestScore > currentScore * 1.5
+    ? { target: best.hostname, score: bestScore }
+    : { target: effectiveCurrent, score: currentScore }
 }
 
 function modeFor(server: Server): Mode {
@@ -315,22 +338,6 @@ function sumValues(record: Record<string, number>): number {
   return Object.values(record).reduce((sum, v) => sum + v, 0)
 }
 
-/**
- * Raw status object a worker writes to `MONEY_FARM_PORT` — see
- * `hack.daemon.ts`/`grow.daemon.ts`/`weaken.daemon.ts`'s own header
- * comments for why `money`/`deltaSecurity` aren't always populated by the
- * worker itself. Written via `ns.writePort` (a real object, `structuredClone`d
- * by the game — not a JSON string, so no `JSON.parse` needed on this end).
- */
-interface WorkerStatus {
-  action: 'hack' | 'grow' | 'weaken'
-  target: string
-  threads: number
-  duration: number
-  money?: number
-  deltaSecurity?: number
-}
-
 function isWorkerStatus(value: unknown): value is WorkerStatus {
   return typeof value === 'object' && value !== null && 'action' in value && 'target' in value
 }
@@ -361,6 +368,7 @@ function drainStatusPort(ns: NS) {
       duration: raw.duration,
       money: raw.money,
       deltaSecurity,
+      growth: raw.growth,
     })
   }
 }
@@ -466,8 +474,8 @@ function applyPrepMode(
         killTracked(ns, prev.weakenPid)
       }
       ns.print(`${host}: prepping ${target} (${mode}) — ${g}g / ${w}w.`)
-      const growPid = g > 0 ? ns.exec(GROW_SCRIPT, host, g, '--port', MONEY_FARM_PORT, target, 0, g) : 0
-      const weakenPid = w > 0 ? ns.exec(WEAKEN_SCRIPT, host, w, '--port', MONEY_FARM_PORT, target, 0, w) : 0
+      const growPid = g > 0 ? ns.exec(GROW_SCRIPT, host, g, target, 0, g, '--port', MONEY_FARM_PORT) : 0
+      const weakenPid = w > 0 ? ns.exec(WEAKEN_SCRIPT, host, w, target, 0, w, '--port', MONEY_FARM_PORT) : 0
       prepAssignment[host] = { target, growThreads: g, weakenThreads: w, growPid, weakenPid }
     }
   }
@@ -506,13 +514,13 @@ function tryDispatchBatch(
 
   const pids: number[] = []
   for (const [host, threads] of Object.entries(hackAssigned))
-    pids.push(ns.exec(HACK_SCRIPT, host, threads, '--once', '--port', MONEY_FARM_PORT, target, plan.delayHack, threads))
+    pids.push(ns.exec(HACK_SCRIPT, host, threads, target, plan.delayHack, threads, '--once', '--port', MONEY_FARM_PORT))
   for (const [host, threads] of Object.entries(growAssigned))
-    pids.push(ns.exec(GROW_SCRIPT, host, threads, '--once', '--port', MONEY_FARM_PORT, target, plan.delayGrow, threads))
+    pids.push(ns.exec(GROW_SCRIPT, host, threads, target, plan.delayGrow, threads, '--once', '--port', MONEY_FARM_PORT))
   for (const [host, threads] of Object.entries(weaken1Assigned))
-    pids.push(ns.exec(WEAKEN_SCRIPT, host, threads, '--once', '--port', MONEY_FARM_PORT, target, plan.delayWeaken1, threads))
+    pids.push(ns.exec(WEAKEN_SCRIPT, host, threads, target, plan.delayWeaken1, threads, '--once', '--port', MONEY_FARM_PORT))
   for (const [host, threads] of Object.entries(weaken2Assigned))
-    pids.push(ns.exec(WEAKEN_SCRIPT, host, threads, '--once', '--port', MONEY_FARM_PORT, target, plan.delayWeaken2, threads))
+    pids.push(ns.exec(WEAKEN_SCRIPT, host, threads, target, plan.delayWeaken2, threads, '--once', '--port', MONEY_FARM_PORT))
   return pids
 }
 
@@ -534,27 +542,44 @@ function tickSession(
   const mode = modeFor(server)
   const modeChanged = mode !== session.mode
 
+  // Checked every STATE_CHECK_INTERVAL tick for both primary and
+  // secondary, but only actually logged when it differs from the last
+  // *logged* snapshot — see money-farm-log/types.ts's updateServer schema
+  // comment for what this doubles as (the absolute-security checkpoint a
+  // deltaSecurity-summing reader should re-anchor to). An unchanged value
+  // is still an accurate reference for the whole span until the next
+  // logged change, so skipping identical repeats loses no information —
+  // it just stops writing redundant rows during a stretch where nothing
+  // moved (e.g. a weaken-only prep phase, where money never changes at
+  // all). This used to be unconditional every tick; `snapshotUnchanged`
+  // below now guards against that.
+  const snapshot: ServerSnapshot = {
+    money: server.moneyAvailable ?? 0,
+    maxMoney: server.moneyMax ?? 0,
+    security: server.hackDifficulty ?? 0,
+    minSecurity: server.minDifficulty ?? 0,
+  }
+  const prev = session.lastLoggedSnapshot
+  const snapshotUnchanged = prev !== null
+    && prev.money === snapshot.money
+    && prev.maxMoney === snapshot.maxMoney
+    && prev.security === snapshot.security
+    && prev.minSecurity === snapshot.minSecurity
+  if (!snapshotUnchanged) {
+    addMoneyFarmLog(ns, {
+      action: 'update-server',
+      target: session.target,
+      ...snapshot,
+    })
+    session.lastLoggedSnapshot = snapshot
+  }
+
   if (modeChanged) {
     ns.print(
       `${session.target}: mode ${session.mode ?? '(none)'} -> ${mode} `
       + `(security ${(server.hackDifficulty ?? 0).toFixed(2)}/${(server.minDifficulty ?? 0).toFixed(2)}, `
       + `money ${ns.format.number(server.moneyAvailable ?? 0)}/${ns.format.number(server.moneyMax ?? 0)}).`,
     )
-    // Every logged security value elsewhere is a *delta* from one worker's
-    // own completed action (see money-farm-log.ts's header comment) — grow
-    // in particular never gets an exact one (its worker can't cheaply
-    // compute growthAnalyzeSecurity itself, and the daemon's own fill-in
-    // uses a fixed per-thread formula that doesn't account for cores), so
-    // summed deltas alone will drift from reality over time. A mode
-    // transition is a natural checkpoint to log the actual live value
-    // instead, so a downstream reader can re-anchor its running total here
-    // rather than trusting an ever-compounding sum of deltas.
-    addMoneyFarmLog(ns, {
-      action: 'set-security',
-      target: session.target,
-      security: server.hackDifficulty ?? 0,
-      minSecurity: server.minDifficulty ?? 0,
-    })
     addMoneyFarmLog(ns, {
       action: 'change-mode',
       target: session.target,
@@ -653,20 +678,22 @@ function reconcileTargets(
 
   const previousTarget = primary?.target ?? null
   const excludeForPrimary = secondary ? new Set([secondary.target]) : new Set<string>()
-  const bestTarget = pickTarget(ns, previousTarget, excludeForPrimary)
+  const picked = pickTarget(ns, previousTarget, excludeForPrimary)
+  const bestTarget = picked.target
   if (bestTarget && bestTarget !== previousTarget) {
     ns.print(`Switching target ${previousTarget ?? '(none)'} -> ${bestTarget}.`)
     addMoneyFarmLog(ns, {
       action: 'change-target',
       oldTarget: previousTarget ?? '(none)',
       target: bestTarget,
+      score: picked.score,
     })
     if (primary)
       killSession(ns, primary, prepAssignment)
     if (secondary)
       killSession(ns, secondary, prepAssignment)
     return {
-      primary: { target: bestTarget, mode: null, batchPlan: null, desyncStrikes: 0, inFlightBatches: [] },
+      primary: { target: bestTarget, mode: null, batchPlan: null, desyncStrikes: 0, inFlightBatches: [], lastLoggedSnapshot: null },
       secondary: null,
       empty: false,
     }
@@ -780,10 +807,17 @@ export async function main(ns: NS) {
       else if (primary.batchPlan && primary.inFlightBatches.length >= primary.batchPlan.maxConcurrentBatches) {
         const freeThreads = sumValues(hostFreeRam(ns, hostsSnapshot)) / Math.max(rams.weaken, 1)
         if (freeThreads >= MIN_SECONDARY_THREADS) {
-          const secondTarget = pickTarget(ns, null, new Set([primary.target]))
+          const secondPicked = pickTarget(ns, null, new Set([primary.target]))
+          const secondTarget = secondPicked.target
           if (secondTarget) {
             ns.print(`${secondTarget}: starting secondary target — primary saturated with spare pooled RAM.`)
-            secondary = { target: secondTarget, mode: null, batchPlan: null, desyncStrikes: 0, inFlightBatches: [] }
+            addMoneyFarmLog(ns, {
+              action: 'change-target',
+              oldTarget: '(none)',
+              target: secondTarget,
+              score: secondPicked.score,
+            })
+            secondary = { target: secondTarget, mode: null, batchPlan: null, desyncStrikes: 0, inFlightBatches: [], lastLoggedSnapshot: null }
           }
         }
       }
