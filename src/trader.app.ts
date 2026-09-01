@@ -177,14 +177,27 @@ function affordableShares(ns: NS, sym: string, position: 'L' | 'S', budget: numb
 }
 
 /**
- * Expected size of a favorable move, used only to compare against
- * transaction cost in the entry edge check below - the game's own
- * volatility when 4S is available, else the momentum window's own noise
- * floor (the same value that gated the momentum signal into existing at
- * all).
+ * Expected size of a favorable move over a realistic holding period,
+ * compared against round-trip cost in the entry edge check below.
+ *
+ * This has to be scaled to roughly the same horizon a position is
+ * actually expected to be held for (signals persist for tens of ticks -
+ * see trader/signal.ts's WINDOW_TICKS comment), not a single tick: spread
+ * alone runs ~1.2% (this project's stock-stats.txt sample) and per-tick
+ * volatility sits in the same ~0.5-2.5% range, so comparing a round-trip
+ * cost paid once against a single tick's expected move made the edge
+ * check nearly unsatisfiable regardless of signal quality - the actual
+ * bug behind an early run that logged nothing but no-trade snapshots.
+ *
+ * Momentum already measures a real WINDOW_TICKS-long move directly, so its
+ * magnitude is used as-is. The 4S branch only has a per-tick volatility
+ * number, so it's scaled to the same horizon via random-walk sqrt(time)
+ * scaling.
  */
 function expectedMoveFraction(ns: NS, sym: string, has4SData: boolean, window: PriceWindow): number {
-  return has4SData ? ns.stock.getVolatility(sym) : window.noiseFloor(sym)
+  return has4SData
+    ? ns.stock.getVolatility(sym) * Math.sqrt(WINDOW_TICKS)
+    : window.trailingMoveMagnitude(sym)
 }
 
 /**

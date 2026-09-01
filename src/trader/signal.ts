@@ -75,21 +75,39 @@ export class PriceWindow {
     return returns
   }
 
+  private trailingReturn(sym: string): number {
+    const arr = this.mids.get(sym)
+    if (!arr || arr.length <= WINDOW_TICKS)
+      return 0
+    return arr[arr.length - 1] / arr[0] - 1
+  }
+
   /**
    * Stddev of tick-over-tick returns - the "is this move real" noise floor
-   * used both by getMomentumSignal and as the no-4S expected-move estimate
-   * in trader.app.ts's entry edge check.
+   * used by getMomentumSignal to decide whether a trailing move is signal
+   * or noise.
    */
   noiseFloor(sym: string): number {
     return stddev(this.tickReturns(sym))
+  }
+
+  /**
+   * |trailing WINDOW_TICKS return| - the actual measured move already in
+   * motion. Used by trader.app.ts's entry edge check as the expected-move
+   * estimate for a momentum-sourced signal, instead of noiseFloor's
+   * single-tick magnitude - see that function's own comment for why a
+   * single tick's volatility was the wrong horizon to compare a
+   * paid-once round-trip cost against.
+   */
+  trailingMoveMagnitude(sym: string): number {
+    return Math.abs(this.trailingReturn(sym))
   }
 
   getMomentumSignal(sym: string): TradeSignal {
     if (!this.isReady(sym))
       return NO_SIGNAL
 
-    const arr = this.mids.get(sym)!
-    const trailingReturn = arr[arr.length - 1] / arr[0] - 1
+    const trailingReturn = this.trailingReturn(sym)
     const noiseFloor = this.noiseFloor(sym)
     if (noiseFloor === 0 || Math.abs(trailingReturn) < noiseFloor)
       return NO_SIGNAL
