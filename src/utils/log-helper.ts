@@ -1,13 +1,41 @@
 import type { NS } from '@ns'
-import type { InferSchema, ObjectSchema, Schema, Shape } from './tiny-schema/types'
-import { combine } from './tiny-schema/combine'
+import type { InferSchema, Schema } from './tiny-schema/types'
+import { schema } from './tiny-schema/core'
 import { number } from './tiny-schema/number'
-import { object } from './tiny-schema/object'
 
-export function logSchema<S extends Shape>(content: ObjectSchema<S>) {
-  return combine(object({
-    ts: number(),
-  }), content)
+/**
+ * Wraps a content schema with a `ts` timestamp field, the same way
+ * `addLog` stamps every write with `{ ts: Date.now(), ...input }`.
+ *
+ * Takes any `Schema<T>` rather than requiring `ObjectSchema` — in
+ * particular `content` can be `or(objectA, objectB)`, a schema whose
+ * output is a *union*, not a single object shape (`combine`'s
+ * `ObjectSchema<A & B>` only fits when there's one shape to merge `ts`
+ * into; a discriminated union of variant entries needs `ts` distributed
+ * across each variant instead, which `{ ts: number } & T` does for free
+ * when `T` is a union). See `contracts/state-file/types.ts` for the
+ * single-shape case (`logSchema(combine(...))`) and
+ * `ui/utils/money-farm-log.ts` for the union case.
+ */
+export function logSchema<T>(content: Schema<T>): Schema<{ ts: number } & T> {
+  const tsField = number()
+
+  return schema({
+    validate(input: unknown): { ts: number } & T {
+      if (
+        typeof input !== 'object'
+        || input === null
+        || Array.isArray(input)
+      ) {
+        throw new TypeError('Expected object')
+      }
+
+      const ts = tsField.validate((input as Record<string, unknown>).ts)
+      const rest = content.validate(input)
+
+      return { ts, ...rest } as { ts: number } & T
+    },
+  })
 }
 
 let saves = 0
