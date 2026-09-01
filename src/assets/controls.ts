@@ -197,6 +197,12 @@ export const controlsStyle = `
     min-width: 0;
 }
 
+.bb-card.headless {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-top: none;
+}
+
 .bb-card-header {
     border-bottom: 1px solid var(--bb-theme-primarydark, #0b0f0b);
     padding: 8px;

@@ -1,8 +1,6 @@
 import type { CloudServerRow } from '../../../utils/cloud-list'
+import type { useMoneyFarm } from '../logic/use-money-farm'
 import React from '@react'
-import { InstanceManager } from '../../../components/instance-manager'
-import { TitlebarToolbar } from '../../../components/window/titlebar-toolbar'
-import { useMoneyFarm } from '../logic/use-money-farm'
 import { MoneyFarmServerCard } from './server-card'
 
 /**
@@ -10,8 +8,13 @@ import { MoneyFarmServerCard } from './server-card'
  * See `../index.ts`'s header comment for what this app does and why —
  * mirrors `../../xp-farm/components/xp-farm-content.tsx` exactly.
  */
-export function MoneyFarmContent() {
-  const mf = useMoneyFarm()
+export function MoneyFarmContent(props: {
+  mf: ReturnType<typeof useMoneyFarm>
+}) {
+  const {
+    mf,
+  } = props
+  // const mf = useMoneyFarm()
 
   const cards = mf.servers.map((s: CloudServerRow) => (
     <MoneyFarmServerCard key={s.hostname} mf={mf} s={s} />
@@ -19,19 +22,6 @@ export function MoneyFarmContent() {
 
   return (
     <>
-      <TitlebarToolbar>
-        <InstanceManager
-          filename="daemons/money-farm.daemon.js"
-          host="home"
-        />
-        <button
-          onClick={() => void mf.refresh()}
-          disabled={mf.loading}
-          className="bb-icon-link"
-        >
-          🗘
-        </button>
-      </TitlebarToolbar>
       <div>
         <div
           className="bb-text-warning"
@@ -60,7 +50,7 @@ export function MoneyFarmContent() {
           style={{
             display: 'grid',
             gridTemplateColumns:
-                        'repeat(auto-fill, minmax(260px, 1fr))',
+                        'repeat(auto-fill, minmax(180px, 1fr))',
             gap: '8px',
           }}
         >
