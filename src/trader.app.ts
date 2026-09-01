@@ -1,0 +1,345 @@
+import type { NS } from '@ns'
+import type { TradeSignal } from './trader/signal'
+import { parseStockStatsLog, STOCK_STATS_LOG_FILE } from './stock-stats/state-file'
+import { getSignal, PriceWindow, WINDOW_TICKS } from './trader/signal'
+import { recordTraderEvent } from './trader/state-file'
+import { arg, parseArgs } from './utils/args'
+import { formatMoney } from './utils/format/game'
+
+/**
+ * Long-lived, unrestricted-ns trading loop (no UI, no cgd - same category
+ * as stock-stats.app.ts/hacknet.app.ts). Opens/closes long and (when
+ * SF8/BitNode-8 allows it) short positions off ns.stock.getForecast (when
+ * 4S Market Data TIX API is owned) or trader/signal.ts's rolling-window
+ * momentum fallback otherwise. Every ns.stock.getPurchaseCost/getSaleGain
+ * call already bakes in commission/spread/price-impact, so there's no
+ * separate "$100k penalty" constant anywhere in here - it's just always
+ * priced in by those two functions.
+ *
+ * Live by default: `run trader.app.js` executes real trades. Pass
+ * --dry-run to only log what it would have done.
+ */
+
+const MAX_CONCURRENT_POSITIONS = 5
+const POSITION_FRACTION_OF_CASH = 0.1
+const MIN_EDGE_MULTIPLE = 2
+const STOP_LOSS_PCT = 0.08
+const MAX_DRAWDOWN_PCT = 0.20
+
+interface Position {
+  sym: string
+  sharesLong: number
+  avgLongPrice: number
+  sharesShort: number
+  avgShortPrice: number
+}
+
+function getPosition(ns: NS, sym: string): Position {
+  const [sharesLong, avgLongPrice, sharesShort, avgShortPrice] = ns.stock.getPosition(sym)
+  return { sym, sharesLong, avgLongPrice, sharesShort, avgShortPrice }
+}
+
+/**
+ * The real short-sell gate (checkSFAccess(ctx, 2) in the game's own source)
+ * is `bitNodeN === 8 || activeSourceFileLvl(8) >= 2` - getResetInfo exposes
+ * both halves directly, and unlike Singularity functions isn't RAM-gated,
+ * so this is a plain, side-effect-free check rather than a probe trade.
+ */
+function canShort(ns: NS): boolean {
+  const info = ns.getResetInfo()
+  return info.currentNode === 8 || (info.ownedSF.get(8) ?? 0) >= 2
+}
+
+/**
+ * Real liquidation value of one position - what getSaleGain would return
+ * for actually closing it right now, not a naive shares*price estimate.
+ */
+function positionValue(ns: NS, pos: Position): number {
+  let value = 0
+  if (pos.sharesLong > 0)
+    value += ns.stock.getSaleGain(pos.sym, pos.sharesLong, 'L')
+  if (pos.sharesShort > 0)
+    value += ns.stock.getSaleGain(pos.sym, pos.sharesShort, 'S')
+  return value
+}
+
+function portfolioValue(ns: NS, symbols: string[]): number {
+  let value = ns.getPlayer().money
+  for (const sym of symbols)
+    value += positionValue(ns, getPosition(ns, sym))
+  return value
+}
+
+/**
+ * Warm-starts `window` from stock-stats.txt, discarding anything from
+ * before this life's last reset - a prior life's price levels are
+ * meaningless here (see this project's own stock-stats.txt analysis: same
+ * symbols/starting metadata every life, but a fresh random walk each time).
+ */
+function warmStart(ns: NS, window: PriceWindow, symbols: string[]) {
+  if (!ns.fileExists(STOCK_STATS_LOG_FILE))
+    return
+
+  const info = ns.getResetInfo()
+  const cutoff = Math.max(info.lastAugReset, info.lastNodeReset)
+  const entries = parseStockStatsLog(ns.read(STOCK_STATS_LOG_FILE))
+    .filter(e => e.ts > cutoff)
+    .slice(-(WINDOW_TICKS + 1))
+
+  for (const sym of symbols) {
+    const mids = entries
+      .filter(e => sym in e.prices)
+      .map(e => (e.prices[sym].ask + e.prices[sym].bid) / 2)
+    if (mids.length > 0)
+      window.seed(sym, mids)
+  }
+}
+
+function logTrade(
+  ns: NS,
+  symbols: string[],
+  sym: string,
+  action: 'buy' | 'sell' | 'buyShort' | 'sellShort',
+  shares: number,
+  price: number,
+  signal: TradeSignal,
+  dryRun: boolean,
+  reason: 'entry' | 'signal-reversed' | 'stop-loss',
+) {
+  recordTraderEvent(ns, {
+    type: 'trade',
+    cash: ns.getPlayer().money,
+    portfolioValue: portfolioValue(ns, symbols),
+    symbol: sym,
+    action,
+    shares,
+    price,
+    // An exit can fire on a neutral signal (direction === null just means
+    // "no longer matches the held position's side either") - the schema's
+    // direction field is a plain string, so normalize null to a label here
+    // rather than threading null through tiny-schema.
+    signal: { direction: signal.direction ?? 'neutral', strength: signal.strength },
+    reason,
+    dryRun,
+  })
+}
+
+/**
+ * Exits (or would-exit, in --dry-run) one held position if its signal has
+ * reversed or its unrealized P&L has breached STOP_LOSS_PCT. Returns
+ * whether a trade happened.
+ */
+function tryExit(ns: NS, symbols: string[], pos: Position, signal: TradeSignal, dryRun: boolean): boolean {
+  if (pos.sharesLong > 0) {
+    const costBasis = pos.avgLongPrice * pos.sharesLong
+    const unrealizedPct = (ns.stock.getSaleGain(pos.sym, pos.sharesLong, 'L') - costBasis) / costBasis
+    const reversed = signal.direction !== 'long'
+    const stopped = unrealizedPct <= -STOP_LOSS_PCT
+    if (reversed || stopped) {
+      const price = dryRun ? ns.stock.getBidPrice(pos.sym) : ns.stock.sellStock(pos.sym, pos.sharesLong)
+      logTrade(ns, symbols, pos.sym, 'sell', pos.sharesLong, price, signal, dryRun, stopped ? 'stop-loss' : 'signal-reversed')
+      return true
+    }
+  }
+
+  if (pos.sharesShort > 0) {
+    const costBasis = pos.avgShortPrice * pos.sharesShort
+    const unrealizedPct = (ns.stock.getSaleGain(pos.sym, pos.sharesShort, 'S') - costBasis) / costBasis
+    const reversed = signal.direction !== 'short'
+    const stopped = unrealizedPct <= -STOP_LOSS_PCT
+    if (reversed || stopped) {
+      const price = dryRun ? ns.stock.getAskPrice(pos.sym) : ns.stock.sellShort(pos.sym, pos.sharesShort)
+      logTrade(ns, symbols, pos.sym, 'sellShort', pos.sharesShort, price, signal, dryRun, stopped ? 'stop-loss' : 'signal-reversed')
+      return true
+    }
+  }
+
+  return false
+}
+
+/**
+ * Shares affordable within `budget`, capped by getMaxShares. getPurchaseCost
+ * isn't linear (spread + large-order price impact), so the naive
+ * budget/price estimate is stepped down until it actually fits.
+ */
+function affordableShares(ns: NS, sym: string, position: 'L' | 'S', budget: number): number {
+  const price = position === 'L' ? ns.stock.getAskPrice(sym) : ns.stock.getBidPrice(sym)
+  let shares = Math.min(Math.floor(budget / price), ns.stock.getMaxShares(sym))
+
+  for (let i = 0; i < 5 && shares > 0; i++) {
+    const cost = ns.stock.getPurchaseCost(sym, shares, position)
+    if (cost <= budget)
+      break
+    shares = Math.floor(shares * (budget / cost))
+  }
+
+  return Math.max(0, shares)
+}
+
+/**
+ * Expected size of a favorable move, used only to compare against
+ * transaction cost in the entry edge check below - the game's own
+ * volatility when 4S is available, else the momentum window's own noise
+ * floor (the same value that gated the momentum signal into existing at
+ * all).
+ */
+function expectedMoveFraction(ns: NS, sym: string, has4SData: boolean, window: PriceWindow): number {
+  return has4SData ? ns.stock.getVolatility(sym) : window.noiseFloor(sym)
+}
+
+/**
+ * Opens (or would-open, in --dry-run) a position in `sym` if it clears the
+ * entry edge check: expected profit at MIN_EDGE_MULTIPLE margin over the
+ * round-trip cost (buy now, sell now - spread + commission + price
+ * impact, all via getPurchaseCost/getSaleGain) of doing so. Returns
+ * whether a trade happened.
+ */
+function tryEnter(ns: NS, symbols: string[], sym: string, signal: TradeSignal, has4SData: boolean, window: PriceWindow, dryRun: boolean): boolean {
+  const budget = ns.getPlayer().money * POSITION_FRACTION_OF_CASH
+  const position: 'L' | 'S' = signal.direction === 'long' ? 'L' : 'S'
+
+  const shares = affordableShares(ns, sym, position, budget)
+  if (shares <= 0)
+    return false
+
+  const cost = ns.stock.getPurchaseCost(sym, shares, position)
+  const roundTripCost = cost - ns.stock.getSaleGain(sym, shares, position)
+  const expectedProfit = cost * expectedMoveFraction(ns, sym, has4SData, window)
+  if (roundTripCost <= 0 || expectedProfit < MIN_EDGE_MULTIPLE * roundTripCost)
+    return false
+
+  const action = position === 'L' ? 'buy' : 'buyShort'
+  const price = dryRun
+    ? (position === 'L' ? ns.stock.getAskPrice(sym) : ns.stock.getBidPrice(sym))
+    : (position === 'L' ? ns.stock.buyStock(sym, shares) : ns.stock.buyShort(sym, shares))
+
+  // A live purchase can still fail (price moved, funds changed) between
+  // the check above and the call - 0 means nothing was actually bought.
+  if (!dryRun && price === 0)
+    return false
+
+  logTrade(ns, symbols, sym, action, shares, price, signal, dryRun, 'entry')
+  return true
+}
+
+export async function main(ns: NS) {
+  ns.disableLog('ALL')
+
+  const flags = parseArgs(ns, [
+    arg('dry-run', false, 'Log intended trades without executing them', 'd'),
+  ])
+  const dryRun = Boolean(flags['dry-run'])
+
+  // Same auto-purchase gate as stock-stats.app.ts - see its own comment for
+  // why this covers both "buy it" and "confirm we already have it".
+  if (!ns.stock.purchaseTixApi()) {
+    const cost = ns.stock.getConstants().TixApiCost
+    const money = ns.getPlayer().money
+    ns.tprint(`ERROR: trader needs TIX API access and the automatic purchase failed - need ${formatMoney(cost)}, have ${formatMoney(money)}.`)
+    return
+  }
+
+  // Refuse to run alongside another live instance - two copies would race
+  // to open/close the same positions against each other.
+  const dupe = ns.ps('home').find(p => p.filename === ns.getScriptName() && p.pid !== ns.pid)
+  if (dupe) {
+    ns.tprint(`WARNING: ${ns.getScriptName()} is already running (pid ${dupe.pid}) - exiting.`)
+    return
+  }
+
+  const symbols = ns.stock.getSymbols()
+  const has4SData = ns.stock.has4SDataTixApi()
+  const shortAllowed = canShort(ns)
+
+  const window = new PriceWindow()
+  warmStart(ns, window, symbols)
+
+  const sessionStartValue = portfolioValue(ns, symbols)
+  let halted = false
+
+  ns.tprint(
+    `Started${dryRun ? ' (dry-run)' : ''} - ${symbols.length} symbols, `
+    + `4S=${has4SData}, shorting=${shortAllowed}, baseline=${formatMoney(sessionStartValue)}.`,
+  )
+
+  while (true) {
+    await ns.stock.nextUpdate()
+
+    try {
+      for (const sym of symbols)
+        window.push(sym, (ns.stock.getAskPrice(sym) + ns.stock.getBidPrice(sym)) / 2)
+
+      let tradedThisTick = false
+
+      // Exits first, so a position that closes this tick can free a slot
+      // an entry considers later in the same tick.
+      for (const sym of symbols) {
+        const pos = getPosition(ns, sym)
+        if (pos.sharesLong === 0 && pos.sharesShort === 0)
+          continue
+        const signal = getSignal(ns, sym, has4SData, window)
+        if (tryExit(ns, symbols, pos, signal, dryRun))
+          tradedThisTick = true
+      }
+
+      // Circuit breaker: halts new entries (never exits/stop-losses) once
+      // the session's cumulative drawdown crosses MAX_DRAWDOWN_PCT, and
+      // un-halts if it recovers.
+      const currentValue = portfolioValue(ns, symbols)
+      const drawdown = (sessionStartValue - currentValue) / sessionStartValue
+      if (!halted && drawdown >= MAX_DRAWDOWN_PCT) {
+        halted = true
+        ns.tprint(`WARNING: trader halted - portfolio down ${(drawdown * 100).toFixed(1)}% from session start (${formatMoney(sessionStartValue)} -> ${formatMoney(currentValue)}). New entries stopped; existing positions still managed.`)
+        recordTraderEvent(ns, { type: 'halt', cash: ns.getPlayer().money, portfolioValue: currentValue })
+      }
+      else if (halted && drawdown < MAX_DRAWDOWN_PCT) {
+        halted = false
+        ns.tprint(`Trader resumed - portfolio recovered to ${formatMoney(currentValue)}.`)
+        recordTraderEvent(ns, { type: 'resume', cash: ns.getPlayer().money, portfolioValue: currentValue })
+      }
+
+      if (!halted) {
+        const openSymbols = new Set(
+          symbols.filter((sym) => {
+            const pos = getPosition(ns, sym)
+            return pos.sharesLong > 0 || pos.sharesShort > 0
+          }),
+        )
+        const openSlots = MAX_CONCURRENT_POSITIONS - openSymbols.size
+
+        if (openSlots > 0) {
+          const candidates: { sym: string, signal: TradeSignal }[] = []
+          for (const sym of symbols) {
+            if (openSymbols.has(sym))
+              continue
+            const signal = getSignal(ns, sym, has4SData, window)
+            if (signal.direction === null)
+              continue
+            if (signal.direction === 'short' && !shortAllowed)
+              continue
+            candidates.push({ sym, signal })
+          }
+          candidates.sort((a, b) => b.signal.strength - a.signal.strength)
+
+          for (const { sym, signal } of candidates.slice(0, openSlots)) {
+            if (tryEnter(ns, symbols, sym, signal, has4SData, window, dryRun))
+              tradedThisTick = true
+          }
+        }
+      }
+
+      if (!tradedThisTick) {
+        recordTraderEvent(ns, {
+          type: 'snapshot',
+          cash: ns.getPlayer().money,
+          portfolioValue: portfolioValue(ns, symbols),
+        })
+      }
+    }
+    catch (error) {
+      // One bad tick (e.g. a transient ns.stock error) must not kill the
+      // whole daemon and abandon open positions unmanaged.
+      ns.print(`ERROR during tick: ${String(error)}`)
+    }
+  }
+}
