@@ -1,5 +1,6 @@
 import type { CloudServersState } from '../logic/use-cloud-servers'
 import React from '@react'
+import { formatRam } from '../../../../utils/format/game'
 
 /**
  * The Slave Nodes tab's body: every rooted, non-purchased, non-`home` host
@@ -78,9 +79,8 @@ export function SlaveNodeChecklist({
                   {h.hostname}
                   {' '}
                   (
-                  {h.ram}
-                  {' '}
-                  GB)
+                  {formatRam(h.ram)}
+                  )
                 </span>
               </span>
               {busy

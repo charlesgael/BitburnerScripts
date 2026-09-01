@@ -1,5 +1,6 @@
 import type { CloudServerRow } from '../../../utils/cloud-list'
 import React from '@react'
+import { InstanceManager } from '../../../components/instance-manager'
 import { TitlebarToolbar } from '../../../components/window/titlebar-toolbar'
 import { useXpFarm } from '../logic/use-xp-farm'
 import { XpFarmServerCard } from './server-card'
@@ -25,6 +26,10 @@ export function XpFarmContent() {
   return (
     <>
       <TitlebarToolbar>
+        <InstanceManager
+          filename="daemons/xp-farm.daemon.js"
+          host="home"
+        />
         <button
           onClick={() => void xf.refresh()}
           disabled={xf.loading}
@@ -34,69 +39,6 @@ export function XpFarmContent() {
         </button>
       </TitlebarToolbar>
       <div>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            fontSize: '12px',
-            marginBottom: '8px',
-          }}
-        >
-          <span>
-            Dedicated:
-            {xf.enabled.size}
-          </span>
-        </div>
-
-        <div
-          className="bb-divider-bottom"
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            fontSize: '12px',
-            marginBottom: '10px',
-            paddingBottom: '8px',
-          }}
-        >
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            Daemon:
-            {' '}
-            {xf.daemonRunning ? 'Running' : 'Stopped'}
-          </span>
-          <div style={{ display: 'flex', gap: '6px' }}>
-            {xf.daemonRunning
-              ? (
-                  <button
-                    onClick={() => void xf.openLog()}
-                    title="Open the daemon's log window"
-                    className="bb-btn"
-                  >
-                    📃
-                  </button>
-                )
-              : null}
-            <button
-              onClick={() => void xf.toggleDaemon()}
-              disabled={xf.daemonBusy}
-              className={`bb-btn bb-btn--wide${xf.daemonRunning ? ' bb-btn-danger' : ''}`}
-            >
-              {xf.daemonBusy
-                ? '...'
-                : xf.daemonRunning
-                  ? 'Kill'
-                  : 'Spawn'}
-            </button>
-          </div>
-        </div>
-
         {xf.error
           ? (
               <div

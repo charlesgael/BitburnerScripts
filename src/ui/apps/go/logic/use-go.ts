@@ -1,13 +1,13 @@
 import type { GoLiveState, GoLogSummary } from '../../../../go/state-file'
 import React from '@react'
 import {
-    GO_GAME_LOG_FILE,
-    GO_HOST,
-    GO_LIVE_STATE_FILE,
-    GO_SCRIPT,
-    parseGameLog,
-    parseLiveState,
-    summarizeGameLog,
+  GO_GAME_LOG_FILE,
+  GO_HOST,
+  GO_LIVE_STATE_FILE,
+  GO_SCRIPT,
+  parseGameLog,
+  parseLiveState,
+  summarizeGameLog,
 } from '../../../../go/state-file'
 import { useQueuedNs } from '../../../context/ns-queue-context'
 
@@ -84,8 +84,14 @@ export function useGo() {
   }, [])
 
   async function openLog() {
-    await ns._ui._renderTail(running)
-    ns._ui._moveTail(285, 5, running)
+    const {
+      args,
+      pid,
+    } = await ns._ps(GO_HOST).then(pr => pr.find(it => it.filename === GO_SCRIPT)) ?? {}
+    if (args && pid) {
+      await ns._ui._openTail(GO_SCRIPT, GO_HOST, ...args)
+      ns._ui._moveTail(285, 5, pid)
+    }
   }
 
   async function toggle() {

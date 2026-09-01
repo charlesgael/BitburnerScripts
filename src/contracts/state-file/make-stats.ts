@@ -1,4 +1,6 @@
 import type { ContractsLogEntry } from './types'
+import { formatMoney, formatNumber } from '../../utils/format/game'
+import { pluralize } from '../../utils/format/string'
 
 /// TYPES
 
@@ -22,6 +24,8 @@ export interface ContractLogSummary {
     companyReputation: Record<string, number>
     factionReputation: Record<string, number>
   }
+
+  log: ContractsLogEntry[]
 }
 
 export interface ContractTypeSummary {
@@ -161,6 +165,7 @@ export function summarizeContractLog(
         factionReputation: {},
       },
       contractsLastHour: 0,
+      log: [],
     }
   }
 
@@ -184,6 +189,30 @@ export function summarizeContractLog(
       companyReputation: {},
       factionReputation: {},
     },
+    log: entries.map((entry) => {
+      if (entry.reward) {
+        const reward = parseContractReward(entry.reward)
+        let rString = ''
+        switch (reward.type) {
+          case 'money':
+            rString = `+${formatMoney(reward.amount)}`
+            break
+
+          case 'company':
+            rString = `+${formatNumber(reward.amount)} to ${reward.company}`
+            break
+
+          case 'faction':
+            rString = `+${formatNumber(reward.amount)} to ${pluralize(reward.factions.length, 'faction', 'factions')}`
+            break
+        }
+        return {
+          ...entry,
+          reward: rString,
+        }
+      }
+      return entry
+    }),
   }
 
   const now = Date.now()

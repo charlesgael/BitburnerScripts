@@ -27,5 +27,9 @@ type ReactDOMInt = typeof ReactDOMOrig
 // since the game's own React instance is never torn down and remounted —
 // only a full page reload would do that, and that kills this script's
 // process too.
-export default getWinGlobals().win.React as ReactInt
+const R = getWinGlobals().win.React as ReactInt
+export default R
 export const ReactDOM = getWinGlobals().win.ReactDOM as ReactDOMInt
+export const useState = R.useState
+export const useEffect = R.useEffect
+export const useRef = R.useRef

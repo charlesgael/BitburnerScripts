@@ -2,6 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Approach
+
+- Read existing files before writing. Don't re-read unless changed.
+- Thorough in reasoning, concise in output.
+- Skip files over 100KB unless required.
+- No sycophantic openers or closing fluff.
+- No emojis or em-dashes.
+- Do not guess APIs, versions, flags, commit SHAs, or package names. Verify by reading code or docs before asserting.
+
 ## What this is
 
 Scripts for the idle hacking game [Bitburner](https://store.steampowered.com/app/1812820/Bitburner/), written in
@@ -281,11 +290,11 @@ Mechanics, if you're touching this:
   (types intact) rather than already-stripped JS — the spliced-in declarations get stripped of their types by that
   same later esbuild pass, like the rest of the file, rather than this plugin needing to run esbuild itself.
 - v1 scope is deliberately narrow, not general import-merging: only relative specifiers are resolved (no aliases
-  like `@react`); the target file's *own* imports must all be type-only, named, and unaliased (its `import type`
+  like `@react`); the target file's _own_ imports must all be type-only, named, and unaliased (its `import type`
   bindings get merged/deduped into the importing file's existing type imports) — a value-level import in the
-  target fails the build with a clear error rather than silently producing broken output; and the *entire* target
+  target fails the build with a clear error rather than silently producing broken output; and the _entire_ target
   file's declarations are copied over, not just the specific names the flagged import listed.
-- Known gap: in `npm start`'s live dev push, editing the *target* file alone doesn't currently retrigger a re-push
+- Known gap: in `npm start`'s live dev push, editing the _target_ file alone doesn't currently retrigger a re-push
   of whichever file inlined it — touch the importing file to force a refresh. Viteburner's own chokidar-driven push
   and Vite's `addWatchFile`-based module-graph invalidation are separate mechanisms; this plugin only wires up the
   latter.

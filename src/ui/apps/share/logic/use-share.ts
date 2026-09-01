@@ -60,6 +60,8 @@ export function useShare() {
   // exactly like a cloud host is, not treated as a special case.
   React.useEffect(() => {
     void refresh()
+    const interval = setInterval(refresh, 3000)
+    return () => clearInterval(interval)
   }, [])
 
   // Patches a single cloud host's usedRam in place — how a card reports

@@ -1,6 +1,6 @@
 import type { NS, Server } from '@ns'
 import { parseArgs } from './utils/args'
-import { formatMoney } from './utils/format/numbers'
+import { formatMoney } from './utils/format/game'
 
 /**
  * `React` only exists as the game's `window.React` global (see
@@ -272,6 +272,7 @@ function Badge({ text, color }: BadgeProps) {
 }
 
 interface TreeRowProps {
+  ns: NS
   dom: Dom
   node: TreeNode
   ancestorPrefix: string
@@ -292,10 +293,8 @@ function nodeColor(
   if (server.purchasedByPlayer)
     return THEME.blue
   if (
-    server.requiredHackingSkill
-    && server.requiredHackingSkill <= playerHackLevel
-    && server.numOpenPortsRequired
-    && server.numOpenPortsRequired <= exploitCount
+    (server.requiredHackingSkill || 0) <= playerHackLevel
+    && (server.numOpenPortsRequired || 0) <= exploitCount
   ) {
     return THEME.red
   }
@@ -304,6 +303,7 @@ function nodeColor(
 
 /** One row (hostname link + badges) plus, recursively, every row below it — box-drawing connectors instead of the classic `ns.scan` tree's ASCII `\--`. */
 function TreeRow({
+  ns,
   dom,
   node,
   ancestorPrefix,
@@ -355,7 +355,7 @@ function TreeRow({
           : null}
         {flags.ram && server.maxRam
           ? (
-              <Badge text={`${server.maxRam}GB`} color={THEME.int} />
+              <Badge text={ns.format.ram(server.maxRam)} color={THEME.int} />
             )
           : null}
         {flags.level && server.requiredHackingSkill
@@ -402,6 +402,7 @@ function TreeRow({
       {node.children.map((child, index) => (
         <TreeRow
           key={child.host}
+          ns={ns}
           dom={dom}
           node={child}
           ancestorPrefix={childPrefix}
@@ -417,6 +418,7 @@ function TreeRow({
 }
 
 interface NetworkMapProps {
+  ns: NS
   dom: Dom
   root: TreeNode
   flags: DisplayFlags
@@ -425,6 +427,7 @@ interface NetworkMapProps {
 }
 
 function NetworkMap({
+  ns,
   dom,
   root,
   flags,
@@ -443,6 +446,7 @@ function NetworkMap({
       }}
     >
       <TreeRow
+        ns={ns}
         dom={dom}
         node={root}
         ancestorPrefix=""
@@ -558,6 +562,7 @@ export async function main(ns: NS) {
   }
   ns.tprintRaw(
     <NetworkMap
+      ns={ns}
       dom={dom}
       root={root}
       flags={flags}

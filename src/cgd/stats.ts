@@ -1,5 +1,5 @@
 import type { NS } from '@ns'
-import { formatCompact } from '../utils/format/numbers'
+import { formatNumber } from '../utils/format/game'
 
 /**
  * Stat providers a tiered daemon computes each idle tick and pushes into
@@ -80,7 +80,7 @@ export const BASELINE_STAT_PROVIDERS: StatProvider[] = [
       for (let i = 0; i < count; i++) {
         perSecond += (ns.hacknet.getNodeStats(i)).production
       }
-      return { kind: 'text', label: 'Hacknet', value: `$${formatCompact(perSecond)}/s` }
+      return { kind: 'text', label: 'Hacknet', value: `$${formatNumber(perSecond)}/s` }
     },
   },
 ]

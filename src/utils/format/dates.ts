@@ -18,3 +18,10 @@ export function formatHour(ts: number): string {
     hourCycle: 'h23',
   }).format(new Date(ts))
 }
+
+export function formatMediumHour(ts: number): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeStyle: 'medium',
+    hourCycle: 'h23',
+  }).format(new Date(ts))
+}

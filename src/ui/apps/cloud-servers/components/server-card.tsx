@@ -1,6 +1,7 @@
 import type { CloudServerRow } from '../../../utils/cloud-list'
 import type { CloudServersState } from '../logic/use-cloud-servers'
 import React from '@react'
+import { formatRam } from '../../../../utils/format/game'
 
 /**
  * One purchased server's card: hostname + used/total RAM, a thin usage
@@ -28,12 +29,10 @@ export function CloudServerCard({
           {s.hostname}
           {' '}
           (
-          {s.ramUsed.toFixed(1)}
-          {' '}
+          {formatRam(s.ramUsed)}
           /
-          {s.maxRam}
-          {' '}
-          GB)
+          {formatRam(s.maxRam)}
+          )
         </span>
         <button
           onClick={() => cs.handleDeleteClick(s.hostname)}

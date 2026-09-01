@@ -1,5 +1,6 @@
 import type { ManagedAppDefinition } from '../logic/types'
 import React from '@react'
+import { formatRam } from '../../../../utils/format/game'
 import { taskKey } from '../logic/task-key'
 import { useTaskManager } from '../logic/use-task-manager'
 import { SpawnRow } from './spawn-row'
@@ -37,13 +38,9 @@ export function TaskManagerBody({
       </div>
       <div style={{ fontSize: '11px', opacity: 0.85, marginTop: '4px', textAlign: 'right' }}>
         home:
-        {' '}
-        {tm.homeRam.used.toFixed(2)}
-        {' '}
+        {formatRam(tm.homeRam.used)}
         /
-        {tm.homeRam.max.toFixed(2)}
-        {' '}
-        GB
+        {formatRam(tm.homeRam.max)}
       </div>
     </div>
   )

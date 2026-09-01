@@ -1,5 +1,6 @@
 import type { Server } from '@ns'
 import React from '@react'
+import { formatRam } from '../../utils/format/game'
 import { ProgressBar } from './progress-bar'
 
 export function ServerCard({
@@ -25,12 +26,11 @@ export function ServerCard({
           {server.hostname}
         </span>
         <span style={{ opacity: 0.75 }}>
-          {server.ramUsed?.toFixed(1)}
+          {formatRam(server.ramUsed)}
           {' '}
           /
-          {server.maxRam?.toFixed(1)}
           {' '}
-          GB
+          {formatRam(server.maxRam)}
         </span>
       </div>
       {/* Thin per-server RAM usage bar, with a blue band marking the
@@ -44,9 +44,9 @@ export function ServerCard({
       {reserve
         ? (
             <div style={{ fontSize: '10px', opacity: 0.6 }}>
-              {reserve.toFixed(1)}
+              {formatRam(reserve)}
               {' '}
-              GB kept in reserve
+              kept in reserve
             </div>
           )
         : null}

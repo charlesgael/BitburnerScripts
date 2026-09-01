@@ -1,5 +1,5 @@
 import type { NS } from '@ns'
-import { formatMoney } from './utils/format/numbers'
+import { formatMoney } from './utils/format/game'
 
 async function buy_servers(ns: NS, ram: number) {
   while (ns.cloud.getServerNames().length < ns.cloud.getServerLimit()) {

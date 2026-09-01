@@ -5,11 +5,15 @@ import { iconForFile, isEditable } from '../../../utils/file-types'
 /**
  * The View/Edit screen — shown instead of the browse screen while
  * `fx.mode === "edit"`. See `../index.ts`'s header comment for the
- * View/Edit host restrictions this enforces.
+ * View/Edit host restrictions this enforces. Purely presentational, like
+ * every other component under `../components/` — the live-refresh polling
+ * this screen displays lives in `use-file-explorer.ts` itself, alongside
+ * every other `ns.*` interaction for this feature, not here.
  */
 export function EditScreen({ fx }: { fx: FileExplorerState }) {
   const editingPath = fx.editingPath as string
   const editable = isEditable(editingPath)
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '360px' }}>
       <div

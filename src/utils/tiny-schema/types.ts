@@ -8,12 +8,12 @@ export interface OptionalSchema<T> extends Schema<T | undefined> {
   readonly _optional: true
 }
 
-export interface StringSchema extends Schema<string> {
-  min: (length: number) => StringSchema
-  max: (length: number) => StringSchema
-  len: (length: number) => StringSchema
-  email: () => StringSchema
-  regex: (pattern: RegExp) => StringSchema
+export interface StringSchema<T extends string = string> extends Schema<T> {
+  min: (length: number) => StringSchema<T>
+  max: (length: number) => StringSchema<T>
+  len: (length: number) => StringSchema<T>
+  email: () => StringSchema<T>
+  regex: (pattern: RegExp) => StringSchema<T>
 }
 
 export interface NumberSchema extends Schema<number> {

@@ -1,6 +1,7 @@
 import type { ManagedAppDefinition, Task } from '../logic/types'
 import type { TaskManagerState } from '../logic/use-task-manager'
 import React from '@react'
+import { formatRam } from '../../../../utils/format/game'
 import { taskKey } from '../logic/task-key'
 
 /** One running task's row: its label/host/RAM, and Tail/Kill buttons. */
@@ -35,9 +36,8 @@ export function TaskRow({
         {task.host}
         {' '}
         (
-        {ram.toFixed(2)}
-        {' '}
-        GB)
+        {formatRam(ram)}
+        )
       </span>
       <div style={{ display: 'flex', gap: '6px' }}>
         <button

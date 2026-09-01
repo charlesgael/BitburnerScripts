@@ -3,6 +3,7 @@ import { CloudServersApp } from './cloud-servers'
 import { ContractsApp } from './contracts'
 import { FileExplorerApp } from './file-explorer'
 import { GoApp } from './go'
+import { MoneyFarmApp } from './money-farm'
 import { ProgramsApp } from './programs'
 import { ShareApp } from './share'
 import { TrainerApp } from './trainer'
@@ -22,6 +23,7 @@ export const APPS: AppDefinition[] = [
   CloudServersApp,
   ShareApp,
   XpFarmApp,
+  MoneyFarmApp,
   TrainerApp,
   GoApp,
   ContractsApp,

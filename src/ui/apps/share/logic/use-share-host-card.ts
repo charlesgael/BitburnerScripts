@@ -1,6 +1,7 @@
 import type { CloudServerRow } from '../../../utils/cloud-list'
 import type { QueuedNS } from '../../../utils/ns-proxy'
 import React from '@react'
+import { formatRam } from '../../../../utils/format/game'
 import { isHome } from '../../../logic/is-home'
 import { spawnRemote } from '../../../utils/spawn-remote'
 import { threadTiers } from './thread-tiers'
@@ -153,9 +154,9 @@ export function useShareHostCard(
       const requiredRam = selectedThreads * costPerThread
       if (selectedThreads < 1 || requiredRam > shareableRam) {
         setError(
-          `Not enough free RAM: ${selectedThreads} thread(s) needs ${requiredRam.toFixed(2)} GB, only `
-          + `${shareableRam.toFixed(2)} GB is shareable on ${host.hostname}${
-            isHome(host) ? ` (${reservedRam.toFixed(2)} GB kept in reserve).` : '.'}`,
+          `Not enough free RAM: ${selectedThreads} thread(s) needs ${formatRam(requiredRam)}, only `
+          + `${formatRam(shareableRam)} is shareable on ${host.hostname}${
+            isHome(host) ? ` (${formatRam(reservedRam)} kept in reserve).` : '.'}`,
         )
         return
       }

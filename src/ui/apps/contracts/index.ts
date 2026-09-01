@@ -8,4 +8,5 @@ export const ContractsApp: AppDefinition = {
   Content: ContractsDashboard,
   preferredWidth: 1200,
   preferredHeight: 700,
+  minDaemonTier: 2,
 }
