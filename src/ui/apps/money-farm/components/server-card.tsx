@@ -77,7 +77,7 @@ export function MoneyFarmServerCard({
                       </span>
                     )
                   : (
-                      '→ starting…'
+                      '→ idling'
                     )}
               </div>
             )

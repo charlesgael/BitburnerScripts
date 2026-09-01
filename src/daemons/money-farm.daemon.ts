@@ -9,8 +9,8 @@ import {
   MONEY_FARM_WEAKEN_SCRIPT as WEAKEN_SCRIPT,
 } from '../ui/utils/money-farm-config'
 import { addMoneyFarmLog } from '../ui/utils/money-farm-log'
-import { BATCH_SPACING, computeBatchPlan } from '../utils/hack-math'
-import { distributeThreads, splitGrowWeakenThreads } from '../utils/thread-balance'
+import { BATCH_SPACING, computeBatchPlan, computeHackMath } from '../utils/hack-math'
+import { distributeThreads } from '../utils/thread-balance'
 
 /**
  * Background orchestrator for the Money Farm feature (`ui/apps/money-farm/`).
@@ -23,11 +23,16 @@ import { distributeThreads, splitGrowWeakenThreads } from '../utils/thread-balan
  * every `STATE_CHECK_INTERVAL`:
  *
  * 1. **weaken** — target security is more than `SECURITY_EPSILON` above its
- *    minimum: every dedicated host's pooled RAM goes entirely to weaken().
+ *    minimum: enough weaken threads to close exactly that gap
+ *    (`ceil(securityGap / weakenAnalyze(1))`), not the pool's full
+ *    capacity — see `applyPrepMode`'s own header comment for why sizing
+ *    off capacity instead of actual need turned out to waste most of a
+ *    large fleet's dispatched threads.
  * 2. **grow-prep** — security is near minimum but money is below
- *    `PREP_MONEY_RATIO` of max: pooled RAM splits between grow/weaken via
- *    `splitGrowWeakenThreads` (the same ratio-balancing XP Farm uses to
- *    hold security flat while growing).
+ *    `PREP_MONEY_RATIO` of max: enough grow threads to close exactly that
+ *    money gap (`computeHackMath`'s `growThreadsFor`), plus enough weaken
+ *    threads to counteract exactly what that grow dispatch will actually
+ *    add to security.
  * 3. **farm** — security near minimum and money near max: a real HWGW
  *    (hack/weaken/grow/weaken) batch pipeline. `computeBatchPlan`
  *    (`utils/hack-math.ts`) sizes one batch (steal `HACK_FRACTION_PER_BATCH`
@@ -60,22 +65,25 @@ import { distributeThreads, splitGrowWeakenThreads } from '../utils/thread-balan
  *    smoothly staggered, draining a target's money well below what any
  *    single batch's own compensating grow leg could catch up on).
  *
- * **Two target sessions, not one.** `maxConcurrentBatches` deliberately
- * cape out around what's *safe* against one target, which in practice is
- * well below what a well-RAM'd fleet of dedicated hosts can actually
- * dispatch — confirmed live: a single target sat saturated while a large
- * share of pooled RAM sat idle. Rather than push more RAM at the same
- * target past its safety margin, a `primary` session farms the live-picked
- * best target as before; once `primary` is stably in `farm` mode *and*
- * saturated (`inFlightBatches.length >= maxConcurrentBatches`) *and*
- * pooled free RAM still clears `MIN_SECONDARY_THREADS`, a `secondary`
- * session opportunistically starts on the next-best target, sharing the
- * same host pool. `secondary` only ever exists while `primary` is farming
- * — the instant `primary` needs the pool back (any non-farm mode change,
- * including its own desync fallback), `secondary` is torn down first (see
- * `killSession`) so the two sessions' prep stages never have to negotiate
- * shared RAM. Capped at exactly two sessions — a general N-target
- * scheduler is out of scope here.
+ * **A chain of target sessions, not a fixed pair.** `maxConcurrentBatches`
+ * deliberately caps out around what's *safe* against one target, which in
+ * practice is well below what a well-RAM'd fleet of dedicated hosts can
+ * actually dispatch — confirmed live even with two fixed sessions
+ * (the original Phase 3 shape): both saturated while a large share of
+ * pooled RAM still sat idle, because a hard-coded pair has the same small
+ * fixed ceiling regardless of fleet size. `sessions[0]` (the root) farms
+ * the live-picked best target, same as `primary` always did. Every
+ * `STATE_CHECK_INTERVAL` tick, the chain is walked in order — the moment
+ * any session's mode isn't `'farm'` after its own tick, every session
+ * after* it is torn down (see `killSession`) and the chain is truncated
+ * there; the regressed session itself keeps running (it's now legitimately
+ * prepping). Only if the walk completes without a regression (every
+ * session still farming) and the *tail* is saturated
+ * (`inFlightBatches.length >= maxConcurrentBatches`) with pooled free RAM
+ * still clearing `MIN_CHAIN_EXTENSION_THREADS` does the chain extend by
+ * one more live-picked target (excluding every target already in the
+ * chain). No explicit length cap — it self-limits on RAM or on
+ * `pickTarget` running out of eligible targets.
  *
  * **Per-session precise kill, never `ns.killall`, once a host is shared.**
  * `ns.killall(host)` is still used exactly twice: seizing a *newly
@@ -85,32 +93,36 @@ import { distributeThreads, splitGrowWeakenThreads } from '../utils/thread-balan
  * back fully clean). Everywhere else — a session's own mode transitions,
  * desync fallback, prep relaunches — kills only that session's own tracked
  * pids (`ns.exec`'s return value, stored in `PrepAssignment`/
- * `InFlightBatch`), since two sessions can now legitimately be running the
- * same three scripts against different targets on the same host at once;
- * a filename-based "foreign process" check (the pre-Phase-3 design used
- * one) can no longer tell the two apart, so it's been dropped rather than
- * left in as a latent cross-session killer. The tradeoff: a *genuinely*
- * foreign process (something outside this daemon's own tracked pids) is
- * no longer auto-evicted mid-cycle the way it used to be — only at claim
- * time.
+ * `InFlightBatch`), since multiple sessions can now legitimately be
+ * running the same three scripts against different targets on the same
+ * host at once; a filename-based "foreign process" check (the pre-Phase-3
+ * design used one) can no longer tell them apart, so it's been dropped
+ * rather than left in as a latent cross-session killer. The tradeoff: a
+ * genuinely* foreign process (something outside this daemon's own
+ * tracked pids) is no longer auto-evicted mid-cycle the way it used to be
+ * — only at claim time.
  *
  * **Pooled, not per-host-independent** (the one deliberate departure from
- * XP Farm's model, for both sessions): every stage above computes ONE plan
- * against the sum of every dedicated host's own RAM capacity, then splits
- * each thread category across hosts proportionally (`distributeThreads`) —
- * because, unlike grow/weaken, `hack()` can overshoot a shared target if
- * several hosts each independently decided how much money to take.
- * `applyPrepMode`'s `sizing` parameter governs how a session's prep stage
- * sources that pooled capacity: `'total'` (primary — sizes off each host's
- * whole* RAM, safe because primary always holds exclusive claim on the
- * pool while it preps) or `'sticky'` (secondary — sizes off currently
- * free* RAM, but only once per host and only until that host's tracked
- * pids die, never recomputing-and-relaunching on every tick the way
- * primary does; primary's own concurrent farm-mode RAM usage fluctuates
- * independently of anything secondary does, so treating every fluctuation
- * as "capacity changed, relaunch" would repeat the exact infinite-relaunch
- * bug `hostTotalRam` was originally added to fix — see that function's own
- * comment — just triggered by primary's activity instead of self-reference).
+ * XP Farm's model, for every session in the chain): every stage above
+ * computes ONE plan against the sum of every dedicated host's own RAM
+ * capacity, then splits each thread category across hosts proportionally
+ * (`distributeThreads`) — because, unlike grow/weaken, `hack()` can
+ * overshoot a shared target if several hosts each independently decided
+ * how much money to take. `applyPrepMode`'s `sizing` parameter governs how
+ * a session's prep stage sources that pooled capacity: `'total'` — used
+ * only by `sessions[0]`, and only when the *entire* chain has just
+ * collapsed down to it (a regression at the root kills everything, so
+ * nothing else is competing for the RAM it's about to size off in full) —
+ * or `'sticky'`, used by every other chain position, always, including a
+ * non-root session that regresses while sessions before it in the chain
+ * are still actively farming: sizing off a host's *whole* RAM while an
+ * upstream session is concurrently dispatching batches against that same
+ * RAM would repeat the exact infinite-relaunch bug `hostTotalRam` was
+ * originally added to fix — see that function's own comment — just
+ * triggered by a sibling's activity instead of self-reference. `'sticky'`
+ * sizes off currently *free* RAM, but only once per host and only until
+ * that host's tracked pids die, never recomputing-and-relaunching on
+ * every tick the way `'total'` does.
  *
  * `utils/hack-math.ts`'s `computeHackMath` currently always uses the base
  * `ns.hackAnalyze*`/`ns.get*Time` functions ("guesstimation" against the
@@ -129,10 +141,26 @@ const PREP_MONEY_RATIO = 0.95
 const DESYNC_STRIKES_TO_FALLBACK = 2
 /**
  * Minimum pooled free-RAM capacity, expressed in weaken-script-sized
- * threads, worth bothering to start a secondary session for — a handful
- * of leftover GB isn't worth a whole second prep pipeline. Tunable.
+ * threads, worth bothering to extend the chain by one more session for —
+ * a handful of leftover GB isn't worth a whole extra prep pipeline.
+ * Tunable.
  */
-const MIN_SECONDARY_THREADS = 20
+const MIN_CHAIN_EXTENSION_THREADS = 20
+/**
+ * Longest a session's target can go without a fresh `'update-server'`
+ * entry, even if the snapshot hasn't changed since the last one. A
+ * well-tuned `farm` mode batch pipeline keeps returning to the *exact*
+ * same steady-state money/security point between `STATE_CHECK_INTERVAL`
+ * samples (each batch's compensating legs pull it right back), so the
+ * change-triggered log alone can go silent for minutes at a time despite
+ * real, continuous activity — confirmed live. That's correct for the
+ * drift-checkpoint purpose (nothing to re-anchor to if nothing drifted),
+ * but a chart of money over time wants guaranteed points on the line even
+ * during a stable stretch, so it reads as "stable" rather than "did this
+ * stop?" — this heartbeat exists purely for that, on top of (not instead
+ * of) the change-triggered log.
+ */
+const UPDATE_SERVER_HEARTBEAT_INTERVAL = 60000
 
 interface ScriptRams {
   hack: number
@@ -180,6 +208,16 @@ interface TargetSession {
   desyncStrikes: number
   inFlightBatches: InFlightBatch[]
   lastLoggedSnapshot: ServerSnapshot | null
+  /**
+   * `Date.now()` of the last `'update-server'` entry actually logged for
+   * this session, whether triggered by a real change or by
+   * `UPDATE_SERVER_HEARTBEAT_INTERVAL` — 0 until the first one.
+   */
+  lastLoggedSnapshotAt: number
+}
+
+function createSession(target: string): TargetSession {
+  return { target, mode: null, batchPlan: null, desyncStrikes: 0, inFlightBatches: [], lastLoggedSnapshot: null, lastLoggedSnapshotAt: 0 }
 }
 
 function readHosts(ns: NS): string[] {
@@ -228,10 +266,10 @@ function scanNetwork(ns: NS): string[] {
  * happen transiently right after a session hand-off).
  *
  * Returns the winning target's own score alongside it — not logged here
- * (this function doesn't know whether its result is actually a *change*
- * worth recording; that's `reconcileTargets`' call, which folds it into
- * its `change-target` log entry) — so callers get it for free rather than
- * recomputing the same formula a second time.
+ * (this function doesn't know whether its result is actually a new
+ * session's target worth recording; each caller folds it into its own
+ * `'start-work'` log entry when it actually is) — so callers get it for
+ * free rather than recomputing the same formula a second time.
  */
 function pickTarget(ns: NS, currentTarget: string | null, exclude: Set<string>): { target: string | null, score: number } {
   const effectiveCurrent = currentTarget && !exclude.has(currentTarget) ? currentTarget : null
@@ -338,6 +376,30 @@ function sumValues(record: Record<string, number>): number {
   return Object.values(record).reduce((sum, v) => sum + v, 0)
 }
 
+/**
+ * `allocateCategory`, but caps `needed` to what `hosts` can actually run
+ * before calling it — `distributeThreads` doesn't clamp per-host beyond a
+ * host's own capacity when the requested total exceeds pooled capacity
+ * (every host's share scales proportionally *above* what it can run, so
+ * the sum comes out right but individual hosts get asked for more threads
+ * than they have RAM for, which the later `ns.exec` would then just
+ * fail). `applyPrepMode` is the only caller here, and its whole point is
+ * sizing to the actual need rather than to capacity, so that mismatch is
+ * expected and must be capped, not treated as an error.
+ */
+function allocateNeeded(
+  ramSource: Record<string, number>,
+  hosts: string[],
+  scriptRam: number,
+  needed: number,
+): Record<string, number> {
+  const capacity: Record<string, number> = {}
+  for (const host of hosts)
+    capacity[host] = scriptRam > 0 ? Math.floor(ramSource[host] / scriptRam) : 0
+  const totalCapacity = hosts.reduce((sum, h) => sum + capacity[h], 0)
+  return allocateCategory(ramSource, hosts, scriptRam, Math.min(needed, totalCapacity))
+}
+
 function isWorkerStatus(value: unknown): value is WorkerStatus {
   return typeof value === 'object' && value !== null && 'action' in value && 'target' in value
 }
@@ -410,11 +472,26 @@ function killSession(ns: NS, session: TargetSession, prepAssignment: Record<stri
  * correctly-targeted assignment (no assignment, wrong target, or a
  * tracked pid found dead in `ns.ps`); `'total'` reconsiders every host
  * every call, the way this always worked pre-Phase-3.
+ *
+ * Sizes to the *actual* gap that needs closing, not to pooled capacity —
+ * `ceil(securityGap / weakenAnalyze(1))` for weaken, `ceil(growThreadsFor
+ * (currentMoney, moneyMax))` (`computeHackMath`, same Formulas-aware/
+ * base-NS-fallback math `computeBatchPlan` already uses, so referencing it
+ * here adds no new RAM cost) for grow. Confirmed live as a real problem
+ * once the fleet grew large: with capacity-based sizing, only the first
+ * host's worth of threads to complete actually did anything — every other
+ * host's threads (once a large fleet meant "capacity" vastly exceeded
+ * "need") ran for the full weaken/growTime and had zero effect, because
+ * the gap was already closed by the time they resolved. Whatever pool
+ * capacity isn't needed is left genuinely free, which other chain
+ * sessions' farm-mode dispatch can then use via the same live
+ * `hostFreeRam` check they already read.
  */
 function applyPrepMode(
   ns: NS,
   hosts: string[],
   target: string,
+  server: Server,
   mode: 'weaken' | 'grow-prep',
   growScriptRam: number,
   weakenScriptRam: number,
@@ -441,23 +518,28 @@ function applyPrepMode(
   let weakenAssigned: Record<string, number>
 
   if (mode === 'weaken') {
-    const capacity: Record<string, number> = {}
-    for (const host of candidateHosts)
-      capacity[host] = weakenScriptRam > 0 ? Math.floor(ramSource[host] / weakenScriptRam) : 0
-    const totalWeakenThreads = candidateHosts.reduce((sum, h) => sum + capacity[h], 0)
-    weakenAssigned = distributeThreads(candidateHosts, capacity, totalWeakenThreads)
+    const weakenPerThread = ns.weakenAnalyze(1)
+    const securityGap = Math.max(0, (server.hackDifficulty ?? 0) - (server.minDifficulty ?? 0))
+    const neededWeakenThreads = weakenPerThread > 0 ? Math.ceil(securityGap / weakenPerThread) : 0
+    weakenAssigned = allocateNeeded(ramSource, candidateHosts, weakenScriptRam, neededWeakenThreads)
   }
   else {
-    // Pooled total, using weakenScriptRam as the shared reference cost for
-    // both scripts — same simplifying assumption `xp-farm.daemon.ts`
-    // already makes (both are near-identical trivial loop scripts).
-    const capacity: Record<string, number> = {}
-    for (const host of candidateHosts)
-      capacity[host] = weakenScriptRam > 0 ? Math.floor(ramSource[host] / weakenScriptRam) : 0
-    const totalThreads = candidateHosts.reduce((sum, h) => sum + capacity[h], 0)
-    const { growThreads, weakenThreads } = splitGrowWeakenThreads(ns, totalThreads, target)
-    growAssigned = allocateCategory(ramSource, candidateHosts, growScriptRam, growThreads)
-    weakenAssigned = allocateCategory(ramSource, candidateHosts, weakenScriptRam, weakenThreads)
+    const hm = computeHackMath(ns, target)
+    const currentMoney = Math.max(server.moneyAvailable ?? 0, 1)
+    const moneyMax = server.moneyMax ?? 0
+    const neededGrowThreads = currentMoney < moneyMax ? Math.max(0, Math.ceil(hm.growThreadsFor(currentMoney, moneyMax))) : 0
+    growAssigned = allocateNeeded(ramSource, candidateHosts, growScriptRam, neededGrowThreads)
+
+    // Sized off what actually got dispatched (capacity-capped), not the
+    // uncapped ideal above — if the pool couldn't fully cover
+    // neededGrowThreads, the real security bump will be smaller than that
+    // ideal implies.
+    const actualGrowThreads = sumValues(growAssigned)
+    const weakenPerThread = ns.weakenAnalyze(1)
+    const neededWeakenThreads = actualGrowThreads > 0
+      ? Math.ceil(ns.growthAnalyzeSecurity(actualGrowThreads) / weakenPerThread)
+      : 0
+    weakenAssigned = allocateNeeded(ramSource, candidateHosts, weakenScriptRam, neededWeakenThreads)
   }
 
   for (const host of candidateHosts) {
@@ -537,22 +619,23 @@ function tickSession(
   prepAssignment: Record<string, PrepAssignment>,
   rams: ScriptRams,
   sizing: 'total' | 'sticky',
+  now: number,
 ) {
   const server = ns.getServer(session.target)
   const mode = modeFor(server)
   const modeChanged = mode !== session.mode
 
-  // Checked every STATE_CHECK_INTERVAL tick for both primary and
-  // secondary, but only actually logged when it differs from the last
-  // *logged* snapshot — see money-farm-log/types.ts's updateServer schema
-  // comment for what this doubles as (the absolute-security checkpoint a
-  // deltaSecurity-summing reader should re-anchor to). An unchanged value
-  // is still an accurate reference for the whole span until the next
-  // logged change, so skipping identical repeats loses no information —
-  // it just stops writing redundant rows during a stretch where nothing
-  // moved (e.g. a weaken-only prep phase, where money never changes at
-  // all). This used to be unconditional every tick; `snapshotUnchanged`
-  // below now guards against that.
+  // Checked every STATE_CHECK_INTERVAL tick for every session in the
+  // chain, but only actually logged when it differs from the last
+  // *logged* snapshot, or when UPDATE_SERVER_HEARTBEAT_INTERVAL has
+  // elapsed since that last log regardless — see that constant's own
+  // comment for why the heartbeat exists (a well-tuned farm mode can
+  // legitimately return to the exact same steady-state snapshot for
+  // minutes at a time, which is correct for the drift-checkpoint purpose
+  // but leaves a money-over-time chart looking silent). See
+  // money-farm-log/types.ts's updateServer schema comment for what this
+  // doubles as (the absolute-security checkpoint a deltaSecurity-summing
+  // reader should re-anchor to).
   const snapshot: ServerSnapshot = {
     money: server.moneyAvailable ?? 0,
     maxMoney: server.moneyMax ?? 0,
@@ -565,13 +648,15 @@ function tickSession(
     && prev.maxMoney === snapshot.maxMoney
     && prev.security === snapshot.security
     && prev.minSecurity === snapshot.minSecurity
-  if (!snapshotUnchanged) {
+  const heartbeatDue = now - session.lastLoggedSnapshotAt >= UPDATE_SERVER_HEARTBEAT_INTERVAL
+  if (!snapshotUnchanged || heartbeatDue) {
     addMoneyFarmLog(ns, {
       action: 'update-server',
       target: session.target,
       ...snapshot,
     })
     session.lastLoggedSnapshot = snapshot
+    session.lastLoggedSnapshotAt = now
   }
 
   if (modeChanged) {
@@ -617,32 +702,34 @@ function tickSession(
     }
   }
   else if (session.mode) {
-    applyPrepMode(ns, hosts, session.target, session.mode, rams.grow, rams.weaken, prepAssignment, sizing)
+    applyPrepMode(ns, hosts, session.target, server, session.mode, rams.grow, rams.weaken, prepAssignment, sizing)
   }
 }
 
 /**
  * Config-file reconciliation: claims/releases hosts, self-heals a deleted
  * one, and re-picks primary's target (never regressing without clearing
- * `1.5x` hysteresis — see `pickTarget`). Returns the updated
- * `primary`/`secondary` (both torn down and `primary` replaced fresh if
- * the target actually changed) and whether every dedicated host is gone
- * (the caller should exit). Taking `primary`/`secondary` as plain
- * parameters rather than reading/reassigning the caller's own `let`s
- * directly sidesteps a real TS 4.9 control-flow-narrowing limitation hit
- * here live: accessing a `let`-declared union type's property inside a
- * conditionally-`break`ing block nested in a `while(true)` loop caused
- * `tsc` to report the variable as circularly self-referencing its own
- * initializer — a compiler quirk, not a real type issue, but this
- * structure avoids it entirely rather than fighting it.
+ * `1.5x` hysteresis — see `pickTarget`). Returns the updated `sessions`
+ * chain (every session torn down and replaced by a single fresh root if
+ * the root's target actually changed) and whether every dedicated host is
+ * gone (the caller should exit). Taking `sessions` as a plain parameter
+ * rather than reading/reassigning the caller's own `let` directly
+ * sidesteps a real TS 4.9 control-flow-narrowing limitation hit here live
+ * with the old `primary`/`secondary` fields: accessing a `let`-declared
+ * union type's property inside a conditionally-`break`ing block nested in
+ * a `while(true)` loop caused `tsc` to report the variable as circularly
+ * self-referencing its own initializer — a compiler quirk, not a real
+ * type issue, but this structure avoids it entirely rather than fighting
+ * it (kept even though `sessions` itself, a plain array, isn't the
+ * `T | null` union shape that actually triggered it, for the same reason
+ * this whole function stayed split out).
  */
 function reconcileTargets(
   ns: NS,
   managedHosts: Set<string>,
   prepAssignment: Record<string, PrepAssignment>,
-  primary: TargetSession | null,
-  secondary: TargetSession | null,
-): { primary: TargetSession | null, secondary: TargetSession | null, empty: boolean } {
+  sessions: TargetSession[],
+): { sessions: TargetSession[], empty: boolean } {
   const configured = readHosts(ns)
   const validHosts = configured.filter(h => ns.serverExists(h))
   if (validHosts.length !== configured.length)
@@ -673,40 +760,35 @@ function reconcileTargets(
 
   if (validHosts.length === 0) {
     ns.print('No dedicated servers left — exiting. The app relaunches this when one is enabled again.')
-    return { primary: null, secondary: null, empty: true }
+    return { sessions: [], empty: true }
   }
 
-  const previousTarget = primary?.target ?? null
-  const excludeForPrimary = secondary ? new Set([secondary.target]) : new Set<string>()
-  const picked = pickTarget(ns, previousTarget, excludeForPrimary)
+  const previousTarget = sessions[0]?.target ?? null
+  const excludeForRoot = new Set(sessions.slice(1).map(s => s.target))
+  const picked = pickTarget(ns, previousTarget, excludeForRoot)
   const bestTarget = picked.target
   if (bestTarget && bestTarget !== previousTarget) {
     ns.print(`Switching target ${previousTarget ?? '(none)'} -> ${bestTarget}.`)
-    addMoneyFarmLog(ns, {
-      action: 'change-target',
-      oldTarget: previousTarget ?? '(none)',
-      target: bestTarget,
-      score: picked.score,
-    })
-    if (primary)
-      killSession(ns, primary, prepAssignment)
-    if (secondary)
-      killSession(ns, secondary, prepAssignment)
-    return {
-      primary: { target: bestTarget, mode: null, batchPlan: null, desyncStrikes: 0, inFlightBatches: [], lastLoggedSnapshot: null },
-      secondary: null,
-      empty: false,
+    // Every existing session's lifespan ends here (root retargeting
+    // replaces the whole chain), and the new root's begins — see
+    // money-farm-log/types.ts's workLifecycleSchema comment for why this
+    // pair replaced the old single change-target entry.
+    for (const session of sessions) {
+      killSession(ns, session, prepAssignment)
+      addMoneyFarmLog(ns, { action: 'end-work', target: session.target })
     }
+    addMoneyFarmLog(ns, { action: 'start-work', target: bestTarget, score: picked.score })
+    return { sessions: [createSession(bestTarget)], empty: false }
   }
 
-  return { primary, secondary, empty: false }
+  return { sessions, empty: false }
 }
 
 /**
  * Batch-dispatch tick for one session — a no-op unless it's actually
  * farming. Called every loop iteration (not gated on
- * `STATE_CHECK_INTERVAL`) so both sessions get the tight `BATCH_SPACING`
- * cadence farm mode needs.
+ * `STATE_CHECK_INTERVAL`) so every session in the chain gets the tight
+ * `BATCH_SPACING` cadence farm mode needs.
  */
 function tickDispatch(ns: NS, session: TargetSession, hosts: string[], rams: ScriptRams, now: number) {
   if (session.mode !== 'farm' || !session.batchPlan)
@@ -745,8 +827,7 @@ export async function main(ns: NS) {
 
   const managedHosts = new Set<string>()
   const prepAssignment: Record<string, PrepAssignment> = {}
-  let primary: TargetSession | null = null
-  let secondary: TargetSession | null = null
+  let sessions: TargetSession[] = []
   let lastConfigCheck = 0
   let lastStateCheck = 0
 
@@ -773,14 +854,13 @@ export async function main(ns: NS) {
 
     if (now - lastConfigCheck >= CHECK_INTERVAL) {
       lastConfigCheck = now
-      const reconciled = reconcileTargets(ns, managedHosts, prepAssignment, primary, secondary)
+      const reconciled = reconcileTargets(ns, managedHosts, prepAssignment, sessions)
       if (reconciled.empty)
         break
-      primary = reconciled.primary
-      secondary = reconciled.secondary
+      sessions = reconciled.sessions
     }
 
-    if (!primary) {
+    if (sessions.length === 0) {
       await ns.sleep(STATE_CHECK_INTERVAL)
       continue
     }
@@ -788,47 +868,60 @@ export async function main(ns: NS) {
     if (now - lastStateCheck >= STATE_CHECK_INTERVAL) {
       lastStateCheck = now
       const hostsSnapshot = [...managedHosts]
-      tickSession(ns, primary, hostsSnapshot, prepAssignment, rams, 'total')
 
-      if (primary.mode !== 'farm') {
-        // Primary needs the pool back (any non-farm mode, including a
-        // fresh desync fallback) — release secondary first so the two
-        // sessions' prep stages never fight over shared RAM. See the
-        // module header comment.
-        if (secondary) {
-          ns.print(`${secondary.target}: releasing secondary — primary needs the pool back.`)
-          killSession(ns, secondary, prepAssignment)
-          secondary = null
+      // Walk the chain in order — the root (index 0) always gets 'total'
+      // sizing (safe only because a regression anywhere kills everything
+      // after it, so nothing else is ever competing for the RAM it sizes
+      // off in full); every other position gets 'sticky', always,
+      // including when *it's* the one regressing — see the module header
+      // comment for why sizing off a host's whole RAM while an earlier
+      // chain position is still actively farming would reintroduce the
+      // infinite-relaunch bug hostTotalRam exists to prevent.
+      let regressedAt = -1
+      for (let i = 0; i < sessions.length; i++) {
+        tickSession(ns, sessions[i], hostsSnapshot, prepAssignment, rams, i === 0 ? 'total' : 'sticky', now)
+        if (sessions[i].mode !== 'farm') {
+          regressedAt = i
+          break
         }
       }
-      else if (secondary) {
-        tickSession(ns, secondary, hostsSnapshot, prepAssignment, rams, 'sticky')
+
+      if (regressedAt >= 0) {
+        // Everything after the regressed position is actually removed
+        // from the chain (not just mode-changed) — its lifespan ends here.
+        // The regressed session itself isn't logged: it keeps running,
+        // just in a different mode (tickSession's own change-mode entry
+        // already covers that).
+        for (let i = regressedAt + 1; i < sessions.length; i++) {
+          ns.print(`${sessions[i].target}: releasing — ${sessions[regressedAt].target} (chain position ${regressedAt}) needs its share of the pool back.`)
+          killSession(ns, sessions[i], prepAssignment)
+          addMoneyFarmLog(ns, { action: 'end-work', target: sessions[i].target })
+        }
+        sessions.length = regressedAt + 1
       }
-      else if (primary.batchPlan && primary.inFlightBatches.length >= primary.batchPlan.maxConcurrentBatches) {
-        const freeThreads = sumValues(hostFreeRam(ns, hostsSnapshot)) / Math.max(rams.weaken, 1)
-        if (freeThreads >= MIN_SECONDARY_THREADS) {
-          const secondPicked = pickTarget(ns, null, new Set([primary.target]))
-          const secondTarget = secondPicked.target
-          if (secondTarget) {
-            ns.print(`${secondTarget}: starting secondary target — primary saturated with spare pooled RAM.`)
-            addMoneyFarmLog(ns, {
-              action: 'change-target',
-              oldTarget: '(none)',
-              target: secondTarget,
-              score: secondPicked.score,
-            })
-            secondary = { target: secondTarget, mode: null, batchPlan: null, desyncStrikes: 0, inFlightBatches: [], lastLoggedSnapshot: null }
+      else {
+        const tail = sessions[sessions.length - 1]
+        if (tail.batchPlan && tail.inFlightBatches.length >= tail.batchPlan.maxConcurrentBatches) {
+          const freeThreads = sumValues(hostFreeRam(ns, hostsSnapshot)) / Math.max(rams.weaken, 1)
+          if (freeThreads >= MIN_CHAIN_EXTENSION_THREADS) {
+            const exclude = new Set(sessions.map(s => s.target))
+            const nextPicked = pickTarget(ns, null, exclude)
+            const nextTarget = nextPicked.target
+            if (nextTarget) {
+              ns.print(`${nextTarget}: extending chain (position ${sessions.length}) — ${tail.target} saturated with spare pooled RAM.`)
+              addMoneyFarmLog(ns, { action: 'start-work', target: nextTarget, score: nextPicked.score })
+              sessions.push(createSession(nextTarget))
+            }
           }
         }
       }
     }
 
     const hostsSnapshot = [...managedHosts]
-    tickDispatch(ns, primary, hostsSnapshot, rams, now)
-    if (secondary)
-      tickDispatch(ns, secondary, hostsSnapshot, rams, now)
+    for (const session of sessions)
+      tickDispatch(ns, session, hostsSnapshot, rams, now)
 
-    const anyFarming = primary.mode === 'farm' || secondary?.mode === 'farm'
+    const anyFarming = sessions.some(s => s.mode === 'farm')
     await ns.sleep(anyFarming ? BATCH_SPACING : STATE_CHECK_INTERVAL)
   }
 }

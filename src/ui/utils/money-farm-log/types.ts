@@ -8,30 +8,42 @@ import { string } from '../../../utils/tiny-schema/string'
 const modeSchema = string('weaken', 'grow-prep', 'farm')
 export type Mode = InferSchema<typeof modeSchema>
 
-const changeTarget = object({
-  action: string('change-target'),
-  oldTarget: string(),
-  target: string(),
-  /**
-   * The new target's own money/sec score at pick time (`pickTarget`'s
-   * `moneyMax * hackChance / weakenTime` formula) — logged once here,
-   * at the moment of the actual switch, rather than repeated on every
-   * periodic `update-server` snapshot below.
-   */
-  score: number(),
-})
 const changeModeSchema = object({
   action: string('change-mode'),
   target: string(),
   oldMode: string(),
   mode: modeSchema,
 })
+const workLifecycleSchema = object({
+  /**
+   * `'start-work'`/`'end-work'`: the start and end of one `TargetSession`'s
+   * own lifespan (not a mode change within it — see `change-mode` for
+   * that) — `'start-work'` when it's created (a fresh root pick, or the
+   * chain extending by one), `'end-work'` when it's actually removed from
+   * the chain (a root retarget kills every session then replaces the
+   * chain; a regression elsewhere in the chain kills everything *after*
+   * the regressed position, which itself keeps running — see
+   * `daemons/money-farm.daemon.ts`'s chain-walk comment). This pair
+   * replaced a single `'change-target'` action that used to bundle both
+   * halves together — a bundled "old -> new" entry doesn't generalize
+   * once a chain event can end several sessions and start only one (a
+   * root retarget) or start one without ending any (a chain extension).
+   */
+  action: string('start-work', 'end-work'),
+  target: string(),
+  /**
+   * `'start-work'` only: this target's own money/sec score at pick time
+   * (`pickTarget`'s `moneyMax * hackChance / weakenTime` formula) — the
+   * reason it was chosen. Never populated on `'end-work'`.
+   */
+  score: number().optional(),
+})
 const updateServer = object({
   /**
    * `'update-server'`: a periodic snapshot of an active session's target,
-   * written by `tickSession` every `STATE_CHECK_INTERVAL` for both
-   * primary and secondary — independent of `change-target`/`change-mode`,
-   * which only fire on an actual transition. Doubles as the
+   * written by `tickSession` every `STATE_CHECK_INTERVAL` for every
+   * session in the chain — independent of `start-work`/`end-work`/
+   * `change-mode`, which only fire on an actual transition. Doubles as the
    * absolute-security checkpoint a `deltaSecurity`-summing reader should
    * re-anchor its running total to (this used to be a separate
    * `'set-security'` action, fired only on mode transitions — merged in
@@ -94,7 +106,7 @@ const hgwSchema = object({
 })
 export type WorkerStatus = InferSchema<typeof hgwSchema>
 
-const orSchema = or(updateServer, hgwSchema, changeTarget, changeModeSchema)
+const orSchema = or(updateServer, hgwSchema, changeModeSchema, workLifecycleSchema)
 export type AddLogInput = InferSchema<typeof orSchema>
 
 export const moneyFarmLogEntrySchema = logSchema(orSchema)

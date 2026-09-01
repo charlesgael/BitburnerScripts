@@ -6,24 +6,30 @@ import type { NS } from '@ns'
  * computed from the actual live multipliers rather than a hardcoded ratio,
  * so it stays correct across BitNodes/augmentations that alter them.
  *
- * Extracted from `daemons/xp-farm.daemon.ts` (its original home, still one
- * of its callers for the XP Farm feature itself) so `daemons/money-farm.daemon.ts`
- * can reuse the identical grow-prep logic without duplicating it.
+ * Lives in `daemons/xp-farm.daemon.ts` (its original home), whose own
+ * `claim()` is the only remaining caller — `daemons/money-farm.daemon.ts`'s
+ * `applyPrepMode` used this too for a while, but moved to sizing grow/weaken
+ * threads off the *actual* security/money gap that needs closing
+ * (`computeHackMath`'s `growThreadsFor` plus a direct `weakenAnalyze`-based
+ * calculation) instead of a steady-state ratio over pooled capacity — see
+ * that function's own header comment for why capacity-based sizing turned
+ * out to waste most of a large fleet's dispatched threads once capacity
+ * routinely exceeded what a target actually needed.
  *
- * The ratio is balanced *per unit time*, not per action: `weakenAnalyze(1)`/
- * `growthAnalyzeSecurity(1)` alone only balance security effect per single
- * completed action, but a continuous grow loop completes more often per
- * unit time than a continuous weaken loop does (`growTime < weakenTime`
- * always) — so a per-action-balanced split still nets security upward over
- * time, since grow's higher completion cadence outweighs its smaller
- * per-action effect. Scaling the per-action ratio by `growTime / weakenTime`
- * corrects for that cadence difference, so the split holds security flat
- * in steady state instead of needing a periodic weaken-only correction —
- * confirmed live as the cause of a real sawtooth pattern in
- * `money-farm.daemon.ts`'s `grow-prep` mode. Harmless for XP Farm's own
- * use (`daemons/xp-farm.daemon.ts`'s `claim()`): its actual goal is just
- * running grow/weaken as fast as possible regardless of the exact split,
- * so a more accurate balance can only help, never hurt, its throughput.
+ * The ratio here is balanced *per unit time*, not per action:
+ * `weakenAnalyze(1)`/`growthAnalyzeSecurity(1)` alone only balance security
+ * effect per single completed action, but a continuous grow loop completes
+ * more often per unit time than a continuous weaken loop does (`growTime <
+ * weakenTime` always) — so a per-action-balanced split still nets security
+ * upward over time, since grow's higher completion cadence outweighs its
+ * smaller per-action effect. Scaling the per-action ratio by `growTime /
+ * weakenTime` corrects for that cadence difference, so the split holds
+ * security flat in steady state instead of needing a periodic weaken-only
+ * correction — confirmed live as the cause of a real sawtooth pattern in
+ * money-farm's own `grow-prep` mode, back when it still used this. Harmless
+ * for XP Farm's own use: its actual goal is just running grow/weaken as
+ * fast as possible regardless of the exact split, so a more accurate
+ * balance can only help, never hurt, its throughput.
  */
 export function splitGrowWeakenThreads(ns: NS, totalThreads: number, target: string): { growThreads: number, weakenThreads: number } {
   if (totalThreads <= 1)
@@ -56,6 +62,23 @@ export function splitGrowWeakenThreads(ns: NS, totalThreads: number, target: str
  * that category actually consumed before calling again for the next
  * category — otherwise multiple categories would each see the host's full
  * capacity and jointly over-allocate it.
+ *
+ * Known caveat, not yet fixed here: if `categoryTotal` exceeds the sum of
+ * every host's capacity, this does *not* clamp each host to its own
+ * capacity — every host's proportional `share` scales up to still sum to
+ * the requested `categoryTotal` (e.g. capacity `{A:10, B:5}` with
+ * `categoryTotal=30` returns `{A:20, B:10}` — the sum matches exactly, but
+ * `A` was only ever able to run 10). The caller can't detect this by
+ * checking the returned sum against what it asked for, since that sum is
+ * correct even though an individual host's share isn't — a check like
+ * `tryDispatchBatch`'s `sumValues(...) < plan.hackThreads` will *not*
+ * catch it; the later `ns.exec` for that host just fails silently (`0`
+ * threads actually launched), and `tryDispatchBatch` currently has no
+ * follow-up check that notices. `money-farm.daemon.ts`'s `allocateNeeded`
+ * sidesteps this by capping `needed` to total capacity itself before ever
+ * calling here — every other caller needs the same discipline until this
+ * function clamps per-host internally, which would be the more robust
+ * general fix.
  */
 export function distributeThreads(
   hosts: string[],

@@ -15,8 +15,8 @@ import { moneyFarmLogEntrySchema } from './types'
  * one).
  *
  * `'update-server'` isn't a completed hack/grow/weaken call at all —
- * `tickSession` writes one every `STATE_CHECK_INTERVAL` tick, for both the
- * primary and secondary session, carrying the target's actual live
+ * `tickSession` writes one every `STATE_CHECK_INTERVAL` tick, for every
+ * session in the chain, carrying the target's actual live
  * `money`/`maxMoney`/`security`/`minSecurity` (via `ns.getServer`). Every
  * hack/grow/weaken entry's `deltaSecurity` is a *change*, not an absolute
  * value, from one worker's own action, and grow's in particular is never
