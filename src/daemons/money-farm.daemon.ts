@@ -1,6 +1,7 @@
 import type { NS, Server } from '@ns'
 import type { Mode, WorkerStatus } from '../ui/utils/money-farm-log/types'
 import type { BatchPlan } from '../utils/hack-math'
+import { getCgdStore } from '../cgd/store'
 import { MONEY_FARM_PORT } from '../ports.lib'
 import {
   MONEY_FARM_CONFIG_FILE as CONFIG_FILE,
@@ -10,6 +11,7 @@ import {
 } from '../ui/utils/money-farm-config'
 import { addMoneyFarmLog } from '../ui/utils/money-farm-log'
 import { BATCH_SPACING, computeBatchPlan, computeHackMath } from '../utils/hack-math'
+
 import { distributeThreads } from '../utils/thread-balance'
 
 /**
@@ -693,6 +695,11 @@ function tryDispatchBatch(
   return pids
 }
 
+/** A session's exclusive partition's total RAM (GB), regardless of what's currently free on it. */
+function partitionCapacityGB(ns: NS, hosts: string[]): number {
+  return sumValues(hostTotalRam(ns, hosts))
+}
+
 /**
  * Grows (never shrinks) `session`'s exclusive host partition when its
  * cached `estimatedNeedGB` genuinely exceeds what it currently owns — a
@@ -728,7 +735,7 @@ function ensurePartition(
   managedHosts: Set<string>,
   prepAssignment: Record<string, PrepAssignment>,
 ) {
-  if (sumValues(hostTotalRam(ns, session.hosts)) >= session.estimatedNeedGB)
+  if (partitionCapacityGB(ns, session.hosts) >= session.estimatedNeedGB)
     return
 
   const targetGB = session.estimatedNeedGB * PARTITION_HEADROOM_MULTIPLIER
@@ -740,14 +747,14 @@ function ensurePartition(
   const growFromUnassigned = () => {
     const pool = unassignedHosts().sort((a, b) => ns.getServerMaxRam(b) - ns.getServerMaxRam(a))
     for (const host of pool) {
-      if (sumValues(hostTotalRam(ns, session.hosts)) >= targetGB)
+      if (partitionCapacityGB(ns, session.hosts) >= targetGB)
         break
       session.hosts.push(host)
     }
   }
 
   growFromUnassigned()
-  while (sumValues(hostTotalRam(ns, session.hosts)) < targetGB && sessions.length > index + 1) {
+  while (partitionCapacityGB(ns, session.hosts) < targetGB && sessions.length > index + 1) {
     const evicted = sessions[sessions.length - 1]
     ns.print(`${evicted.target}: evicted — ${session.target} (priority ${index}) needs its hosts back.`)
     killSession(ns, evicted, prepAssignment)
@@ -955,6 +962,39 @@ function tickDispatch(ns: NS, session: TargetSession, rams: ScriptRams, now: num
   }
 }
 
+/**
+ * Snapshots every session's own partition (reserved RAM, actually-used RAM,
+ * current mode) plus the fleet-wide total into `cgd.store`'s `moneyFarm`
+ * field — see that field's own doc comment (`cgd/types.ts`) for why a
+ * non-tiered daemon pushing here is fine (`window-cgd.ts`'s accessor is
+ * explicitly safe to call from any script) and why `reserved` in
+ * particular can't be derived any other way (it's this daemon's own
+ * internal partition bookkeeping, not anything `ns.ps` process args
+ * expose). Reuses `hostTotalRam`/`hostFreeRam`, both already referenced
+ * elsewhere in this file, so this adds no new RAM cost. A session with no
+ * mode yet (created this tick, not ticked once itself yet) is skipped —
+ * nothing meaningful to report until its own partition exists. Wrapped in
+ * try/catch, same reasoning as `stat-push.ts`'s own provider loop: one
+ * failed push here shouldn't take down the whole daemon's main loop.
+ */
+function pushMoneyFarmStats(ns: NS, sessions: TargetSession[], managedHosts: Set<string>) {
+  try {
+    const totalRam = partitionCapacityGB(ns, [...managedHosts])
+    const perTarget = sessions
+      .filter((s): s is TargetSession & { mode: Mode } => s.mode !== null)
+      .map(s => ({
+        target: s.target,
+        mode: s.mode,
+        reserved: partitionCapacityGB(ns, s.hosts),
+        used: partitionCapacityGB(ns, s.hosts) - sumValues(hostFreeRam(ns, s.hosts)),
+      }))
+    getCgdStore().setState({ moneyFarm: { totalRam, perTarget } })
+  }
+  catch {
+    // See this function's own header comment.
+  }
+}
+
 export async function main(ns: NS) {
   ns.disableLog('ALL')
 
@@ -996,6 +1036,15 @@ export async function main(ns: NS) {
     for (const host of managedHosts) {
       if (ns.serverExists(host))
         ns.killall(host)
+    }
+    // Clears the stale snapshot rather than leaving the last-known state
+    // sitting in the store once this daemon is actually gone — see
+    // pushMoneyFarmStats's own header comment.
+    try {
+      getCgdStore().setState({ moneyFarm: undefined })
+    }
+    catch {
+      // Same reasoning as pushMoneyFarmStats's own catch.
     }
   }, 'money-farm-cleanup')
 
@@ -1049,6 +1098,8 @@ export async function main(ns: NS) {
           sessions.push(createSession(nextTarget))
         }
       }
+
+      pushMoneyFarmStats(ns, sessions, managedHosts)
     }
 
     for (const session of sessions)
