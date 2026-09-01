@@ -1,21 +1,32 @@
 import type { StringSchema } from './types'
 import { schema } from './core'
 
-export function string(): StringSchema {
+export function string<T extends readonly string[] = []>(
+  ...values: T
+): StringSchema<[T[number]] extends [never] ? string : T[number]> {
+  type Output = [T[number]] extends [never] ? string : T[number]
+
+  const allowed = values.length > 0 ? new Set<string>(values) : undefined
   const validations: Array<(value: string) => void> = []
 
   const result = schema({
-    validate(input: unknown): string {
+    validate(input: unknown): Output {
       if (input === undefined || input === null)
         throw new TypeError('Value required')
 
       if (typeof input !== 'string')
         throw new TypeError('Expected string')
 
+      if (allowed && !allowed.has(input)) {
+        throw new TypeError(
+          `Expected one of ${values.map(value => JSON.stringify(value)).join(', ')}`,
+        )
+      }
+
       for (const validate of validations)
         validate(input)
 
-      return input
+      return input as Output
     },
 
     min(length: number) {

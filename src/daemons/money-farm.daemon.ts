@@ -1,11 +1,13 @@
 import type { NS, Server } from '@ns'
 import type { BatchPlan } from '../utils/hack-math'
+import { MONEY_FARM_PORT } from '../ports.lib'
 import {
   MONEY_FARM_CONFIG_FILE as CONFIG_FILE,
   MONEY_FARM_GROW_SCRIPT as GROW_SCRIPT,
   MONEY_FARM_HACK_SCRIPT as HACK_SCRIPT,
   MONEY_FARM_WEAKEN_SCRIPT as WEAKEN_SCRIPT,
 } from '../ui/utils/money-farm-config'
+import { addMoneyFarmLog } from '../ui/utils/money-farm-log'
 import { BATCH_SPACING, computeBatchPlan } from '../utils/hack-math'
 import { distributeThreads, splitGrowWeakenThreads } from '../utils/thread-balance'
 
@@ -109,11 +111,15 @@ import { distributeThreads, splitGrowWeakenThreads } from '../utils/thread-balan
  * bug `hostTotalRam` was originally added to fix — see that function's own
  * comment — just triggered by primary's activity instead of self-reference).
  *
- * Runs with or without the Formulas API: `utils/hack-math.ts`'s
- * `computeHackMath` uses `ns.formulas.hacking.*` when `Formulas.exe` is
- * owned, falling back to the base `ns.hackAnalyze*`/`ns.get*Time`
- * functions (a "guesstimation" against the server's current live state)
- * otherwise — both paths feed the exact same downstream math here.
+ * `utils/hack-math.ts`'s `computeHackMath` currently always uses the base
+ * `ns.hackAnalyze*`/`ns.get*Time` functions ("guesstimation" against the
+ * server's current live state) — its Formulas-API branch is commented out
+ * there: referencing `ns.formulas.hacking.*` statically reserves their RAM
+ * whether or not `Formulas.exe` is owned or that branch ever runs, the
+ * same referenced-cost-is-charged-regardless trap the RAM-cost model
+ * section of CLAUDE.md describes, confirmed live here too. Both branches
+ * share the same call shape, so re-enabling it later is a one-line change
+ * in that file alone, nothing here.
  */
 const CHECK_INTERVAL = 15000
 const STATE_CHECK_INTERVAL = 5000
@@ -310,6 +316,56 @@ function sumValues(record: Record<string, number>): number {
   return Object.values(record).reduce((sum, v) => sum + v, 0)
 }
 
+/**
+ * Raw status object a worker writes to `MONEY_FARM_PORT` — see
+ * `hack.daemon.ts`/`grow.daemon.ts`/`weaken.daemon.ts`'s own header
+ * comments for why `money`/`deltaSecurity` aren't always populated by the
+ * worker itself. Written via `ns.writePort` (a real object, `structuredClone`d
+ * by the game — not a JSON string, so no `JSON.parse` needed on this end).
+ */
+interface WorkerStatus {
+  action: 'hack' | 'grow' | 'weaken'
+  target: string
+  threads: number
+  duration: number
+  money?: number
+  deltaSecurity?: number
+}
+
+function isWorkerStatus(value: unknown): value is WorkerStatus {
+  return typeof value === 'object' && value !== null && 'action' in value && 'target' in value
+}
+
+/**
+ * Drains every currently-queued message off `MONEY_FARM_PORT` and appends
+ * one `log/money-farm-log.txt` line per message (via `addLog`, same idiom
+ * `contracts/state-file/`'s `recordContractResult` uses). Only `grow`
+ * status needs filling in here: its worker can't cheaply compute
+ * `ns.growthAnalyzeSecurity` itself (1GB, multiplied by however many
+ * threads that *worker* runs with) the way this daemon can (1GB total,
+ * referenced once regardless of how many times it's actually called at
+ * runtime) — see `grow.daemon.ts`'s header comment.
+ */
+function drainStatusPort(ns: NS) {
+  const port = ns.getPortHandle(MONEY_FARM_PORT)
+  while (!port.empty()) {
+    const raw = port.read()
+    if (!isWorkerStatus(raw))
+      continue
+    const deltaSecurity = raw.action === 'grow' && raw.deltaSecurity === undefined
+      ? ns.growthAnalyzeSecurity(raw.threads)
+      : raw.deltaSecurity
+    addMoneyFarmLog(ns, {
+      action: raw.action,
+      target: raw.target,
+      threads: raw.threads,
+      duration: raw.duration,
+      money: raw.money,
+      deltaSecurity,
+    })
+  }
+}
+
 function killTracked(ns: NS, pid: number) {
   if (pid > 0)
     ns.kill(pid)
@@ -411,8 +467,8 @@ function applyPrepMode(
         killTracked(ns, prev.weakenPid)
       }
       ns.print(`${host}: prepping ${target} (${mode}) — ${g}g / ${w}w.`)
-      const growPid = g > 0 ? ns.exec(GROW_SCRIPT, host, g, target, 0) : 0
-      const weakenPid = w > 0 ? ns.exec(WEAKEN_SCRIPT, host, w, target, 0) : 0
+      const growPid = g > 0 ? ns.exec(GROW_SCRIPT, host, g, '--port', MONEY_FARM_PORT, target, 0, g) : 0
+      const weakenPid = w > 0 ? ns.exec(WEAKEN_SCRIPT, host, w, '--port', MONEY_FARM_PORT, target, 0, w) : 0
       prepAssignment[host] = { target, growThreads: g, weakenThreads: w, growPid, weakenPid }
     }
   }
@@ -451,13 +507,13 @@ function tryDispatchBatch(
 
   const pids: number[] = []
   for (const [host, threads] of Object.entries(hackAssigned))
-    pids.push(ns.exec(HACK_SCRIPT, host, threads, '--once', target, plan.delayHack))
+    pids.push(ns.exec(HACK_SCRIPT, host, threads, '--once', '--port', MONEY_FARM_PORT, target, plan.delayHack, threads))
   for (const [host, threads] of Object.entries(growAssigned))
-    pids.push(ns.exec(GROW_SCRIPT, host, threads, '--once', target, plan.delayGrow))
+    pids.push(ns.exec(GROW_SCRIPT, host, threads, '--once', '--port', MONEY_FARM_PORT, target, plan.delayGrow, threads))
   for (const [host, threads] of Object.entries(weaken1Assigned))
-    pids.push(ns.exec(WEAKEN_SCRIPT, host, threads, '--once', target, plan.delayWeaken1))
+    pids.push(ns.exec(WEAKEN_SCRIPT, host, threads, '--once', '--port', MONEY_FARM_PORT, target, plan.delayWeaken1, threads))
   for (const [host, threads] of Object.entries(weaken2Assigned))
-    pids.push(ns.exec(WEAKEN_SCRIPT, host, threads, '--once', target, plan.delayWeaken2))
+    pids.push(ns.exec(WEAKEN_SCRIPT, host, threads, '--once', '--port', MONEY_FARM_PORT, target, plan.delayWeaken2, threads))
   return pids
 }
 
@@ -485,6 +541,20 @@ function tickSession(
       + `(security ${(server.hackDifficulty ?? 0).toFixed(2)}/${(server.minDifficulty ?? 0).toFixed(2)}, `
       + `money ${ns.format.number(server.moneyAvailable ?? 0)}/${ns.format.number(server.moneyMax ?? 0)}).`,
     )
+    // Every logged security value elsewhere is a *delta* from one worker's
+    // own completed action (see money-farm-log.ts's header comment) — grow
+    // in particular never gets an exact one (its worker can't cheaply
+    // compute growthAnalyzeSecurity itself, and the daemon's own fill-in
+    // uses a fixed per-thread formula that doesn't account for cores), so
+    // summed deltas alone will drift from reality over time. A mode
+    // transition is a natural checkpoint to log the actual live value
+    // instead, so a downstream reader can re-anchor its running total here
+    // rather than trusting an ever-compounding sum of deltas.
+    addMoneyFarmLog(ns, {
+      action: 'set-security',
+      target: session.target,
+      security: server.hackDifficulty ?? 0,
+    })
     killSession(ns, session, prepAssignment)
     session.mode = mode
     session.batchPlan = mode === 'farm' ? computeBatchPlan(ns, session.target) : null
@@ -661,6 +731,7 @@ export async function main(ns: NS) {
 
   while (true) {
     const now = Date.now()
+    drainStatusPort(ns)
 
     if (now - lastConfigCheck >= CHECK_INTERVAL) {
       lastConfigCheck = now
