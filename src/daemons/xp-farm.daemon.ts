@@ -6,6 +6,7 @@ import {
   XP_FARM_GROW_SCRIPT as GROW_SCRIPT,
   XP_FARM_WEAKEN_SCRIPT as WEAKEN_SCRIPT,
 } from '../ui/utils/xp-farm-config'
+import { splitGrowWeakenThreads } from '../utils/thread-balance'
 
 /**
  * Background orchestrator for the XP Farm feature (`ui/apps/xp-farm/`).
@@ -117,22 +118,6 @@ function pickTarget(ns: NS): string | null {
 }
 
 /**
- * Splits `totalThreads` between weaken and grow so that, cycle over cycle,
- * weaken's security decrease roughly matches grow's security increase —
- * computed from the actual live multipliers rather than a hardcoded ratio,
- * so it stays correct across BitNodes/augmentations that alter them.
- */
-function splitThreads(ns: NS, totalThreads: number): { growThreads: number, weakenThreads: number } {
-  if (totalThreads <= 1)
-    return { growThreads: 0, weakenThreads: totalThreads }
-  const weakenPerThread = ns.weakenAnalyze(1)
-  const growPerThread = ns.growthAnalyzeSecurity(1)
-  const ratio = growPerThread > 0 ? weakenPerThread / growPerThread : 12.5
-  const weakenThreads = Math.min(totalThreads - 1, Math.max(1, Math.round(totalThreads / (ratio + 1))))
-  return { growThreads: totalThreads - weakenThreads, weakenThreads }
-}
-
-/**
  * Re-asserts exclusive control of an already-claimed host and launches
  * whichever of its two loops (per `assignment`) aren't already running —
  * safe to call every cycle: never launches a duplicate of one that's
@@ -188,7 +173,7 @@ function claim(ns: NS, host: string, target: string): Assignment | null {
   }
 
   ns.scp([GROW_SCRIPT, WEAKEN_SCRIPT], host)
-  const { growThreads, weakenThreads } = splitThreads(ns, totalThreads)
+  const { growThreads, weakenThreads } = splitGrowWeakenThreads(ns, totalThreads)
   const assignment: Assignment = { target, growThreads, weakenThreads }
   enforceOwnership(ns, host, assignment)
   ns.print(`${host}: farming ${target} — ${growThreads} grow thread(s), ${weakenThreads} weaken thread(s).`)

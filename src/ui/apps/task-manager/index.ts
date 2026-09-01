@@ -17,12 +17,13 @@ export type { ManagedAppDefinition }
  * `AppDefinition` — it's a reusable builder, instantiated once per catalog
  * (currently just the Programs app — see `../programs/index.ts`).
  *
- * "Non-reserved" cloud server means: not one of the hosts `../xp-farm/` has
- * dedicated to XP farming (tracked in `xp-farm-config.txt` via
- * `readXpFarmHosts`) — `daemons/xp-farm.daemon.ts` has exclusive control of
- * those and `ns.killall`s them the moment it claims one, so offering them
- * here would just mean whatever got spawned is killed out from under it
- * moments later. This app never references `ns.cloud.*` itself to find
+ * "Non-reserved" cloud server means: not one of the hosts `../xp-farm/` or
+ * `../money-farm/` has dedicated (tracked in `xp-farm-config.txt`/
+ * `money-farm-config.txt` via `readXpFarmHosts`/`readMoneyFarmHosts`) —
+ * `daemons/xp-farm.daemon.ts`/`daemons/money-farm.daemon.ts` have exclusive
+ * control of those and `ns.killall` them the moment either claims one, so
+ * offering them here would just mean whatever got spawned is killed out
+ * from under it moments later. This app never references `ns.cloud.*` itself to find
  * cloud servers — see `../cloud-servers/index.ts`'s header comment for why
  * — instead reading the same `cgd/actions/cloud.ts` `cloudList` snapshot
  * the Cloud Servers app uses (via `fetchCloudList`), which conveniently already
