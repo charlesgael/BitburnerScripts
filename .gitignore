@@ -4,6 +4,7 @@ node_modules/
 
 NetscriptDefinitions.d.ts
 test.ts
+*.tmp.ts
 src.*/
 dist/
 .setup-cache/
