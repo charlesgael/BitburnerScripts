@@ -173,7 +173,7 @@ function claim(ns: NS, host: string, target: string): Assignment | null {
   }
 
   ns.scp([GROW_SCRIPT, WEAKEN_SCRIPT], host)
-  const { growThreads, weakenThreads } = splitGrowWeakenThreads(ns, totalThreads)
+  const { growThreads, weakenThreads } = splitGrowWeakenThreads(ns, totalThreads, target)
   const assignment: Assignment = { target, growThreads, weakenThreads }
   enforceOwnership(ns, host, assignment)
   ns.print(`${host}: farming ${target} — ${growThreads} grow thread(s), ${weakenThreads} weaken thread(s).`)

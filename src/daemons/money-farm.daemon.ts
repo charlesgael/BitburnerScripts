@@ -392,7 +392,7 @@ function applyPrepMode(
     for (const host of candidateHosts)
       capacity[host] = weakenScriptRam > 0 ? Math.floor(ramSource[host] / weakenScriptRam) : 0
     const totalThreads = candidateHosts.reduce((sum, h) => sum + capacity[h], 0)
-    const { growThreads, weakenThreads } = splitGrowWeakenThreads(ns, totalThreads)
+    const { growThreads, weakenThreads } = splitGrowWeakenThreads(ns, totalThreads, target)
     growAssigned = allocateCategory(ramSource, candidateHosts, growScriptRam, growThreads)
     weakenAssigned = allocateCategory(ramSource, candidateHosts, weakenScriptRam, weakenThreads)
   }
@@ -641,6 +641,23 @@ export async function main(ns: NS) {
   let secondary: TargetSession | null = null
   let lastConfigCheck = 0
   let lastStateCheck = 0
+
+  // Registered once, up front, so it's armed for the whole run — killed
+  // manually (Programs/task-manager), crashing, or falling off the end
+  // (config list empties) all trigger it. `managedHosts` is read at call
+  // time via closure, not snapshotted here, so it reflects whatever this
+  // daemon actually had claimed by the time it died — same idiom as
+  // `flooder.app.ts`'s identical `touchedHosts` cleanup. A plain killall
+  // per host is correct here (unlike everywhere else in this file, which
+  // kills only a session's own tracked pids so two sessions can share a
+  // host): the whole daemon is going away, so every session's work stops
+  // together, no partial preservation needed.
+  ns.atExit(() => {
+    for (const host of managedHosts) {
+      if (ns.serverExists(host))
+        ns.killall(host)
+    }
+  }, 'money-farm-cleanup')
 
   while (true) {
     const now = Date.now()

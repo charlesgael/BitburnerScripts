@@ -1,6 +1,4 @@
-import type { NS, Server } from '@ns'
-import { formulas } from './formula-available'
-
+import type { NS } from '@ns'
 /**
  * Point-in-time hacking math for one target, sourced from the Formulas API
  * (`Formulas.exe`) when available, or the base always-available
@@ -34,22 +32,23 @@ export interface HackMath {
 }
 
 export function computeHackMath(ns: NS, target: string): HackMath {
-  const f = formulas(ns)
-  if (f) {
-    const server = ns.getServer(target)
-    const player = ns.getPlayer()
-    return {
-      hackChance: f.hacking.hackChance(server, player),
-      hackPercentPerThread: f.hacking.hackPercent(server, player),
-      hackTime: f.hacking.hackTime(server, player),
-      growTime: f.hacking.growTime(server, player),
-      weakenTime: f.hacking.weakenTime(server, player),
-      growThreadsFor: (moneyAfter, moneyTarget) => {
-        const mock: Server = { ...server, moneyAvailable: moneyAfter }
-        return f.hacking.growThreads(mock, player, moneyTarget)
-      },
-    }
-  }
+  // seems to be bloading ram, both formulas methods and other methods are reserved
+  // const f = formulas(ns)
+  // if (f) {
+  //   const server = ns.getServer(target)
+  //   const player = ns.getPlayer()
+  //   return {
+  //     hackChance: f.hacking.hackChance(server, player),
+  //     hackPercentPerThread: f.hacking.hackPercent(server, player),
+  //     hackTime: f.hacking.hackTime(server, player),
+  //     growTime: f.hacking.growTime(server, player),
+  //     weakenTime: f.hacking.weakenTime(server, player),
+  //     growThreadsFor: (moneyAfter, moneyTarget) => {
+  //       const mock: Server = { ...server, moneyAvailable: moneyAfter }
+  //       return f.hacking.growThreads(mock, player, moneyTarget)
+  //     },
+  //   }
+  // }
   return {
     hackChance: ns.hackAnalyzeChance(target),
     hackPercentPerThread: ns.hackAnalyze(target),
