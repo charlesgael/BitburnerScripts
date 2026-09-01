@@ -1,4 +1,5 @@
 import type { NS, Server } from '@ns'
+import type { Mode } from '../ui/utils/money-farm-log/types'
 import type { BatchPlan } from '../utils/hack-math'
 import { MONEY_FARM_PORT } from '../ports.lib'
 import {
@@ -132,8 +133,6 @@ const DESYNC_STRIKES_TO_FALLBACK = 2
  * of leftover GB isn't worth a whole second prep pipeline. Tunable.
  */
 const MIN_SECONDARY_THREADS = 20
-
-type Mode = 'weaken' | 'grow-prep' | 'farm'
 
 interface ScriptRams {
   hack: number
@@ -554,6 +553,13 @@ function tickSession(
       action: 'set-security',
       target: session.target,
       security: server.hackDifficulty ?? 0,
+      minSecurity: server.minDifficulty ?? 0,
+    })
+    addMoneyFarmLog(ns, {
+      action: 'change-mode',
+      target: session.target,
+      oldMode: session.mode ?? '(none)',
+      mode,
     })
     killSession(ns, session, prepAssignment)
     session.mode = mode
@@ -650,6 +656,11 @@ function reconcileTargets(
   const bestTarget = pickTarget(ns, previousTarget, excludeForPrimary)
   if (bestTarget && bestTarget !== previousTarget) {
     ns.print(`Switching target ${previousTarget ?? '(none)'} -> ${bestTarget}.`)
+    addMoneyFarmLog(ns, {
+      action: 'change-target',
+      oldTarget: previousTarget ?? '(none)',
+      target: bestTarget,
+    })
     if (primary)
       killSession(ns, primary, prepAssignment)
     if (secondary)

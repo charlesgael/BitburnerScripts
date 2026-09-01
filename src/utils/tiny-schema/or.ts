@@ -1,22 +1,19 @@
-import type { Schema } from './types'
+import type { InferSchema, Schema } from './types'
 import { schema } from './core'
 
-export function or<S, U>(
-  shape1: Schema<S>,
-  shape2: Schema<U>,
-): Schema<S | U> {
+export function or<S extends [Schema<any>, Schema<any>, ...Schema<any>[]]>(
+  ...shapes: S
+): Schema<InferSchema<S[number]>> {
   return schema({
     validate(input) {
-      try {
-        return shape1.validate(input)
+      for (const shape of shapes) {
+        try {
+          return shape.validate(input)
+        }
+        catch { }
       }
-      catch { }
-      try {
-        return shape2.validate(input)
-      }
-      catch { }
 
-      throw new TypeError('Didn\'t match either branch')
+      throw new TypeError('Didn\'t match any branch')
     },
   })
 }
