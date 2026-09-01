@@ -2,7 +2,7 @@ import type { NS } from '@ns'
 import React from '@react'
 import { sendTerminal } from './utils/send-terminal'
 
-function StartBtn({ filename, children, clear }: { filename: string, children: any, clear: boolean }) {
+function StartBtn({ filename, children, clear }: { filename: string, children: any, clear?: boolean }) {
   async function click() {
     await sendTerminal(`run ${filename}`)
     if (clear)

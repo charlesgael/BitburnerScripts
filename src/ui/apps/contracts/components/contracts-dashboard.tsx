@@ -4,6 +4,7 @@ import { CONTRACTS_HOST, CONTRACTS_LOG_FILE, CONTRACTS_SCRIPT, parseContractLog 
 import { summarizeContractLog } from '../../../../contracts/state-file/make-stats'
 import { formatDuration, formatHour } from '../../../../utils/format/dates'
 import { formatPercent } from '../../../../utils/format/game'
+import { HeroStat } from '../../../components/hero-stat'
 import { InstanceManager } from '../../../components/instance-manager'
 import { TitlebarToolbar } from '../../../components/window/titlebar-toolbar'
 import { useQueuedNs } from '../../../context/ns-queue-context'
@@ -14,7 +15,6 @@ import Document from '../../../svg/document.svg'
 import { useAsyncState } from '../../../utils/use-async-state'
 import { ContractsByHost } from './contracts-by-host'
 import { ContractsLog } from './contracts-log'
-import { HeroStat } from './hero-stat'
 import { RewardsSummary } from './rewards-summary'
 
 export function ContractsDashboard() {
