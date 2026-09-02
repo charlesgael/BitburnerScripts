@@ -1,7 +1,7 @@
-import type { CloudServerRow } from '../../../utils/cloud-list'
-import type { CloudServersState } from '../logic/use-cloud-servers'
 import React from '@react'
 import { formatRam } from '../../../../utils/format/game'
+import type { CloudServerRow } from '../../../utils/cloud-list'
+import type { CloudServersState } from '../logic/use-cloud-servers'
 
 /**
  * One purchased server's card: hostname + used/total RAM, a thin usage
@@ -27,8 +27,7 @@ export function CloudServerCard({
       >
         <span className="bb-wrap" style={{ flex: 1 }}>
           {s.hostname}
-          {' '}
-          (
+          {' ('}
           {formatRam(s.ramUsed)}
           /
           {formatRam(s.maxRam)}

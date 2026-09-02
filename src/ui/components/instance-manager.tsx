@@ -1,4 +1,5 @@
 import type { ProcessInfo, ScriptArg } from '@ns'
+import type { MutableRefObject } from 'react'
 import React, { useEffect, useState } from '@react'
 import { useQueuedNs } from '../context/ns-queue-context'
 
@@ -13,10 +14,13 @@ export function InstanceManager(props: {
   host: string
   // args?: ScriptArg[]
   onRunning?: (process: ProcessInfo | undefined) => void
+
+  toggleFnRef?: MutableRefObject<(() => Promise<void>) | null>
 }) {
   const {
     host,
     onRunning,
+    toggleFnRef,
     ...goal
   } = props
 
@@ -46,6 +50,16 @@ export function InstanceManager(props: {
     const interval = setInterval(refresh, 3000)
     return () => clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    if (toggleFnRef)
+      toggleFnRef.current = toggle
+
+    return () => {
+      if (toggleFnRef)
+        toggleFnRef.current = null
+    }
+  }, [toggleFnRef])
 
   // useEffect(() => { // call onRunning when running changes
   //   onRunning?.(running)

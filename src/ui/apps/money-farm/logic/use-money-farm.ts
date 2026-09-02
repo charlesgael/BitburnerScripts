@@ -5,8 +5,6 @@ import { useCgdActions } from '../../../context/cgd-actions-context'
 import { useQueuedNs } from '../../../context/ns-queue-context'
 import { fetchCloudList, sortByHostname } from '../../../utils/cloud-list'
 import {
-  MONEY_FARM_DAEMON_HOST,
-  MONEY_FARM_DAEMON_SCRIPT,
   MONEY_FARM_GROW_SCRIPT,
   MONEY_FARM_HACK_SCRIPT,
   MONEY_FARM_WEAKEN_SCRIPT,
@@ -122,17 +120,6 @@ export function useMoneyFarm() {
     return () => clearInterval(iFetchStatus)
   }, [enabled])
 
-  async function ensureDaemonRunning(): Promise<string | null> {
-    const alreadyRunning = await ns._isRunning(MONEY_FARM_DAEMON_SCRIPT, MONEY_FARM_DAEMON_HOST)
-    if (alreadyRunning)
-      return null
-    const pid = await ns._exec(MONEY_FARM_DAEMON_SCRIPT, MONEY_FARM_DAEMON_HOST, 1)
-    if (pid === 0) {
-      return `Couldn't launch ${MONEY_FARM_DAEMON_SCRIPT} — enough free RAM on ${MONEY_FARM_DAEMON_HOST}?`
-    }
-    return null
-  }
-
   async function toggle(hostname: string) {
     setError(null)
     setBusyHost(hostname)
@@ -149,13 +136,6 @@ export function useMoneyFarm() {
       }
       await writeMoneyFarmHosts(ns, [...next])
       setEnabled(next)
-
-      if (next.size > 0) {
-        const launchError = await ensureDaemonRunning()
-        if (launchError) {
-          setError(launchError)
-        }
-      }
     }
     catch (err) {
       setError(err instanceof Error ? err.message : String(err))

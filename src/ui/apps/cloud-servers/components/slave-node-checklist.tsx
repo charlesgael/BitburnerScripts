@@ -1,6 +1,6 @@
-import type { CloudServersState } from '../logic/use-cloud-servers'
 import React from '@react'
 import { formatRam } from '../../../../utils/format/game'
+import type { CloudServersState } from '../logic/use-cloud-servers'
 
 /**
  * The Slave Nodes tab's body: every rooted, non-purchased, non-`home` host
@@ -36,7 +36,7 @@ export function SlaveNodeChecklist({
           marginBottom: 8,
         }}
       >
-        ⚠ When changing slaves, remember to restart Flooder program.
+        ⚠ When changing slaves, remember to restart Flooder or ShareRAM program.
       </div>
       <div
         style={{
@@ -77,8 +77,7 @@ export function SlaveNodeChecklist({
                 />
                 <span className="bb-wrap">
                   {h.hostname}
-                  {' '}
-                  (
+                  {' ('}
                   {formatRam(h.ram)}
                   )
                 </span>

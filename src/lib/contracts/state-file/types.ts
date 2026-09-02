@@ -1,10 +1,10 @@
-import type { InferSchema } from '../../utils/tiny-schema/types'
-import { logSchema } from '../../utils/log-helper'
-import { any } from '../../utils/tiny-schema/any'
-import { boolean } from '../../utils/tiny-schema/boolean'
-import { combine } from '../../utils/tiny-schema/combine'
-import { object } from '../../utils/tiny-schema/object'
-import { string } from '../../utils/tiny-schema/string'
+import type { InferSchema } from '../../../utils/tiny-schema/types'
+import { logSchema } from '../../../utils/log-helper'
+import { any } from '../../../utils/tiny-schema/any'
+import { boolean } from '../../../utils/tiny-schema/boolean'
+import { combine } from '../../../utils/tiny-schema/combine'
+import { object } from '../../../utils/tiny-schema/object'
+import { string } from '../../../utils/tiny-schema/string'
 
 export const contractSchema = object({
   title: string(),

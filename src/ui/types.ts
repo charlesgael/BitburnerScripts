@@ -22,7 +22,7 @@ export interface AppDefinition {
    * (`React` itself comes from importing `@react` directly, not a prop —
    * see `ui/utils/react-globals.ts`).
    */
-  Content: () => any
+  Content: (...props: any) => any
   refreshBtn?: boolean
   /**
    * Initial window size (CSS px) when this app is opened, e.g. an app

@@ -1,4 +1,4 @@
-import type { GoLiveState, GoLogSummary } from '../../../../go/state-file'
+import type { GoLiveState, GoLogSummary } from '../../../../lib/go/state-file'
 import React from '@react'
 import {
   GO_GAME_LOG_FILE,
@@ -8,7 +8,7 @@ import {
   parseGameLog,
   parseLiveState,
   summarizeGameLog,
-} from '../../../../go/state-file'
+} from '../../../../lib/go/state-file'
 import { useQueuedNs } from '../../../context/ns-queue-context'
 
 /**

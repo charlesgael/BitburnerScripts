@@ -56,6 +56,12 @@ export interface ManagedAppDefinition {
    */
   singleInstance?: boolean
   /**
+   * Scripts (by filename, matching `Task.script`) that cannot be running
+   * to start the app. E.g. `flooder.app.js`/`floodshare.app.js` both takeover
+   * servers and massively spawn on them.
+   */
+  excludes?: string[]
+  /**
    * Scripts (by filename, matching `Task.script`) that must already be
    * running on the *same host* before this app can spawn there. E.g.
    * `cracker.app.js`/`flooder.app.js`/`backdoor.lite.app.js`/

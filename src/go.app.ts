@@ -1,8 +1,8 @@
 import type { NS } from '@ns'
-import type { GoEngineName, GoGameLogEntry, GoLiveState } from './go/state-file'
-import { pickMove as pickExperimentalMove } from './go/experimental-engine'
-import { pickMove as pickHeuristicMove } from './go/heuristic-engine'
-import { GO_GAME_LOG_FILE, GO_LIVE_STATE_FILE, GO_LIVE_STATE_MAX_EVENTS } from './go/state-file'
+import type { GoEngineName, GoGameLogEntry, GoLiveState } from './lib/go/state-file'
+import { pickMove as pickExperimentalMove } from './lib/go/experimental-engine'
+import { pickMove as pickHeuristicMove } from './lib/go/heuristic-engine'
+import { GO_GAME_LOG_FILE, GO_LIVE_STATE_FILE, GO_LIVE_STATE_MAX_EVENTS } from './lib/go/state-file'
 import { parseArgs } from './utils/args'
 
 /**
@@ -96,6 +96,8 @@ function parseGoArgs(ns: NS): { boardSize: BoardSize, engine: GoEngineName, rota
     { long: 'daedalus', defaultValue: false, description: `Vs Daedalus (24%)` },
     { long: 'illluminati', defaultValue: false, description: `Vs Illuminati (5%)` },
     { long: 'notify', defaultValue: false, description: 'Notify for each game ended', short: 'n' },
+  ] as const, [
+    { name: 'boardSize', description: 'Size of the board (default 7)', optional: true },
   ] as const)
 
   let rotation: string[] = Object.entries({
@@ -110,7 +112,7 @@ function parseGoArgs(ns: NS): { boardSize: BoardSize, engine: GoEngineName, rota
     rotation = [...ROTATION]
   const engine: GoEngineName = flags.experimental ? 'experimental' : 'heuristic'
 
-  const boardArg = flags._[1] !== undefined ? Number(flags._[1]) : DEFAULT_BOARD_SIZE
+  const boardArg = flags.boardSize !== undefined ? Number(flags.boardSize) : DEFAULT_BOARD_SIZE
   const boardSize = (BOARD_SIZES as readonly number[]).includes(boardArg) ? boardArg as BoardSize : DEFAULT_BOARD_SIZE
 
   return { boardSize, engine, rotation, notify: flags.notify }

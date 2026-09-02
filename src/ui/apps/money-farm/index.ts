@@ -1,5 +1,5 @@
 import type { AppDefinition } from '../../types'
-import { MoneyFarmContent } from './components/money-farm-content'
+import { MoneyFarmDashboard } from './components/money-farm-dashboard'
 
 /**
  * Lets the player dedicate purchased ("cloud") servers to earning money:
@@ -35,10 +35,10 @@ export const MoneyFarmApp: AppDefinition = {
   id: 'money-farm',
   icon: '💰',
   label: 'Money Farm',
-  Content: MoneyFarmContent,
+  Content: MoneyFarmDashboard,
   minDaemonTier: 2,
-  preferredWidth: 850,
-  preferredHeight: 640,
-  minWidth: 550,
-  minHeight: 400,
+  preferredWidth: 1200,
+  preferredHeight: 700,
+  minWidth: 1200 * 0.6,
+  minHeight: 700 * 0.6,
 }

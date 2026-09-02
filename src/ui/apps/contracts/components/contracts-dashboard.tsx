@@ -1,9 +1,10 @@
-import type { ContractLogSummary } from '../../../../contracts/state-file/make-stats'
+import type { ContractLogSummary } from '../../../../lib/contracts/state-file/make-stats'
 import React from '@react'
-import { CONTRACTS_HOST, CONTRACTS_LOG_FILE, CONTRACTS_SCRIPT, parseContractLog } from '../../../../contracts/state-file'
-import { summarizeContractLog } from '../../../../contracts/state-file/make-stats'
+import { CONTRACTS_HOST, CONTRACTS_LOG_FILE, CONTRACTS_SCRIPT, parseContractLog } from '../../../../lib/contracts/state-file'
+import { summarizeContractLog } from '../../../../lib/contracts/state-file/make-stats'
 import { formatDuration, formatHour } from '../../../../utils/format/dates'
 import { formatPercent } from '../../../../utils/format/game'
+import { HeroStat } from '../../../components/hero-stat'
 import { InstanceManager } from '../../../components/instance-manager'
 import { TitlebarToolbar } from '../../../components/window/titlebar-toolbar'
 import { useQueuedNs } from '../../../context/ns-queue-context'
@@ -14,7 +15,6 @@ import Document from '../../../svg/document.svg'
 import { useAsyncState } from '../../../utils/use-async-state'
 import { ContractsByHost } from './contracts-by-host'
 import { ContractsLog } from './contracts-log'
-import { HeroStat } from './hero-stat'
 import { RewardsSummary } from './rewards-summary'
 
 export function ContractsDashboard() {
@@ -32,8 +32,8 @@ export function ContractsDashboard() {
   // but that's incidental, not something to rely on).
   React.useEffect(() => {
     const interval = setInterval(() => {
-      void reloadContractLogSummary()
       setLastHour(Date.now() - hourDuration)
+      void reloadContractLogSummary()
     }, 3000)
     return () => clearInterval(interval)
   }, [])

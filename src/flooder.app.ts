@@ -1,4 +1,5 @@
 import type { NS, Server } from '@ns'
+import { loadKnownServers, logError, printNextRun, purgeStaleHostnames, purgeStaleHosts, readIgnoredHostnames, registerFloodCleanup } from './utils/flood-daemon.lib' // cpy
 
 const threadRam = 1.75 // mem of daemon script
 const hackScript = `daemons/hack.daemon.js`
@@ -131,13 +132,6 @@ async function execHGW(ns: NS, server: Server, target: Server = server) {
   }
 }
 
-async function logError(ns: NS, message: string) {
-  const line = `[${new Date().toLocaleTimeString(undefined, {
-    hour12: false,
-  })}] ${message}`
-  ns.print(`ERROR: ${line}`)
-}
-
 export async function main(ns: NS) {
   ns.disableLog(`ALL`)
   const tenMinutes = 1000 * 60 * 10
@@ -148,16 +142,7 @@ export async function main(ns: NS) {
   const bankFilter = (s: Server) => s.moneyMax || -1 > 0
   let nextBankIndex = 0
 
-  // Hosts to never touch as a bank or bot — passed in as script args by
-  // the Programs app, populated with whichever servers are currently
-  // designated as "slave nodes" (see `ui/utils/slave-nodes.ts`) so this
-  // doesn't killall/hijack a server the player deliberately carved out
-  // for Programs/XP Farm/Share. Computed once at launch, not re-read
-  // live like `cloudHostnames` below: picking up a newly-designated slave
-  // node just means restarting flooder from the Programs app, which
-  // recomputes this list fresh every time it spawns (see
-  // `programs/index.ts`'s `buildArgs`).
-  const ignoredHostnames = new Set(ns.args.map(String))
+  const ignoredHostnames = readIgnoredHostnames(ns)
 
   // Every hostname this daemon has ever launched hack/grow/weaken scripts
   // on (banks and bots alike — see the three `touchedHosts.add(...)`
@@ -168,21 +153,7 @@ export async function main(ns: NS) {
   // ...), so tracking "ever touched" directly is simpler and can't miss
   // one that's mid-transition.
   const touchedHosts = new Set<string>()
-
-  // Registered once, up front, so it's armed for the whole run —
-  // `ns.kill`'d from the Programs app (see `ui/apps/task-manager/`) or
-  // exiting on its own both trigger it. Stops every hack/grow/weaken loop
-  // this daemon ever started, on every host it ever touched, so nothing
-  // keeps running unmanaged once there's no daemon left to retarget it
-  // when its bank dries up or gets deleted. `touchedHosts` is read at
-  // call time via closure, not snapshotted here, so it reflects whatever
-  // this daemon had actually claimed by the time it died.
-  ns.atExit(() => {
-    for (const hostname of touchedHosts) {
-      if (ns.serverExists(hostname))
-        ns.killall(hostname)
-    }
-  }, `flooder-cleanup`)
+  registerFloodCleanup(ns, touchedHosts, `flooder-cleanup`)
 
   while (true) {
     // Ground truth for which hosts are cloud servers, straight from the
@@ -195,42 +166,16 @@ export async function main(ns: NS) {
     // this check existed (or got reclassified) stops being touched
     // instead of only blocking *new* additions.
     const cloudHostnames = new Set(ns.cloud.getServerNames())
-    for (const list of [flooded, bots]) {
-      for (let i = list.length - 1; i >= 0; i--) {
-        if (cloudHostnames.has(list[i].hostname) || ignoredHostnames.has(list[i].hostname))
-          list.splice(i, 1)
-      }
-    }
-    for (let i = weakeningHosts.length - 1; i >= 0; i--) {
-      if (cloudHostnames.has(weakeningHosts[i]) || ignoredHostnames.has(weakeningHosts[i]))
-        weakeningHosts.splice(i, 1)
-    }
+    purgeStaleHosts([flooded, bots], cloudHostnames, ignoredHostnames)
+    purgeStaleHostnames(weakeningHosts, cloudHostnames, ignoredHostnames)
 
-    const servers: Server[] = []
-    for (const s of JSON.parse(ns.read(serverFile)) as Server[]) {
-      if (
-        !s.hasAdminRights
-        || s.hostname === `home`
-        || cloudHostnames.has(s.hostname) // never bot/target the player's own purchased ("cloud") servers
-        || ignoredHostnames.has(s.hostname) // never bot/target a designated slave node either
-        || flooded.findIndex(s2 => s2.hostname === s.hostname) >= 0
-        || bots.findIndex(s2 => s2.hostname === s.hostname) >= 0
-      ) {
-        continue
-      }
-      // known-servers.json.txt is only a cache: it can list a host that
-      // no longer exists (e.g. netmapper.app.ts hasn't refreshed it
-      // since the host was deleted/reset). Skip and log rather than
-      // let killall() below throw and crash the whole daemon.
-      if (!ns.serverExists(s.hostname)) {
-        await logError(
-          ns,
-          `${s.hostname} is in ${serverFile} but no longer exists - skipping.`,
-        )
-        continue
-      }
-      servers.push(s)
-    }
+    const servers = await loadKnownServers(
+      ns,
+      serverFile,
+      cloudHostnames,
+      ignoredHostnames,
+      hostname => flooded.some(s => s.hostname === hostname) || bots.some(s => s.hostname === hostname),
+    )
     ns.print(`\nReloaded ${serverFile}`)
 
     let foundServer = false
@@ -302,11 +247,7 @@ export async function main(ns: NS) {
       ns.print(`No known floodable servers.`)
     }
 
-    ns.print(
-      `Will search again at ${new Date(
-        Date.now() + tenMinutes,
-      ).toLocaleTimeString(undefined, { hour12: false })}.`,
-    )
+    printNextRun(ns, tenMinutes)
     await ns.sleep(tenMinutes)
   }
 }

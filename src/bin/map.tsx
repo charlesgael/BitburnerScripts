@@ -1,6 +1,33 @@
 import type { NS, Server } from '@ns'
-import { parseArgs } from './utils/args'
-import { formatMoney } from './utils/format/game'
+import { parseArgs } from '../utils/args'
+import { formatMoney, formatRam } from '../utils/format/game'
+
+const FACTION_HOSTS: Record<string, string> = {
+  'CSEC': 'CyberSec',
+  'avmnite-02h': 'NiteSec',
+  'I.I.I.I': 'The Black Hand',
+  'run4theh111z': 'BitBurners',
+  'fulcrumassets': 'Fulcrum Technologies',
+}
+
+const CORPS_HOSTS: string[] = [
+  'ecorp',
+  'megacorp',
+  'kuai-gong',
+  'nwo',
+  'blade',
+  'omnitek',
+  '4sigma',
+  'clarkinc',
+]
+
+const QOL_HOSTS: Record<string, string> = {
+  'rothman-uni': 'Reduces tuition costs at Rothman University (located in Sector-12)',
+  'summit-uni': 'Reduces tuition costs at Summit University (located in Aevum)',
+  'zb-institute': 'Reduces tuition costs at the ZB Institute of Technology (located in Volhaven)',
+  'iron-gym': 'Reduces membership and training fees at Iron Gym (located in Sector-12)',
+  'powerhouse-gym': 'Reduces fees at Powerhouse Gym (located in Sector-12)',
+}
 
 /**
  * `React` only exists as the game's `window.React` global (see
@@ -62,47 +89,16 @@ const MONOSPACE = `ui-monospace, "SF Mono", Consolas, "Courier New", monospace`
 
 function parseDisplayFlags(ns: NS) {
   return parseArgs(ns, [
-    {
-      short: `l`,
-      long: `level`,
-      defaultValue: false,
-      description: `Show each host's required hacking skill`,
-    },
-    {
-      short: `o`,
-      long: `organization`,
-      defaultValue: false,
-      description: `Show each host's owning organization`,
-    },
-    {
-      short: `m`,
-      long: `money`,
-      defaultValue: false,
-      description: `Show each host's available money`,
-    },
-    {
-      short: `r`,
-      long: `root`,
-      defaultValue: false,
-      description: `Show a ROOT badge on hosts you have admin rights on`,
-    },
-    {
-      short: `e`,
-      long: `exploits`,
-      defaultValue: false,
-      description: `Show a badge indicating the number of exploits required`,
-    },
-    {
-      short: `c`,
-      long: `cloud`,
-      defaultValue: false,
-      description: `Show owned cloud servers`,
-    },
-    {
-      long: 'ram',
-      defaultValue: false,
-      description: 'Show host amount of RAM',
-    },
+    { short: `l`, long: `level`, defaultValue: false, description: `Show each host's required hacking skill` },
+    { short: `o`, long: `organization`, defaultValue: false, description: `Show each host's owning organization` },
+    { short: `m`, long: `money`, defaultValue: false, description: `Show each host's available money` },
+    { short: `r`, long: `root`, defaultValue: false, description: `Show a ROOT badge on hosts you have admin rights on` },
+    { short: `e`, long: `exploits`, defaultValue: false, description: `Show a badge indicating the number of exploits required` },
+    { short: `c`, long: `cloud`, defaultValue: false, description: `Show owned cloud servers` },
+    { long: 'ram', defaultValue: false, description: 'Show host amount of RAM' },
+    { long: 'corps', defaultValue: false, description: 'Show a badge on hosts affiliated to CORPS *spoilers*' },
+    { long: 'factions', defaultValue: false, description: 'Show a badge on hosts affiliated to FACTIONS *spoilers*' },
+    { long: 'qol', defaultValue: false, description: 'Show a badge on hosts for QoL *spoilers*' },
   ] as const)
 }
 
@@ -251,9 +247,10 @@ function ConnectLink({ dom, hostName, path, color }: ConnectLinkProps) {
 interface BadgeProps {
   text: string
   color: string
+  title?: string
 }
 
-function Badge({ text, color }: BadgeProps) {
+function Badge({ text, color, title }: BadgeProps) {
   return (
     <span
       style={{
@@ -264,7 +261,9 @@ function Badge({ text, color }: BadgeProps) {
         border: `1px solid ${color}`,
         color,
         whiteSpace: `nowrap`,
+        cursor: 'default',
       }}
+      title={title}
     >
       {text}
     </span>
@@ -355,7 +354,7 @@ function TreeRow({
           : null}
         {flags.ram && server.maxRam
           ? (
-              <Badge text={ns.format.ram(server.maxRam)} color={THEME.int} />
+              <Badge text={formatRam(server.maxRam)} color={THEME.int} />
             )
           : null}
         {flags.level && server.requiredHackingSkill
@@ -382,11 +381,29 @@ function TreeRow({
               />
             )
           : null}
-        {flags.organization && server.organizationName
+        {(
+          flags.organization
+          || (flags.factions && Object.keys(FACTION_HOSTS).includes(server.hostname))
+          || (flags.corps && CORPS_HOSTS.includes(server.hostname))
+          || (flags.qol && Object.keys(QOL_HOSTS).includes(server.hostname))
+        ) && server.organizationName
           ? (
               <Badge
-                text={server.organizationName}
-                color={THEME.secondary}
+                text={(flags.factions && Object.keys(FACTION_HOSTS).includes(server.hostname))
+                  ? FACTION_HOSTS[server.hostname]
+                  : server.organizationName}
+                color={(flags.factions && Object.keys(FACTION_HOSTS).includes(server.hostname))
+                  ? THEME.hack
+                  : (flags.corps && CORPS_HOSTS.includes(server.hostname))
+                      ? THEME.int
+                      : (flags.qol && Object.keys(QOL_HOSTS).includes(server.hostname))
+                          ? THEME.warning
+                          : THEME.secondary}
+                title={
+                  (flags.qol && Object.keys(QOL_HOSTS).includes(server.hostname))
+                    ? QOL_HOSTS[server.hostname]
+                    : undefined
+                }
               />
             )
           : null}

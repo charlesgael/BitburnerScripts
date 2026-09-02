@@ -1,4 +1,4 @@
-import type { ContractsLogEntry } from '../../../../contracts/state-file/types'
+import type { ContractsLogEntry } from '../../../../lib/contracts/state-file/types'
 import React from '@react'
 import { formatMediumHour } from '../../../../utils/format/dates'
 import CheckCircle from '../../../svg/check-circle.svg'

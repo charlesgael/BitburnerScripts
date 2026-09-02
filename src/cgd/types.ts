@@ -1,4 +1,5 @@
 import type { NS } from '@ns'
+import type { Mode } from '../ui/utils/money-farm-log/types'
 import type { StatValue } from './stats'
 
 /**
@@ -147,6 +148,33 @@ export interface CgdDaemon {
 export interface CgdStoreState {
   homeRam: { used: number, max: number }
   stats: Record<string, StatValue>
+  /**
+   * Fleet-wide RAM breakdown for Money Farm's exclusive host partitions
+   * (see `daemons/money-farm.daemon.ts`'s partitioning section), pushed by
+   * that daemon itself every `STATE_CHECK_INTERVAL` tick — not a tiered
+   * daemon like every other writer of this store, but `window-cgd.ts`'s
+   * lazy accessor is explicitly safe to call from any script. Optional:
+   * absent until money-farm.daemon.ts has actually run this session, and
+   * cleared back to `undefined` on its `ns.atExit` so a stale snapshot
+   * doesn't linger once every dedicated host is disabled and it exits.
+   * `reserved`/`used` are raw GB (not a `StatValue`) for the same reason
+   * `homeRam` is its own field rather than folded into `stats`: a future
+   * consumer computing against these numbers needs them raw, not a
+   * pre-formatted display string.
+   */
+  moneyFarm?: {
+    /**
+     * Total capacity (GB) of every host currently in `managedHosts` — the
+     * whole dedicated fleet, not the sum of what's reserved or in use.
+     * `sum(perTarget[].reserved)` is always `<= totalRam`; the gap is
+     * genuinely idle, unassigned capacity (not its own field — a consumer
+     * computes `totalRam - sum(perTarget[].reserved)` for it). Only moves
+     * when a host is claimed/released via the config file, independent of
+     * partition activity.
+     */
+    totalRam: number
+    perTarget: { target: string, mode: Mode, reserved: number, used: number }[]
+  }
 }
 
 /**

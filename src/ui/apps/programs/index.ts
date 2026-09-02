@@ -51,6 +51,19 @@ export const ProgramsApp: AppDefinition = createTaskManagerApp('programs', 'Prog
       await ns._getHostname(),
     ],
     singleInstance: true,
+    excludes: ['floodshare.app.js'],
+    requires: ['netmapper.app.js'],
+  },
+  {
+    script: 'floodshare.app.js',
+    label: 'ShareRAM',
+    buildArgs: async ns => [
+      ...(await readSlaveNodes(ns)),
+      // We do not want to kill the daemon
+      await ns._getHostname(),
+    ],
+    singleInstance: true,
+    excludes: ['flooder.app.js'],
     requires: ['netmapper.app.js'],
   },
   {

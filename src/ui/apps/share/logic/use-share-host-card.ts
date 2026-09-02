@@ -3,10 +3,9 @@ import type { QueuedNS } from '../../../utils/ns-proxy'
 import React from '@react'
 import { formatRam } from '../../../../utils/format/game'
 import { isHome } from '../../../logic/is-home'
+import { SHARE_DAEMON_SCRIPT } from '../../../utils/share-config'
 import { spawnRemote } from '../../../utils/spawn-remote'
 import { threadTiers } from './thread-tiers'
-
-const DAEMON_SCRIPT = 'daemons/share.daemon.js'
 
 /**
  * `home` RAM below `max(MIN_RESERVED_RAM_GB, RESERVED_RAM_FRACTION * home's
@@ -63,7 +62,7 @@ export function useShareHostCard(
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
-      const cost = await ns._getScriptRam(DAEMON_SCRIPT, 'home')
+      const cost = await ns._getScriptRam(SHARE_DAEMON_SCRIPT, 'home')
       if (cancelled)
         return
       setCostPerThread(cost)
@@ -71,7 +70,7 @@ export function useShareHostCard(
       const processes = await ns._ps(host.hostname)
       if (cancelled)
         return
-      const proc = processes.find((p: { filename: string }) => p.filename === DAEMON_SCRIPT)
+      const proc = processes.find((p: { filename: string }) => p.filename === SHARE_DAEMON_SCRIPT)
       if (proc) {
         setPid(proc.pid)
         setRunningThreads(proc.threads)
@@ -162,17 +161,17 @@ export function useShareHostCard(
       }
 
       if (isHome(host)) {
-        const newPid = await ns._exec(DAEMON_SCRIPT, host.hostname, selectedThreads)
+        const newPid = await ns._exec(SHARE_DAEMON_SCRIPT, host.hostname, selectedThreads)
         if (newPid === 0) {
-          setError(`Couldn't launch ${DAEMON_SCRIPT} — enough RAM? Is it deployed to ${host.hostname}?`)
+          setError(`Couldn't launch ${SHARE_DAEMON_SCRIPT} — enough RAM? Is it deployed to ${host.hostname}?`)
           return
         }
         setPid(newPid)
       }
       else {
-        const result = await spawnRemote(ns, DAEMON_SCRIPT, host.hostname, selectedThreads, [])
+        const result = await spawnRemote(ns, SHARE_DAEMON_SCRIPT, host.hostname, selectedThreads, [])
         if (!result.ok || !result.pid) {
-          setError(result.error ?? `Couldn't launch ${DAEMON_SCRIPT} on ${host.hostname}.`)
+          setError(result.error ?? `Couldn't launch ${SHARE_DAEMON_SCRIPT} on ${host.hostname}.`)
           return
         }
         setPid(result.pid)

@@ -1,16 +1,20 @@
 import type { NS } from '@ns'
-import { Contract, ContractSolver } from './contracts.lib'
-import { recordContractResult } from './contracts/state-file'
-import * as Ports from './ports.lib'
+import { Contract, ContractSolver } from './lib/contracts/contracts.lib'
+import { recordContractResult } from './lib/contracts/state-file'
+import * as Ports from './utils/ports.lib'
 
 function getContractsFromHost(ns: NS, host: string) {
   const contracts = []
-  const contractFilenames = ns.ls(host, `.cct`)
-  for (const filename of contractFilenames) {
-    const title = ns.codingcontract.getContractType(filename, host)
-    contracts.push(new Contract(title, filename, host))
+  try {
+    const contractFilenames = ns.ls(host, `.cct`)
+    for (const filename of contractFilenames) {
+      const title = ns.codingcontract.getContractType(filename, host)
+      contracts.push(new Contract(title, filename, host))
+    }
   }
-
+  catch (e) {
+    ns.print(`Couldn't get the contract on ${host}: ${e})`)
+  }
   return contracts
 }
 

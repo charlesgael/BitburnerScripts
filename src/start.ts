@@ -111,13 +111,17 @@ export async function main(ns: NS): Promise<void> {
       defaultValue: false,
       description: 'Force daemon replacement',
     },
-  ] as const)
+
+  ] as const, [
+    { name: 'forcedTier', description: 'If you want to force a particular tier of daemon (default: max)', optional: true },
+    { name: 'remote', description: 'On which server you want to run it', optional: true },
+  ])
 
   const win = eval('window')
   const cgd = getCgd(win)
 
-  const forcedTier = args._[0] !== undefined ? args._[0] : undefined
-  const remote = args._[1] !== undefined ? String(args._[1]) : 'home'
+  const forcedTier = args.forcedTier !== undefined ? args.forcedTier : undefined
+  const remote = args.remote !== undefined ? String(args.remote) : 'home'
 
   const currentTier = cgd.daemon?._getTier()
   const needsDaemon = !cgd.daemon || (forcedTier !== undefined && forcedTier !== currentTier) || args.force
