@@ -1,5 +1,4 @@
 import type { AppDefinition } from '../../types'
-import { MoneyFarmContent } from './components/money-farm-content'
 import { MoneyFarmDashboard } from './components/money-farm-dashboard'
 
 /**

@@ -5,8 +5,6 @@ import { useCgdActions } from '../../../context/cgd-actions-context'
 import { useQueuedNs } from '../../../context/ns-queue-context'
 import { fetchCloudList, sortByHostname } from '../../../utils/cloud-list'
 import {
-  MONEY_FARM_DAEMON_HOST,
-  MONEY_FARM_DAEMON_SCRIPT,
   MONEY_FARM_GROW_SCRIPT,
   MONEY_FARM_HACK_SCRIPT,
   MONEY_FARM_WEAKEN_SCRIPT,

@@ -13,7 +13,7 @@ function getContractsFromHost(ns: NS, host: string) {
     }
   }
   catch (e) {
-    ns.print(`Couldn't get the contract on ${host}: ${e})
+    ns.print(`Couldn't get the contract on ${host}: ${e})`)
   }
   return contracts
 }
