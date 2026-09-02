@@ -1,9 +1,9 @@
-import type { InferSchema } from '../../utils/tiny-schema/types'
-import { logSchema } from '../../utils/log-helper'
-import { boolean } from '../../utils/tiny-schema/boolean'
-import { number } from '../../utils/tiny-schema/number'
-import { object } from '../../utils/tiny-schema/object'
-import { string } from '../../utils/tiny-schema/string'
+import type { InferSchema } from '../../../utils/tiny-schema/types'
+import { logSchema } from '../../../utils/log-helper'
+import { boolean } from '../../../utils/tiny-schema/boolean'
+import { number } from '../../../utils/tiny-schema/number'
+import { object } from '../../../utils/tiny-schema/object'
+import { string } from '../../../utils/tiny-schema/string'
 
 export const tradeSignalSchema = object({
   direction: string(),

@@ -1,6 +1,6 @@
 import type { NS } from '@ns'
 import type { TraderLogEntry } from './types'
-import { addLog, parseLog } from '../../utils/log-helper'
+import { addLog, parseLog } from '../../../utils/log-helper'
 import { traderEventSchema } from './types'
 
 export const TRADER_LOG_FILE = 'log/trader-log.txt'

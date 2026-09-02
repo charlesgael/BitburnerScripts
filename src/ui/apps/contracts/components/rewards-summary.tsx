@@ -1,4 +1,4 @@
-import type { ContractLogSummary } from '../../../../contracts/state-file/make-stats'
+import type { ContractLogSummary } from '../../../../lib/contracts/state-file/make-stats'
 import React from '@react'
 import { formatMoney, formatNumber } from '../../../../utils/format/game'
 import { pluralize } from '../../../../utils/format/string'

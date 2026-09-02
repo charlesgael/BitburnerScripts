@@ -1,6 +1,6 @@
 import type { ContractsLogEntry } from './types'
-import { formatMoney, formatNumber } from '../../utils/format/game'
-import { pluralize } from '../../utils/format/string'
+import { formatMoney, formatNumber } from '../../../utils/format/game'
+import { pluralize } from '../../../utils/format/string'
 
 /// TYPES
 

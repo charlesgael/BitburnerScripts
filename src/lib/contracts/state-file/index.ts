@@ -1,7 +1,7 @@
 import type { NS } from '@ns'
 import type { Contract, SolveResult } from '../contracts.lib'
 import type { ContractsLogEntry } from './types'
-import { addLog, parseLog } from '../../utils/log-helper'
+import { addLog, parseLog } from '../../../utils/log-helper'
 
 import { contractsLogEntrySchema } from './types'
 

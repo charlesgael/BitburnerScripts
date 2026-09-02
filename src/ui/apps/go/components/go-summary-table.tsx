@@ -1,4 +1,4 @@
-import type { GoLogSummary } from '../../../../go/state-file'
+import type { GoLogSummary } from '../../../../lib/go/state-file'
 import React from '@react'
 import { DonutChart } from '../../../components/chart/donut-chart'
 

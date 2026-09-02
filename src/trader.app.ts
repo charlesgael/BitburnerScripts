@@ -1,8 +1,8 @@
 import type { NS } from '@ns'
-import type { TradeSignal } from './trader/signal'
-import { parseStockStatsLog, STOCK_STATS_LOG_FILE } from './stock-stats/state-file'
-import { getSignal, PriceWindow, WINDOW_TICKS } from './trader/signal'
-import { recordTraderEvent } from './trader/state-file'
+import type { TradeSignal } from './lib/trader/signal'
+import { parseStockStatsLog, STOCK_STATS_LOG_FILE } from './lib/stock-stats/state-file'
+import { getSignal, PriceWindow, WINDOW_TICKS } from './lib/trader/signal'
+import { recordTraderEvent } from './lib/trader/state-file'
 import { arg, parseArgs } from './utils/args'
 import { formatMoney } from './utils/format/game'
 

@@ -1,6 +1,6 @@
 import type { NS } from '@ns'
-import { Contract, ContractSolver } from './contracts/contracts.lib'
-import { recordContractResult } from './contracts/state-file'
+import { Contract, ContractSolver } from './lib/contracts/contracts.lib'
+import { recordContractResult } from './lib/contracts/state-file'
 import * as Ports from './utils/ports.lib'
 
 function getContractsFromHost(ns: NS, host: string) {
