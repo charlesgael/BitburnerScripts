@@ -32,8 +32,8 @@ export function ContractsDashboard() {
   // but that's incidental, not something to rely on).
   React.useEffect(() => {
     const interval = setInterval(() => {
-      void reloadContractLogSummary()
       setLastHour(Date.now() - hourDuration)
+      void reloadContractLogSummary()
     }, 3000)
     return () => clearInterval(interval)
   }, [])
