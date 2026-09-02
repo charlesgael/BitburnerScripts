@@ -34,6 +34,11 @@ export interface WindowSummary {
   meanRawReturnPct: number | null
 }
 
+export interface ReturnHistogramBucket {
+  label: string
+  count: number
+}
+
 export interface TraderLogSummary {
   entryCount: number
   spanMin: number
@@ -49,6 +54,10 @@ export interface TraderLogSummary {
   closedRoundTrips: ClosedRoundTrip[]
   winRatePct: number | null
   meanRawReturnPct: number | null
+  medianRawReturnPct: number | null
+  minRawReturnPct: number | null
+  maxRawReturnPct: number | null
+  returnHistogram: ReturnHistogramBucket[]
   meanHoldMin: number | null
   stopLossCount: number
   openPositions: OpenPosition[]
@@ -60,11 +69,39 @@ function mean(values: number[]): number {
   return values.reduce((a, b) => a + b, 0) / values.length
 }
 
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid]
+}
+
 function countBy(values: string[]): Record<string, number> {
   const counts: Record<string, number> = {}
   for (const v of values)
     counts[v] = (counts[v] ?? 0) + 1
   return counts
+}
+
+/**
+ * Half-open [min, max) buckets over closed round-trip returns - a mean can
+ * look great while hiding that most wins are modest and a couple of huge
+ * outlier rides are doing the heavy lifting (or the reverse), which is
+ * exactly the ambiguity a single meanRawReturnPct number can't resolve.
+ */
+const RETURN_HISTOGRAM_BUCKETS: { label: string, min: number, max: number }[] = [
+  { label: '<0%', min: -Infinity, max: 0 },
+  { label: '0-10%', min: 0, max: 10 },
+  { label: '10-25%', min: 10, max: 25 },
+  { label: '25-50%', min: 25, max: 50 },
+  { label: '50-100%', min: 50, max: 100 },
+  { label: '>=100%', min: 100, max: Infinity },
+]
+
+function histogramReturns(values: number[]): ReturnHistogramBucket[] {
+  return RETURN_HISTOGRAM_BUCKETS.map(b => ({
+    label: b.label,
+    count: values.filter(v => v >= b.min && v < b.max).length,
+  }))
 }
 
 /// Summary
@@ -92,6 +129,10 @@ export function summarizeTraderLog(entries: TraderLogEntry[]): TraderLogSummary 
       closedRoundTrips: [],
       winRatePct: null,
       meanRawReturnPct: null,
+      medianRawReturnPct: null,
+      minRawReturnPct: null,
+      maxRawReturnPct: null,
+      returnHistogram: [],
       meanHoldMin: null,
       stopLossCount: 0,
       openPositions: [],
@@ -170,6 +211,10 @@ export function summarizeTraderLog(entries: TraderLogEntry[]): TraderLogSummary 
       ? 100 * closedRoundTrips.filter(c => c.returnPct > 0).length / closedRoundTrips.length
       : null,
     meanRawReturnPct: closedRoundTrips.length > 0 ? mean(closedRoundTrips.map(c => c.returnPct)) : null,
+    medianRawReturnPct: closedRoundTrips.length > 0 ? median(closedRoundTrips.map(c => c.returnPct)) : null,
+    minRawReturnPct: closedRoundTrips.length > 0 ? Math.min(...closedRoundTrips.map(c => c.returnPct)) : null,
+    maxRawReturnPct: closedRoundTrips.length > 0 ? Math.max(...closedRoundTrips.map(c => c.returnPct)) : null,
+    returnHistogram: closedRoundTrips.length > 0 ? histogramReturns(closedRoundTrips.map(c => c.returnPct)) : [],
     meanHoldMin: closedRoundTrips.length > 0 ? mean(closedRoundTrips.map(c => c.holdMin)) : null,
     stopLossCount: closedRoundTrips.filter(c => c.reason === 'stop-loss').length,
     openPositions,
@@ -334,6 +379,12 @@ export function formatTraderLogSummary(summary: TraderLogSummary): string[] {
       + `mean hold ${summary.meanHoldMin!.toFixed(1)} min, `
       + `${summary.stopLossCount} stop-loss exit(s))`,
     )
+    lines.push(
+      `Return distribution: median ${summary.medianRawReturnPct!.toFixed(2)}%, `
+      + `min ${summary.minRawReturnPct!.toFixed(2)}%, max ${summary.maxRawReturnPct!.toFixed(2)}% `
+      + `(a mean far above the median means a few outlier rides are doing most of the work)`,
+    )
+    lines.push(`Histogram: ${summary.returnHistogram.map(b => `${b.label}=${b.count}`).join(' ')}`)
     lines.push('Note: "raw return" is entry/exit price only - excludes spread/commission/impact, which portfolioValue above already accounts for.')
   }
 
