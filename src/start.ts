@@ -113,8 +113,8 @@ export async function main(ns: NS): Promise<void> {
     },
 
   ] as const, [
-    { name: 'forcedTier', description: 'If you want to force a particular tier of daemon (default: max)' },
-    { name: 'remote', description: 'On which server you want to run it' },
+    { name: 'forcedTier', description: 'If you want to force a particular tier of daemon (default: max)', optional: true },
+    { name: 'remote', description: 'On which server you want to run it', optional: true },
   ])
 
   const win = eval('window')

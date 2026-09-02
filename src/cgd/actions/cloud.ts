@@ -84,10 +84,11 @@ export async function cloudListAction(ns: NS): Promise<CloudListResult> {
       // clears it back to a valid `[]`.
     }
   }
-  const slaves = configuredSlaves
+  const slaves: CloudServerRow[] = configuredSlaves
     .filter(ns.serverExists.bind(ns))
     .map(ns.getServer.bind(ns))
     .filter(s => s.hasAdminRights && !s.purchasedByPlayer)
+    .map(s => ({ ...s, isSlave: true }))
   const slaveNames = slaves.map(s => s.hostname)
   if (slaveNames.length !== configuredSlaves.length) {
     ns.write(SLAVE_NODE_FILE, JSON.stringify(slaveNames), 'w')
