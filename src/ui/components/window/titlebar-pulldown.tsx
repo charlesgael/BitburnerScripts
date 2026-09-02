@@ -35,6 +35,7 @@ export function TitlebarPulldown(props: {
           height: visible ? height + 19 : 0,
           overflow: 'hidden',
           transition: 'height 0.3s ease',
+          zIndex: 1,
         }}
       >
         <div

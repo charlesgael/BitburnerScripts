@@ -1,5 +1,6 @@
 import type { FileExplorerState } from '../logic/use-file-explorer'
 import React from '@react'
+import { pluralize } from '../../../../utils/format/string'
 import { ActionBar } from './action-bar'
 import { BrowseToolbar } from './browse-toolbar'
 import { FileGrid } from './file-grid'
@@ -39,10 +40,7 @@ export function BrowseScreen({ fx }: { fx: FileExplorerState }) {
       <ActionBar fx={fx} />
 
       <div style={{ fontSize: '10px', opacity: 0.6, marginTop: '4px', flexShrink: 0 }}>
-        {fx.entries.length}
-        {' '}
-        item
-        {fx.entries.length === 1 ? '' : 's'}
+        {pluralize(fx.entries.length, 'item', 'items')}
       </div>
     </div>
   )
