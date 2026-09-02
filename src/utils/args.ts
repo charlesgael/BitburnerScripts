@@ -24,36 +24,34 @@ type MapPrimitive<T> = T extends boolean
         ? string
         : ScriptArg
 
-export type ParsedFlags<T extends readonly BitburnerFlagSpec[]> = Expand<
+interface ExtraArg {
+  name: string
+  description: string
+  optional?: boolean
+}
+
+export type ParsedFlags<T extends readonly BitburnerFlagSpec[], U extends readonly ExtraArg[]> = Expand<
   {
     [K in T[number] as K['long']]: MapPrimitive<K['defaultValue']>;
+  } & {
+    [L in U[number] as L['name']]: ScriptArg;
   } & {
     _: ScriptArg[]
   }
 >
 
-/**
- * Custom Bitburner flags parser that formats a dynamic help menu and leverages ns.flags().
- * Exits the script cleanly using ns.exit() if help is triggered or if flags fail.
- */
-export function parseArgs<T extends readonly BitburnerFlagSpec[]>(
+function parseArgsHelp<T extends readonly BitburnerFlagSpec[]>(
   ns: NS,
   customSchema: T,
-): ParsedFlags<T> {
-  // Bitburner expects a native schema array of tuples: [["flagName", defaultValue]]
-  const nsSchema: [string, Value][] = []
+  extraArgs: readonly ExtraArg[] = [],
+): void {
+  // Evaluate if help requested: -h, --h, --help, or -help
   const helpTextRows: string[] = []
 
   // Add help text row for the automatically injected help flags
   helpTextRows.push(`${`  -h, --help`.padEnd(30)}Show this help menu`)
 
   for (const item of customSchema) {
-    // Bitburner maps options directly, but you can explicitly accept both long and short variants
-    nsSchema.push([item.long, item.defaultValue])
-    if (item.short)
-      nsSchema.push([item.short, item.defaultValue])
-
-    // Format the data type symbol for your help text presentation
     let typeLabel = ''
     if (typeof item.defaultValue === 'string')
       typeLabel = ' <string>'
@@ -61,11 +59,57 @@ export function parseArgs<T extends readonly BitburnerFlagSpec[]>(
       typeLabel = ' <number>'
     if (Array.isArray(item.defaultValue))
       typeLabel = ' <array>'
-
     helpTextRows.push(
       `${`  ${item.short ? `-${item.short}, ` : ''}--${item.long}${typeLabel}`.padEnd(30)
       }${item.description}`,
     )
+  }
+
+  let extraArgsStr = ''
+  let optionals = 0
+  for (const arg of extraArgs) {
+    extraArgsStr += `${(arg.optional ? '[' : '')}${arg.name}`
+    if (arg.optional)
+      optionals++
+
+    helpTextRows.push(
+      `${`  ${arg.name}`.padEnd(30)
+      }${arg.description}`,
+    )
+  }
+  extraArgsStr += [...Array.from({ length: optionals }).fill('')].join(']')
+
+  ns.tprint(
+    `
+Usage: run ${ns.getScriptName()} [options] ${extraArgsStr}
+
+Options:
+${helpTextRows.join('\n')}`,
+  )
+  ns.exit()
+}
+
+/**
+ * Custom Bitburner flags parser that formats a dynamic help menu and leverages ns.flags().
+ * Exits the script cleanly using ns.exit() if help is triggered or if flags fail.
+ */
+export function parseArgs<T extends readonly BitburnerFlagSpec[], U extends readonly ExtraArg[]>(
+  ns: NS,
+  customSchema: T,
+  extraArgs: U = [] as any,
+): ParsedFlags<T, U> {
+  if (ns.args.includes('-h') || ns.args.includes('--help')) {
+    parseArgsHelp(ns, customSchema, extraArgs)
+  }
+
+  // Bitburner expects a native schema array of tuples: [["flagName", defaultValue]]
+  const nsSchema: [string, Value][] = []
+
+  for (const item of customSchema) {
+    // Bitburner maps options directly, but you can explicitly accept both long and short variants
+    nsSchema.push([item.long, item.defaultValue])
+    if (item.short)
+      nsSchema.push([item.short, item.defaultValue])
   }
 
   // Inject the native global help key triggers into the target schema
@@ -74,15 +118,11 @@ export function parseArgs<T extends readonly BitburnerFlagSpec[]>(
 
   // Execute the game's native engine parser
   const flags = ns.flags(nsSchema)
+  const firstOpt = extraArgs.findIndex(it => it.optional === true)
+  const minExtra = firstOpt === -1 ? extraArgs.length : firstOpt
 
-  // Evaluate if help requested: -h, --h, --help, or -help
-  if (flags.help || flags.h) {
-    ns.tprint(
-      `\nUsage: run ${ns.getScriptName()} [options]\n\nOptions:\n${helpTextRows.join(
-        '\n',
-      )}`,
-    )
-    ns.exit()
+  if (Array.isArray(flags._) && flags._.length < minExtra) {
+    parseArgsHelp(ns, customSchema, extraArgs)
   }
 
   // RECONCILIATION STEP:
@@ -103,6 +143,10 @@ export function parseArgs<T extends readonly BitburnerFlagSpec[]>(
         flags[item.long] = shortValue
       }
     }
+  }
+
+  for (const [idx, arg] of extraArgs.entries()) {
+    flags[arg.name] = (flags._ as any)[idx]
   }
 
   return flags as any

@@ -1,11 +1,11 @@
 import type { NS } from '@ns'
-import { parseTraderLog, TRADER_LOG_FILE } from './trader/state-file'
+import { parseTraderLog, TRADER_LOG_FILE } from './lib/trader/state-file'
 import {
   formatTraderLogSummary,
   formatTraderLogSummaryByWindow,
   summarizeTraderLog,
   summarizeTraderLogByWindow,
-} from './trader/state-file/make-stats'
+} from './lib/trader/state-file/make-stats'
 import { arg, parseArgs } from './utils/args'
 
 /**
