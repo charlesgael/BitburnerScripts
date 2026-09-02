@@ -50,13 +50,16 @@ export function SpawnRow({
   const alreadyRunning = app.singleInstance
     ? tm.tasks.some(t => t.script === app.script)
     : tm.tasks.some(t => t.script === app.script && t.host === 'home')
+  const exclusionRunning = app.excludes
+    ? tm.tasks.some(t => app.excludes?.includes(t.script))
+    : false
   // `null` (see `./dependency-chain.ts`) means the chain is unsatisfiable
   // on home at all — currently unreachable (nothing `requires`-able is
   // also `singleInstance`), treated the same as "no RAM" below.
   const homeChain = tm.dependencyChainFor(app, 'home')
   const isOccupied = tm.spawnBusy.has(app.script)
-  const homeDisabled = isOccupied || tm.loading || !homeOption
-  const hasCloudOption = cloudOptions.length > 0
+  const homeDisabled = isOccupied || tm.loading || !homeOption || exclusionRunning
+  const hasCloudOption = cloudOptions.length > 0 && !exclusionRunning
   const menuOpen = tm.openMenuFor === app.script
 
   const runLabel = app.oneShot ? 'Run' : 'Spawn'
@@ -64,20 +67,24 @@ export function SpawnRow({
     ? '...'
     : alreadyRunning
       ? 'Running'
-      : !homeOption
-          ? 'No RAM'
-          : runLabel
+      : exclusionRunning
+        ? 'Excluded'
+        : !homeOption
+            ? 'No RAM'
+            : runLabel
   const mainTitle = alreadyRunning
     ? app.singleInstance
       ? 'Already running — see Running Tasks below'
       : 'Already running on home — see Running Tasks below'
-    : !homeOption
-        ? 'Not enough free RAM on home'
-        : homeChain && homeChain.length > 0
-          ? `Will also launch ${homeChain
-            .map(a => a.label)
-            .join(', ')} on home first, 1s apart`
-          : undefined
+    : exclusionRunning
+      ? 'Exclusion running — see Running Tasks below'
+      : !homeOption
+          ? 'Not enough free RAM on home'
+          : homeChain && homeChain.length > 0
+            ? `Will also launch ${homeChain
+              .map(a => a.label)
+              .join(', ')} on home first, 1s apart`
+            : undefined
 
   const mainButton = (
     <button
@@ -166,6 +173,20 @@ export function SpawnRow({
         )
       : null
 
+  const exclusionBadge
+    = app.excludes && app.excludes.length > 0
+      ? (
+          <span
+            title={`Cannot be run with ${app.excludes
+              .map(s => appByScript[s]?.label ?? s)
+              .join(', ')} on the same host`}
+            style={{ marginLeft: '4px', cursor: 'help' }}
+          >
+            ⤫
+          </span>
+        )
+      : null
+
   const singleInstanceBadge = app.singleInstance
     ? (
         <span
@@ -196,6 +217,7 @@ export function SpawnRow({
         )
         {requiresBadge}
         {singleInstanceBadge}
+        {exclusionBadge}
       </span>
       <div style={{ display: 'flex' }}>
         {mainButton}

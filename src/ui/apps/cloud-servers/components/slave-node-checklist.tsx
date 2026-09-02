@@ -36,7 +36,7 @@ export function SlaveNodeChecklist({
           marginBottom: 8,
         }}
       >
-        ⚠ When changing slaves, remember to restart Flooder program.
+        ⚠ When changing slaves, remember to restart Flooder or ShareRAM program.
       </div>
       <div
         style={{
