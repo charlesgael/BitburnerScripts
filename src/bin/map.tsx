@@ -80,6 +80,7 @@ const THEME = {
   warning: `var(--bb-theme-warning, #cc0)`,
   hack: `var(--bb-theme-hack, #8ccf27)`,
   int: `var(--bb-theme-int, #6495ed)`,
+  cha: `var(--bb-theme-cha, #6495ed)`,
   green: `rgb(0, 255, 0)`,
   blue: `rgb(0, 0, 255)`,
   red: `rgb(255, 0, 0)`,
@@ -91,6 +92,7 @@ function parseDisplayFlags(ns: NS) {
   return parseArgs(ns, [
     { short: `l`, long: `level`, defaultValue: false, description: `Show each host's required hacking skill` },
     { short: `o`, long: `organization`, defaultValue: false, description: `Show each host's owning organization` },
+    { short: `b`, long: `backdoor`, defaultValue: false, description: `Display non backdoored servers` },
     { short: `m`, long: `money`, defaultValue: false, description: `Show each host's available money` },
     { short: `r`, long: `root`, defaultValue: false, description: `Show a ROOT badge on hosts you have admin rights on` },
     { short: `e`, long: `exploits`, defaultValue: false, description: `Show a badge indicating the number of exploits required` },
@@ -286,16 +288,36 @@ function nodeColor(
   server: Server,
   playerHackLevel: number,
   exploitCount: number,
+  flags: DisplayFlags,
 ) {
-  if (server.backdoorInstalled)
-    return THEME.green
-  if (server.purchasedByPlayer)
-    return THEME.blue
   if (
     (server.requiredHackingSkill || 0) <= playerHackLevel
     && (server.numOpenPortsRequired || 0) <= exploitCount
+    && !server.hasAdminRights
   ) {
     return THEME.red
+  }
+  if (
+    !server.backdoorInstalled
+    && (
+      (flags.corps && CORPS_HOSTS.includes(server.hostname))
+      || (flags.factions && Object.keys(FACTION_HOSTS).includes(server.hostname))
+      || (flags.qol && Object.keys(QOL_HOSTS).includes(server.hostname))
+      || flags.backdoor
+    )
+    && (server.requiredHackingSkill || 0) <= playerHackLevel
+    && (server.numOpenPortsRequired || 0) <= exploitCount
+  ) {
+    return THEME.cha
+  }
+  if (server.purchasedByPlayer)
+    return THEME.int
+  if (
+    (server.requiredHackingSkill || 0) <= playerHackLevel
+    && (server.numOpenPortsRequired || 0) <= exploitCount
+    && server.hasAdminRights
+  ) {
+    return THEME.hack
   }
   return 'inherit'
 }
@@ -345,7 +367,7 @@ function TreeRow({
           dom={dom}
           hostName={node.host}
           path={node.path}
-          color={nodeColor(server, playerHackLevel, exploitCount)}
+          color={nodeColor(server, playerHackLevel, exploitCount, flags)}
         />
         {flags.root && server.hasAdminRights
           ? (
