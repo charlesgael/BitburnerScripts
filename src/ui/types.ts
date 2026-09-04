@@ -134,4 +134,8 @@ export interface AppAvailabilityContext {
    * for `AppDefinition.minDaemonTier`.
    */
   daemonTier: CgdTier
+  /**
+   * True if the player has tor router unlocked.
+   */
+  torRouter: boolean
 }

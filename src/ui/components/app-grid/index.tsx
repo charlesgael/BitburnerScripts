@@ -89,6 +89,9 @@ export function createAppGrid(
   let resetInfoFetched = false
   let focusedId: string | null = null
   let nextZ = 0
+  // Mutable, updated when daemon updates and checks the availability of
+  // Tor Router to the player
+  let torRouter: boolean = false
 
   // Mutable, not the plain parameter it started as: the daemon actually
   // running can change in the background (a different tier taking over
@@ -133,16 +136,24 @@ export function createAppGrid(
     void fetchResetInfoIfNeeded()
   }, TIER_POLL_MS)
 
+  const TOR_ROUTER_POLL_MS = 10000
+  const torRouterPollId = setInterval(() => {
+    try {
+      queuedNs._hasTorRouter().then(res => torRouter = res)
+    }
+    catch {}
+  }, TOR_ROUTER_POLL_MS)
+
   // Two different rules, two different treatments in the grid below (see
   // `ui/utils/app-availability.ts`'s own header comments for why they're
   // split): `minRam` shows the icon disabled with a reason (something the
   // player can fix mid-session), while `minSourceFile`/`minDaemonTier`/
   // `isAvailable` leaves the icon out of the grid entirely.
   function ramReason(app: AppDefinition): string | null {
-    return ramShortfallReason(app, { homeRam, ownedSF, currentNode, daemonTier })
+    return ramShortfallReason(app, { homeRam })
   }
   function visible(app: AppDefinition): boolean {
-    return isAppVisible(app, { homeRam, ownedSF, currentNode, daemonTier })
+    return isAppVisible(app, { ownedSF, currentNode, daemonTier, homeRam, torRouter })
   }
 
   function openApp(id: string) {
@@ -470,6 +481,7 @@ export function createAppGrid(
     doc.removeEventListener('mouseup', onDragEnd)
     unsubscribeCgdStore()
     clearInterval(tierPollId)
+    clearInterval(torRouterPollId)
   }
 
   return { render, destroy }

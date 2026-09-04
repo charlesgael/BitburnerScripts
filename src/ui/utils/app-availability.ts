@@ -12,7 +12,7 @@ import type { AppAvailabilityContext, AppDefinition } from '../types'
  * Pure and 0 GB — `ctx` is assembled by the caller from data it already has
  * (`home`'s live RAM — see `ui.app.ts`), so this never touches `ns` itself.
  */
-export function ramShortfallReason(app: AppDefinition, ctx: AppAvailabilityContext): string | null {
+export function ramShortfallReason(app: AppDefinition, ctx: Pick<AppAvailabilityContext, 'homeRam'>): string | null {
   if (app.minRam == null)
     return null
   const headroom = ctx.homeRam.max * 0.8
