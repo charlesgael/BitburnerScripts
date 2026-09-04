@@ -95,6 +95,11 @@ export const ProgramsApp: AppDefinition = createTaskManagerApp('programs', 'Prog
     requires: ['netmapper.app.js'],
   },
   {
+    script: 'darknet.app.js',
+    label: 'DNet Autoprober',
+    singleInstance: true,
+  },
+  {
     script: 'hacknet.app.js',
     label: 'Hacknet',
     singleInstance: true,
