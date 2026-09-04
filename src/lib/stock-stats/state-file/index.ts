@@ -3,7 +3,7 @@ import type { StockPrice, StockTickEntry } from './types'
 import { addLog, parseLog } from '../../../utils/log-helper'
 import { stockTickSchema } from './types'
 
-export const STOCK_STATS_LOG_FILE = 'log/stock-stats.txt'
+export const STOCK_STATS_LOG_FILE = 'log/stock-readings.txt'
 
 /**
  * log-helper's own default trim window (500 entries) is tuned for rare

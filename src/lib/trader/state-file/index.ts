@@ -3,7 +3,7 @@ import type { TraderLogEntry } from './types'
 import { addLog, parseLog } from '../../../utils/log-helper'
 import { traderEventSchema } from './types'
 
-export const TRADER_LOG_FILE = 'log/trader-log.txt'
+export const TRADER_LOG_FILE = 'log/stock-tradings.txt'
 
 /**
  * Same reasoning as stock-stats: a ~6s-cadence log needs a much bigger
