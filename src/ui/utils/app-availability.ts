@@ -77,10 +77,26 @@ export function isAppVisible(app: AppDefinition, ctx: AppAvailabilityContext): b
     return false
   if (app.minSourceFile != null) {
     const { n, lvl } = app.minSourceFile
-    if ((ctx.ownedSF.get(n) ?? 0) < lvl)
+    if (!hasSourceFile(ctx, n, lvl))
       return false
   }
   if (app.minDaemonTier != null && ctx.daemonTier < app.minDaemonTier)
     return false
   return checkIsAvailable(app.isAvailable, ctx)
+}
+
+/**
+ * True if the player has access to Source-File `n` at level `lvl` or
+ * higher — either because they own it (`ownedSF`), or because they're
+ * currently playing inside BitNode `n` itself, which grants that
+ * BitNode's mechanic live regardless of the declared `lvl` (the same
+ * rule `stock-trader.app.ts`'s `canShort` applies standalone against a
+ * raw `ns.getResetInfo()`, for BitNode 8/SF8 — this is a general
+ * Bitburner rule, not specific to Singularity/SF4). Centralizes the OR
+ * so `minSourceFile` above and `singularityAvailable` (see
+ * `ui/utils/singularity-availability.ts`) apply the identical rule
+ * instead of one being a hand-rolled duplicate of the other.
+ */
+export function hasSourceFile(ctx: Pick<AppAvailabilityContext, 'ownedSF' | 'currentNode'>, n: number, lvl: number): boolean {
+  return (ctx.ownedSF.get(n) ?? 0) >= lvl || ctx.currentNode === n
 }

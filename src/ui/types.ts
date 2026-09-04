@@ -60,8 +60,10 @@ export interface AppDefinition {
   /**
    * Optional required active level of a numbered Source-File, e.g.
    * `{ n: 4, lvl: 1 }` for anything gated on Singularity access. Checked
-   * against `ns.getResetInfo().ownedSF` — see
-   * `ui/utils/app-availability.ts`. Omit for apps with no SF requirement.
+   * against `ns.getResetInfo().ownedSF`, OR'd with currently playing
+   * inside BitNode `n` itself (see `AppAvailabilityContext.currentNode`
+   * below) — see `hasSourceFile` in `ui/utils/app-availability.ts`. Omit
+   * for apps with no SF requirement.
    */
   minSourceFile?: { n: number, lvl: number }
   /**
@@ -112,11 +114,15 @@ export interface AppAvailabilityContext {
   ownedSF: Map<number, number>
   /**
    * `ns.getResetInfo().currentNode` — the BitNode currently being played.
-   * Mainly here for `isAvailable` lambdas gating on Singularity access:
-   * `ns.singularity.*` also works without owning SF4 yet while playing
-   * inside BitNode 4 itself (the "Singularity" BitNode), which a plain
-   * `minSourceFile: { n: 4, lvl: 1 }` can't express — see
-   * `ui/apps/trainer/`.
+   * General Bitburner rule, not specific to Singularity: playing inside
+   * BitNode `n` grants that BitNode's mechanic live, regardless of
+   * whether the player owns Source-File `n` yet (`stock-trader.app.ts`'s
+   * `canShort` applies the same rule standalone, for BitNode 8/SF8).
+   * `minSourceFile` above honors this automatically; an `isAvailable`
+   * lambda needing the same OR against a different SF number should use
+   * `hasSourceFile` (`ui/utils/app-availability.ts`) rather than
+   * re-deriving the check by hand — see `singularity-availability.ts`
+   * for the pattern.
    */
   currentNode: number
   /**
