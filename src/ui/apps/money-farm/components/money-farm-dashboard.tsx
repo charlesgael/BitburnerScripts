@@ -289,8 +289,8 @@ export function MoneyFarmDashboard() {
                             </td>
                             <td className="smallest">{formatMoney(t.moneyPerHour)}</td>
                             <td className="smallest">{formatDuration(t.uptimeMs / 1000)}</td>
-                            <td className="smallest">{formatNumber(t.server.averageSecurityExcess, 1)}</td>
-                            <td className="smallest">{formatMoney(t.server.averageMoneyDeficit)}</td>
+                            <td className="smallest">{formatNumber(t.server.latestSecurityExcess, 1)}</td>
+                            <td className="smallest">{formatMoney(t.server.latestMoneyDeficit)}</td>
                           </tr>
                         )
                       })}
