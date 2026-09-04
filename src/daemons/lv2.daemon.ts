@@ -11,6 +11,7 @@ const TIER_2_METHODS = [
   ...TIER_1_METHODS,
   'getServer',
   'run',
+  'hasTorRouter',
 ]
 
 /**
@@ -48,6 +49,7 @@ function reserveTier2Ram(ns: NS) {
   reserveTier1Ram(ns)
   void ns.getServer
   void ns.run
+  void ns.hasTorRouter
 }
 
 export async function main(ns: NS): Promise<void> {

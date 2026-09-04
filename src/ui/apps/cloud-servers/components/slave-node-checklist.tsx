@@ -1,6 +1,6 @@
+import type { CloudServersState } from '../logic/use-cloud-servers'
 import React from '@react'
 import { formatRam } from '../../../../utils/format/game'
-import type { CloudServersState } from '../logic/use-cloud-servers'
 
 /**
  * The Slave Nodes tab's body: every rooted, non-purchased, non-`home` host
@@ -46,7 +46,7 @@ export function SlaveNodeChecklist({
           gap: '8px',
         }}
       >
-        {cs.slaveHosts.map((h) => {
+        {cs.slaveHosts.filter(i => i.ram).sort(({ ram: A }, { ram: B }) => B - A).map((h) => {
           const checked = designated.has(h.hostname)
           const busy = cs.toggleSlaveBusyHost === h.hostname
           return (

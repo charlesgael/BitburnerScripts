@@ -13,6 +13,7 @@ export function TitlebarToolbar(props: {
         height: 37,
         display: 'flex',
         alignItems: 'center',
+        zIndex: 1000,
       }}
     >
       {children}

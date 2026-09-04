@@ -370,7 +370,7 @@ export const controlsStyle = `
 
 .bb-table .smallest {
   width: 0px;
-  whitespace: nowrap;
+  white-space: nowrap;
 }
 
 .bb-table th:last-child,

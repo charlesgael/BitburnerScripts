@@ -4,6 +4,7 @@ import { pickMove as pickExperimentalMove } from './lib/go/experimental-engine'
 import { pickMove as pickHeuristicMove } from './lib/go/heuristic-engine'
 import { GO_GAME_LOG_FILE, GO_LIVE_STATE_FILE, GO_LIVE_STATE_MAX_EVENTS } from './lib/go/state-file'
 import { parseArgs } from './utils/args'
+import { noDupe } from './utils/ns/nodupe'
 
 /**
  * Autonomous IPvGO player. A persistent loop (spawned from the Programs app
@@ -150,11 +151,7 @@ export async function main(ns: NS) {
   // defense-in-depth `daemons/xp-farm.daemon.ts` uses, so a manual
   // `run go.app.js` from the terminal can't end up fighting the
   // Programs-app-launched instance over the same game.
-  const dupe = ns.ps(`home`).find(p => p.filename === ns.getScriptName() && p.pid !== ns.pid)
-  if (dupe) {
-    ns.tprint(`WARNING: go.app.js is already running (pid ${dupe.pid}) - exiting.`)
-    return
-  }
+  noDupe(ns)
 
   const { rotation, boardSize, engine, notify } = parseGoArgs(ns)
   const pickMove = engine === 'experimental' ? pickExperimentalMove : pickHeuristicMove

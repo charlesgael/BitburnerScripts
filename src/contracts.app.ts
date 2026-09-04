@@ -1,6 +1,7 @@
 import type { NS } from '@ns'
 import { Contract, ContractSolver } from './lib/contracts/contracts.lib'
 import { recordContractResult } from './lib/contracts/state-file'
+import { noDupe } from './utils/ns/nodupe'
 import * as Ports from './utils/ports.lib'
 
 function getContractsFromHost(ns: NS, host: string) {
@@ -36,6 +37,7 @@ function findAllContracts(ns: NS) {
 
 export async function main(ns: NS) {
   ns.disableLog(`ALL`)
+  noDupe(ns)
 
   const tenMinutes = 1000 * 60 * 10
   const failures: Contract[] = []

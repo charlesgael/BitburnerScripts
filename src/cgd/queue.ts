@@ -57,6 +57,10 @@ export function createCgdQueue(
     })
   }
 
+  function can(path: string[]): boolean {
+    return isPathAllowed(tier, allowedPaths, path)
+  }
+
   function enqueueAction(name: string, args: unknown[]): Promise<unknown> {
     return new Promise((resolve, reject) => {
       pending.push({
@@ -96,5 +100,5 @@ export function createCgdQueue(
     }
   }
 
-  return { enqueueCall, enqueueAction, drain, size, rejectAll }
+  return { enqueueCall, can, enqueueAction, drain, size, rejectAll }
 }

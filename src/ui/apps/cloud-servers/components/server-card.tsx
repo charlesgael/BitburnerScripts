@@ -1,7 +1,7 @@
-import React from '@react'
-import { formatRam } from '../../../../utils/format/game'
 import type { CloudServerRow } from '../../../utils/cloud-list'
 import type { CloudServersState } from '../logic/use-cloud-servers'
+import React from '@react'
+import { formatRam } from '../../../../utils/format/game'
 
 /**
  * One purchased server's card: hostname + used/total RAM, a thin usage

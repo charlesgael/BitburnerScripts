@@ -139,7 +139,7 @@ export function useTaskManager(apps: ManagedAppDefinition[], runnableApps: Manag
   // treatment `ui/utils/app-availability.ts`'s `isAppVisible` gives a
   // regular `AppDefinition`.
   function appAvailable(app: ManagedAppDefinition): boolean {
-    return checkIsAvailable(app.isAvailable, { homeRam, daemonTier, ...resetInfo })
+    return checkIsAvailable(app.isAvailable, { homeRam, daemonTier, torRouter: false, ...resetInfo })
   }
 
   // A `requires` app (see `logic/types.ts`) no longer has to already be

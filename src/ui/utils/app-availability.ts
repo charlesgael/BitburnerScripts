@@ -12,7 +12,7 @@ import type { AppAvailabilityContext, AppDefinition } from '../types'
  * Pure and 0 GB — `ctx` is assembled by the caller from data it already has
  * (`home`'s live RAM — see `ui.app.ts`), so this never touches `ns` itself.
  */
-export function ramShortfallReason(app: AppDefinition, ctx: AppAvailabilityContext): string | null {
+export function ramShortfallReason(app: AppDefinition, ctx: Pick<AppAvailabilityContext, 'homeRam'>): string | null {
   if (app.minRam == null)
     return null
   const headroom = ctx.homeRam.max * 0.8
@@ -32,34 +32,62 @@ export function ramShortfallReason(app: AppDefinition, ctx: AppAvailabilityConte
  * `singularityAvailable`). `undefined` always passes — declaring no rule
  * means always available. Pure and 0 GB, same as everything else here.
  *
- * The check's return type is deliberately `true | string`, not
- * `boolean | string` — a lambda that inverts another `true | string` check
- * (e.g. "show this row only when Singularity *isn't* available") can't just
- * `!`-negate the result: a non-empty reason string is truthy, so
+ * Strictly `=== true`, not `!== false` — this is the *task-manager* gate
+ * (`use-task-manager.ts`'s `appAvailable`), which has no "disabled, with a
+ * reason" UI the way `ui/components/app-grid.tsx` does, so both `false`
+ * (hide) and a string (show disabled) collapse to the same "not available"
+ * outcome here. `ui/components/app-grid.tsx` doesn't use this at all for its
+ * own visibility — see `isAppVisible`/`isAvailableReason` below, which give
+ * `false` and a string different treatments.
+ *
+ * Comparing `=== true` (never negating the result) also still matters for
+ * the same reason it always did: a lambda that inverts another check's
+ * result (e.g. "show this row only when Singularity *isn't* available")
+ * can't just `!`-negate it — a non-empty reason string is truthy, so
  * `!checkThatFailed` is `false` in both the pass and fail case, and the row
- * silently never shows. Keeping the parameter type strict to `true | string`
- * makes that mistake a compile error instead — compare the wrapped check's
- * result `=== true` and return `true`/a reason string from that, don't
- * negate it. See `ui/apps/programs/index.ts`'s "Backdoor Lister" entry for
- * the fixed pattern.
+ * silently never shows. See `ui/apps/programs/index.ts`'s "Backdoor Lister"
+ * entry for the fixed pattern.
  */
 export function checkIsAvailable(
-  isAvailable: ((ctx: AppAvailabilityContext) => true | string) | undefined,
+  isAvailable: ((ctx: AppAvailabilityContext) => boolean | string) | undefined,
   ctx: AppAvailabilityContext,
 ): boolean {
   return !isAvailable || isAvailable(ctx) === true
 }
 
 /**
+ * The disabled-with-reason string from an app's `isAvailable` (see
+ * `ui/types.ts`), if any — same treatment `ramShortfallReason` above gets:
+ * `ui/components/app-grid.tsx` keeps the icon visible but shows it disabled
+ * with this as the tooltip. `null` when `isAvailable` is unset, returns
+ * `true` (available), or returns `false` (hidden outright instead — see
+ * `isAppVisible` below, not this function).
+ *
+ * Pure and 0 GB — same reasoning as `ramShortfallReason`.
+ */
+export function isAvailableReason(
+  isAvailable: ((ctx: AppAvailabilityContext) => boolean | string) | undefined,
+  ctx: AppAvailabilityContext,
+): string | null {
+  if (!isAvailable)
+    return null
+  const result = isAvailable(ctx)
+  return typeof result === 'string' ? result : null
+}
+
+/**
  * Checks an app's `minSourceFile`/`minDaemonTier`/`isAvailable` (see
  * `ui/types.ts`) against `ctx` — all AND'd together, true only if every
- * declared rule passes (an app declaring none is always visible). Unlike
- * `ramShortfallReason` above, `ui/components/app-grid.tsx` doesn't render
- * the icon at all when this is false, rather than showing it disabled: a
- * missing Source-File, an under-tier daemon, or whatever an `isAvailable`
- * lambda checks isn't something the player can fix mid-session the way
- * freeing up RAM is, so surfacing it as a locked icon would just be a
- * permanent tease for most of a run.
+ * declared rule passes (an app declaring none is always visible).
+ * `ui/components/app-grid.tsx` doesn't render the icon at all when this is
+ * false, rather than showing it disabled: a missing Source-File, an
+ * under-tier daemon, or an `isAvailable` lambda returning `false` isn't
+ * something the player can fix mid-session, so surfacing it as a locked
+ * icon would just be a permanent tease for most of a run. An `isAvailable`
+ * lambda returning a *string* is different — that's "show it, but
+ * disabled, with this reason" (same treatment `ramShortfallReason` gets),
+ * so it does NOT hide the app here; see `isAvailableReason` above for that
+ * string, consumed separately by the grid's disabled/tooltip rendering.
  *
  * Pure and 0 GB — same reasoning as `ramShortfallReason`.
  *
@@ -77,10 +105,26 @@ export function isAppVisible(app: AppDefinition, ctx: AppAvailabilityContext): b
     return false
   if (app.minSourceFile != null) {
     const { n, lvl } = app.minSourceFile
-    if ((ctx.ownedSF.get(n) ?? 0) < lvl)
+    if (!hasSourceFile(ctx, n, lvl))
       return false
   }
   if (app.minDaemonTier != null && ctx.daemonTier < app.minDaemonTier)
     return false
-  return checkIsAvailable(app.isAvailable, ctx)
+  return !app.isAvailable || app.isAvailable(ctx) !== false
+}
+
+/**
+ * True if the player has access to Source-File `n` at level `lvl` or
+ * higher — either because they own it (`ownedSF`), or because they're
+ * currently playing inside BitNode `n` itself, which grants that
+ * BitNode's mechanic live regardless of the declared `lvl` (the same
+ * rule `stock-trader.app.ts`'s `canShort` applies standalone against a
+ * raw `ns.getResetInfo()`, for BitNode 8/SF8 — this is a general
+ * Bitburner rule, not specific to Singularity/SF4). Centralizes the OR
+ * so `minSourceFile` above and `singularityAvailable` (see
+ * `ui/utils/singularity-availability.ts`) apply the identical rule
+ * instead of one being a hand-rolled duplicate of the other.
+ */
+export function hasSourceFile(ctx: Pick<AppAvailabilityContext, 'ownedSF' | 'currentNode'>, n: number, lvl: number): boolean {
+  return (ctx.ownedSF.get(n) ?? 0) >= lvl || ctx.currentNode === n
 }

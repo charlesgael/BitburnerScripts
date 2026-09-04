@@ -1,6 +1,6 @@
+import type { CloudServersState } from '../logic/use-cloud-servers'
 import React from '@react'
 import { formatMoney, formatRam } from '../../../../utils/format/game'
-import type { CloudServersState } from '../logic/use-cloud-servers'
 /**
  * The purchase form: hostname (blank = random), RAM tier picker, and the
  * Buy button.

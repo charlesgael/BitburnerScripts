@@ -1,5 +1,4 @@
 import type { AppDefinition } from '../../types'
-import { singularityAvailable } from '../../utils/singularity-availability'
 import { TrainerContent } from './components/trainer-content'
 
 /**
@@ -23,5 +22,11 @@ export const TrainerApp: AppDefinition = {
   label: 'Trainer',
   Content: TrainerContent,
   minRam: 90.1,
-  isAvailable: singularityAvailable,
+  // Same Source-File-4-or-BitNode-4 gate `singularityAvailable` wraps for
+  // `ManagedAppDefinition` consumers (see `ui/apps/programs/index.ts`) that
+  // have no `minSourceFile` field of their own — `AppDefinition` does, and
+  // now honors the same BitNode fallback (see `hasSourceFile` in
+  // `ui/utils/app-availability.ts`), so this expresses it directly instead
+  // of going through that wrapper.
+  minSourceFile: { n: 4, lvl: 1 },
 }

@@ -32,4 +32,5 @@ export default R
 export const ReactDOM = getWinGlobals().win.ReactDOM as ReactDOMInt
 export const useState = R.useState
 export const useEffect = R.useEffect
+export const useMemo = R.useMemo
 export const useRef = R.useRef

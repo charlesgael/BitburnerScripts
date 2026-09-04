@@ -1,7 +1,8 @@
 import type { NS } from '@ns'
+import { tryAuth } from '../lib/dnet/auth' // cpy
+import { getColonizedStore } from '../lib/dnet/colonized' // cpy
+import { recordFile } from '../lib/dnet/filesystem' // cpy
 import { parseArgs } from '../utils/args' // cpy
-import { tryAuth } from '../utils/dnet/auth' // cpy
-import { getColonizedStore } from '../utils/dnet/colonized' // cpy
 import { scpRun } from '../utils/scp-run' // cpy
 
 /**
@@ -40,11 +41,13 @@ function openNewCaches(ns: NS, host: string, opened: Set<string>): void {
   }
 }
 
-function logInfoFiles(ns: NS, host: string): void {
-  const files = ns.ls(host)
+function readFs(ns: NS, host: string): void {
+  const entries = ns.ls(host)
     .filter(f => !f.endsWith('.cache') && !f.startsWith('daemons/'))
+    .map(f => [f, ns.read(f)] as const)
 
-  console.debug(`dnet-probe$ INFO [${host}] Filesystem`, Object.fromEntries(files.map(f => [f, ns.read(f)])))
+  console.debug(`dnet-probe$ INFO [${host}] Filesystem`, Object.fromEntries(entries))
+  entries.forEach(arg => recordFile(host, ...arg))
 }
 
 /**
@@ -65,7 +68,7 @@ export async function main(ns: NS) {
 
   const openedCaches = new Set<string>()
   openNewCaches(ns, me, openedCaches)
-  logInfoFiles(ns, me)
+  readFs(ns, me)
 
   // --- INFECT
   const reachable = ns.dnet.probe()

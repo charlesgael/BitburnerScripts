@@ -6,6 +6,7 @@ import {
   XP_FARM_GROW_SCRIPT as GROW_SCRIPT,
   XP_FARM_WEAKEN_SCRIPT as WEAKEN_SCRIPT,
 } from '../ui/utils/xp-farm-config'
+import { noDupe } from '../utils/ns/nodupe'
 import { splitGrowWeakenThreads } from '../utils/thread-balance'
 
 /**
@@ -182,14 +183,7 @@ function claim(ns: NS, host: string, target: string): Assignment | null {
 
 export async function main(ns: NS) {
   ns.disableLog('ALL')
-
-  // Refuse to run alongside another live instance of this exact script —
-  // see the header comment above.
-  const dupe = ns.ps('home').find(p => p.filename === ns.getScriptName() && p.pid !== ns.pid)
-  if (dupe) {
-    ns.tprint(`WARNING: daemons/xp-farm.daemon.js is already running (pid ${dupe.pid}) — exiting.`)
-    return
-  }
+  noDupe(ns)
 
   ns.print(`Started. Checking xp-farm-config.txt every ${CHECK_INTERVAL / 1000}s.`)
   const managed = new Map<string, Assignment>()

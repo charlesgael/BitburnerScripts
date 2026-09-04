@@ -1,8 +1,8 @@
 import type { NS } from '@ns'
 import { preemptStaleInstances } from './daemons/dnet-probe.daemon'
+import { tryAuth } from './lib/dnet/auth'
+import { getColonizedStore, resetColonizedStore } from './lib/dnet/colonized'
 import { parseArgs } from './utils/args'
-import { tryAuth } from './utils/dnet/auth'
-import { getColonizedStore, resetColonizedStore } from './utils/dnet/colonized'
 import { formatMediumHour } from './utils/format/dates'
 import { scpRun } from './utils/scp-run'
 

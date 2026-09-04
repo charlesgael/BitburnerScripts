@@ -1,5 +1,5 @@
 import type { NS } from '@ns'
-import type { Mode } from '../ui/utils/money-farm-log/types'
+import type { Mode } from '../lib/money-farm/state-farm/types'
 import type { StatValue } from './stats'
 
 /**
@@ -83,6 +83,17 @@ export type CgdActionHandlers = Record<string, CgdActionHandler>
 export interface CgdQueue {
   enqueueCall: (path: string[], args: unknown[]) => Promise<unknown>
   enqueueAction: (name: string, args: unknown[]) => Promise<unknown>
+  /**
+   * Synchronous check for whether `path` (e.g. `["hacknet", "numNodes"]`)
+   * would currently be dispatchable via `enqueueCall` — the same
+   * `isPathAllowed` gate `enqueueCall` itself consults at actual dispatch
+   * time (see `dispatch.ts`), surfaced up front so a caller can decide
+   * whether to show/attempt something without round-tripping a call just
+   * to find out it'll reject. No queue round-trip needed: `allowedPaths`
+   * is fixed for this queue's whole life, so this never has to wait for
+   * an actual drain tick the way `enqueueCall` does.
+   */
+  can: (path: string[]) => boolean
   /**
    * Runs the next queued call (if any) against `ns`. Returns `true` if
    * one was consumed, `false` if the queue was empty — callers should

@@ -4,11 +4,12 @@ import type { QueuedNS } from '../../utils/ns-proxy'
 import type { OpenWindow } from './types'
 import React, { getWinGlobals, ReactDOM } from '@react'
 import { initCgdActionsContext } from '../../context/cgd-actions-context'
+import { initCgdCapabilityContext } from '../../context/cgd-capability-context'
 import { initChildPidsContext } from '../../context/child-pids-context'
 import { initDaemonTierContext } from '../../context/daemon-tier-context'
 // import { initHomeRamContext } from '../context/home-ram-context'
 import { initNsQueueContext } from '../../context/ns-queue-context'
-import { isAppVisible, ramShortfallReason } from '../../utils/app-availability'
+import { isAppVisible, isAvailableReason, ramShortfallReason } from '../../utils/app-availability'
 
 /**
  * Small icon launcher grid, meant for a sidebar hook. Clicking an icon opens
@@ -41,6 +42,7 @@ export function createAppGrid(
   const ChildPidsContext = initChildPidsContext()
   const DaemonTierContext = initDaemonTierContext()
   const CgdActionsContext = initCgdActionsContext()
+  const CgdCapabilityContext = initCgdCapabilityContext()
 
   // Resolves against whichever daemon is *currently* registered on every
   // call, not whatever was registered when this grid was created — same
@@ -53,6 +55,13 @@ export function createAppGrid(
       return Promise.reject(new Error(`No cgd daemon is currently registered — can't run action "${name}".`))
     }
     return daemon.queue.enqueueAction(name, args)
+  }
+
+  // Same live-getter resolution as `callAction` above, just synchronous —
+  // `CgdQueue.can` never needs a queue round-trip (see its own doc
+  // comment), so this can return a plain boolean instead of a promise.
+  const canCall = (path: string): boolean => {
+    return getDaemon()?.queue.can(path.split('.')) ?? false
   }
 
   const state: { windows: OpenWindow[] } = { windows: [] }
@@ -80,6 +89,9 @@ export function createAppGrid(
   let resetInfoFetched = false
   let focusedId: string | null = null
   let nextZ = 0
+  // Mutable, updated when daemon updates and checks the availability of
+  // Tor Router to the player
+  let torRouter: boolean = false
 
   // Mutable, not the plain parameter it started as: the daemon actually
   // running can change in the background (a different tier taking over
@@ -114,6 +126,20 @@ export function createAppGrid(
   }
   void fetchResetInfoIfNeeded()
 
+  const TOR_ROUTER_POLL_MS = 10000
+  async function refreshTorRouter() {
+    try {
+      const res = await queuedNs._hasTorRouter()
+      if (res !== torRouter) {
+        torRouter = res
+        render()
+      }
+    }
+    catch {}
+  }
+  void refreshTorRouter()
+  const torRouterPollId = setInterval(refreshTorRouter, TOR_ROUTER_POLL_MS)
+
   const TIER_POLL_MS = 1000
   const tierPollId = setInterval(() => {
     const next = getDaemon()?._getTier() ?? 0
@@ -122,18 +148,22 @@ export function createAppGrid(
     daemonTier = next
     render()
     void fetchResetInfoIfNeeded()
+    void refreshTorRouter()
   }, TIER_POLL_MS)
 
-  // Two different rules, two different treatments in the grid below (see
+  // Two different treatments in the grid below (see
   // `ui/utils/app-availability.ts`'s own header comments for why they're
-  // split): `minRam` shows the icon disabled with a reason (something the
-  // player can fix mid-session), while `minSourceFile`/`minDaemonTier`/
-  // `isAvailable` leaves the icon out of the grid entirely.
-  function ramReason(app: AppDefinition): string | null {
-    return ramShortfallReason(app, { homeRam, ownedSF, currentNode, daemonTier })
+  // split): `minRam`, and an `isAvailable` lambda returning a string, both
+  // show the icon disabled with that string as a reason (something the
+  // player can act on without leaving the app grid) — combined into one
+  // `disabledReason` below. `minSourceFile`/`minDaemonTier`, and an
+  // `isAvailable` lambda returning `false`, leave the icon out of the grid
+  // entirely instead (`visible` below) — nothing to explain to the player.
+  function disabledReason(app: AppDefinition): string | null {
+    return ramShortfallReason(app, { homeRam }) ?? isAvailableReason(app.isAvailable, { ownedSF, currentNode, daemonTier, homeRam, torRouter })
   }
   function visible(app: AppDefinition): boolean {
-    return isAppVisible(app, { homeRam, ownedSF, currentNode, daemonTier })
+    return isAppVisible(app, { ownedSF, currentNode, daemonTier, homeRam, torRouter })
   }
 
   function openApp(id: string) {
@@ -145,7 +175,7 @@ export function createAppGrid(
     const app = apps.find(a => a.id === id)
     // Belt-and-suspenders alongside the disabled/hidden icon below —
     // this is what actually stops the window from opening.
-    if (app && (!visible(app) || ramReason(app)))
+    if (app && (!visible(app) || disabledReason(app)))
       return
     // Cascade each new window a bit further down/right than the last,
     // wrapping so a long session doesn't march windows off-screen.
@@ -278,12 +308,13 @@ export function createAppGrid(
   }
 
   function render() {
-    // Apps failing minSourceFile/isAvailable are left out of the icon
-    // list entirely (see visible() above) — filter before map rather
-    // than returning null from within it, so there's no gap left in the
-    // grid where a hidden icon would've sat.
+    // Apps failing minSourceFile/minDaemonTier, or whose isAvailable
+    // returns false, are left out of the icon list entirely (see visible()
+    // above) — filter before map rather than returning null from within
+    // it, so there's no gap left in the grid where a hidden icon would've
+    // sat.
     const icons = apps.filter(visible).map((app) => {
-      const reason = ramReason(app)
+      const reason = disabledReason(app)
       return (
         <button
           key={app.id}
@@ -443,8 +474,10 @@ export function createAppGrid(
         <ChildPidsContext.Provider value={addChildPid}>
           <DaemonTierContext.Provider value={daemonTier}>
             <CgdActionsContext.Provider value={callAction}>
-              {grid}
-              {portalContainer ? ReactDOM.createPortal(windows, portalContainer, 'windows-portal') : windows}
+              <CgdCapabilityContext.Provider value={canCall}>
+                {grid}
+                {portalContainer ? ReactDOM.createPortal(windows, portalContainer, 'windows-portal') : windows}
+              </CgdCapabilityContext.Provider>
             </CgdActionsContext.Provider>
           </DaemonTierContext.Provider>
         </ChildPidsContext.Provider>
@@ -459,6 +492,7 @@ export function createAppGrid(
     doc.removeEventListener('mouseup', onDragEnd)
     unsubscribeCgdStore()
     clearInterval(tierPollId)
+    clearInterval(torRouterPollId)
   }
 
   return { render, destroy }
