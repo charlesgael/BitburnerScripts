@@ -9,20 +9,20 @@ This repository contains scripts I have written while playing the idle hacking g
 
 Application scripts will persistently run in the background and continue operating until terminated.
 
-- [backdoor.app.ts](src/backdoor.app.ts) - Automatically installs backdoors on servers the player has admin access to, using `known-servers.json.txt`. Requires Source-File 4. Walks the network to each target, connects to it, installs the backdoor, then returns to `home`. Skips `home` and purchased servers, and prints a status table (`free`/`backdoor`) of all rooted servers to the terminal every cycle.
-- [backdoor.lite.app.ts](src/backdoor.lite.app.ts) - No-RAM, non-Singularity companion to `backdoor.app.ts`: reads `known-servers.json.txt` and prints the list of rooted, non-purchased servers that don't have a backdoor yet, without installing anything. One-shot (not a background loop) — useful when you don't have the RAM or Source-File 4 for the real installer.
+- [backdoor.app.ts](src/backdoor.app.ts) - Automatically installs backdoors on servers the player has admin access to, using `known-servers.json`. Requires Source-File 4. Walks the network to each target, connects to it, installs the backdoor, then returns to `home`. Skips `home` and purchased servers, and prints a status table (`free`/`backdoor`) of all rooted servers to the terminal every cycle.
+- [backdoor.lite.app.ts](src/backdoor.lite.app.ts) - No-RAM, non-Singularity companion to `backdoor.app.ts`: reads `known-servers.json` and prints the list of rooted, non-purchased servers that don't have a backdoor yet, without installing anything. One-shot (not a background loop) — useful when you don't have the RAM or Source-File 4 for the real installer.
 
-- [contracts.app.ts](src/contracts.app.ts) - Finds and automatically solves contracts. Uses `known-servers.json.txt`. Update ContractSolvers list in [contracts.lib.ts](#library-scripts) to add new contract solvers.
+- [contracts.app.ts](src/contracts.app.ts) - Finds and automatically solves contracts. Uses `known-servers.json`. Update ContractSolvers list in [contracts.lib.ts](#library-scripts) to add new contract solvers.
 
-- [cracker.app.ts](src/cracker.app.ts) - Automatically cracks servers as cracking requirements are met. Uses `known-servers.json.txt`. Skips servers that cannot be cracked due to low hacking skill, missing port opener programs, or admin access already being available.
+- [cracker.app.ts](src/cracker.app.ts) - Automatically cracks servers as cracking requirements are met. Uses `known-servers.json`. Skips servers that cannot be cracked due to low hacking skill, missing port opener programs, or admin access already being available.
 
-- [flooder.app.ts](src/flooder.app.ts) - Monitors servers provided by `known-servers.json.txt`. For servers that the player has admin access to, this script will deploy and execute [weaken.daemon.ts](#daemon-scripts) against each server until it has reached its minimum security level at which point it will deploy and execute all three daemon scripts. Tries to identify a ratio of daemons so as to optimize keeping the money level high and the security level low while using as much ram on the target server as possible. If the target server is not able to be hacked (its max money is 0) it will use that server as a host (called a bot) to hack other servers. Every cycle of this script it will re-target all bots so as to simultaneously hack as many other servers as possible.
+- [flooder.app.ts](src/flooder.app.ts) - Monitors servers provided by `known-servers.json`. For servers that the player has admin access to, this script will deploy and execute [weaken.daemon.ts](#daemon-scripts) against each server until it has reached its minimum security level at which point it will deploy and execute all three daemon scripts. Tries to identify a ratio of daemons so as to optimize keeping the money level high and the security level low while using as much ram on the target server as possible. If the target server is not able to be hacked (its max money is 0) it will use that server as a host (called a bot) to hack other servers. Every cycle of this script it will re-target all bots so as to simultaneously hack as many other servers as possible.
 
 - [hacknet.app.ts](src/hacknet.app.ts) - Automatically purchases and upgrades hacknet nodes. Will use up to 25% of the player's current money to buy a new hacknet node or the most expensive upgrade available.
 
-- [netmapper.app.ts](src/netmapper.app.ts) - Crawls the network to identify servers and stores its findings in `known-servers.json.txt`. This file is used by other application scripts to avoid having to walk the network to get a list of servers.
+- [netmapper.app.ts](src/netmapper.app.ts) - Crawls the network to identify servers and stores its findings in `known-servers.json`. This file is used by other application scripts to avoid having to walk the network to get a list of servers.
 
-- [next-targets.app.ts](src/next-targets.app.ts) - Uses `known-servers.json.txt`. One-shot report of not-yet-rooted servers: the 3 closest to hack by required hacking level, and the 3 closest to hack by how many more port-opener programs are needed versus what's currently owned on `home`.
+- [next-targets.app.ts](src/next-targets.app.ts) - Uses `known-servers.json`. One-shot report of not-yet-rooted servers: the 3 closest to hack by required hacking level, and the 3 closest to hack by how many more port-opener programs are needed versus what's currently owned on `home`.
 
 ## Sidebar UI (`ui.app.ts`)
 
@@ -196,7 +196,7 @@ Viteburner will automatically add an up-to-date type definition file to the root
 ```js
 /** @param {import("../NetscriptDefinitions.d.ts").NS} ns */
 export async function main(ns) {
-  ns.tprint(`Hello world!`)
+  ns.tprint(`Hello world!`);
 }
 ```
 

@@ -20,7 +20,7 @@ function getContractsFromHost(ns: NS, host: string) {
 }
 
 function findAllContracts(ns: NS) {
-  const serverFile = `known-servers.json.txt`
+  const serverFile = `known-servers.json`
   const servers = JSON.parse(ns.read(serverFile))
 
   ns.print(`\nReloaded ${serverFile}`)

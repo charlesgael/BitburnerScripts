@@ -17,7 +17,7 @@ export async function main(ns: NS) {
 
   // --- Prerequisites
 
-  if (!ns.hasTorRouter()) {
+  if (ns.fileExists('DarkscapeNavigator.exe')) {
     ns.tprint('ERROR: TOR Router not owned, purchase one first')
     return
   }

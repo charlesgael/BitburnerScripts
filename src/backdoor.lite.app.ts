@@ -6,7 +6,7 @@ import type { NS, Server } from '@ns'
 // yet.
 export async function main(ns: NS) {
   ns.disableLog(`ALL`)
-  const serverFile = `known-servers.json.txt`
+  const serverFile = `known-servers.json`
 
   const servers: Server[] = JSON.parse(ns.read(serverFile))
 

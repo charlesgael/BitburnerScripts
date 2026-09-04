@@ -33,7 +33,7 @@ import type { QueuedNS } from './ns-proxy'
  * queued ns below without any RAM concern — same as the daemon touching it
  * directly through the real ns.
  */
-export const XP_FARM_CONFIG_FILE = 'xp-farm-config.txt'
+export const XP_FARM_CONFIG_FILE = 'xp-farm-config.json'
 export const XP_FARM_DAEMON_SCRIPT = 'daemons/xp-farm.daemon.js'
 export const XP_FARM_DAEMON_HOST = 'home'
 

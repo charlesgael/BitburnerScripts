@@ -1,10 +1,7 @@
 import type { NS, Server } from '@ns'
 import type { XpFarmAssignment } from '../ui/utils/xp-farm-config'
 import {
-  XP_FARM_CONFIG_FILE as CONFIG_FILE,
-  XP_FARM_LOOP_DELAY as CONTINUOUS,
-  XP_FARM_GROW_SCRIPT as GROW_SCRIPT,
-  XP_FARM_WEAKEN_SCRIPT as WEAKEN_SCRIPT,
+    XP_FARM_CONFIG_FILE as CONFIG_FILE, XP_FARM_GROW_SCRIPT as GROW_SCRIPT, XP_FARM_LOOP_DELAY as CONTINUOUS, XP_FARM_WEAKEN_SCRIPT as WEAKEN_SCRIPT
 } from '../ui/utils/xp-farm-config'
 import { noDupe } from '../utils/ns/nodupe'
 import { splitGrowWeakenThreads } from '../utils/thread-balance'
@@ -185,7 +182,7 @@ export async function main(ns: NS) {
   ns.disableLog('ALL')
   noDupe(ns)
 
-  ns.print(`Started. Checking xp-farm-config.txt every ${CHECK_INTERVAL / 1000}s.`)
+  ns.print(`Started. Checking xp-farm-config.json every ${CHECK_INTERVAL / 1000}s.`)
   const managed = new Map<string, Assignment>()
 
   while (true) {
@@ -205,7 +202,7 @@ export async function main(ns: NS) {
         continue
       if (ns.serverExists(host))
         ns.killall(host) // release: hand it back to Programs
-      ns.print(`${host}: released — no longer in xp-farm-config.txt.`)
+      ns.print(`${host}: released — no longer in xp-farm-config.json.`)
       managed.delete(host)
     }
 

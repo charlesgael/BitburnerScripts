@@ -1,6 +1,6 @@
 import type { NS, Server } from '@ns'
-import { SHARE_DAEMON_SCRIPT } from './ui/utils/share-config' // cpy
-import { loadKnownServers, logError, printNextRun, purgeStaleHosts, readIgnoredHostnames, registerFloodCleanup } from './utils/flood-daemon.lib' // cpy
+import { SHARE_DAEMON_SCRIPT } from './ui/utils/share-config'; // cpy
+import { loadKnownServers, logError, printNextRun, purgeStaleHosts, readIgnoredHostnames, registerFloodCleanup } from './utils/flood-daemon.lib'; // cpy
 
 const threadRam = 4 // mem of daemon script
 
@@ -53,7 +53,7 @@ async function execShare(ns: NS, server: Server) {
 export async function main(ns: NS) {
   ns.disableLog(`ALL`)
   const tenMinutes = 1000 * 60 * 10
-  const serverFile = `known-servers.json.txt`
+  const serverFile = `known-servers.json`
   const sharing: Server[] = []
 
   const ignoredHostnames = readIgnoredHostnames(ns)
@@ -62,7 +62,7 @@ export async function main(ns: NS) {
 
   while (true) {
     // Ground truth for which hosts are cloud servers, straight from the
-    // Cloud API rather than relying on known-servers.json.txt's cached
+    // Cloud API rather than relying on known-servers.json's cached
     // `purchasedByPlayer` flag (which could be stale, or wrong for a
     // server bought/deleted since netmapper.app.ts last wrote the
     // file) — re-fetched every cycle since the player can buy/delete

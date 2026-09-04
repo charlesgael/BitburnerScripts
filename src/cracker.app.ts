@@ -10,7 +10,7 @@ class Program {
 export async function main(ns: NS) {
   ns.disableLog(`ALL`)
   const tenMinutes = 1000 * 60 * 10
-  const serverFile = `known-servers.json.txt`
+  const serverFile = `known-servers.json`
   const programs = [
     new Program(`BruteSSH.exe`, host => ns.brutessh(host)),
     new Program(`SQLInject.exe`, host => ns.sqlinject(host)),

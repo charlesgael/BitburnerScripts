@@ -5,7 +5,7 @@ import { DNetFS } from './dnet'
 import { FileExplorerApp } from './file-explorer'
 import { GoApp } from './go'
 import { MoneyFarmApp } from './money-farm'
-import { ProgramsApp } from './programs'
+import { ProgramsApp, TradeProgramsApp } from './programs'
 import { ShareApp } from './share'
 import { TrainerApp } from './trainer'
 import { XpFarmApp } from './xp-farm'
@@ -29,4 +29,5 @@ export const APPS: AppDefinition[] = [
   GoApp,
   ContractsApp,
   DNetFS,
+  TradeProgramsApp,
 ]

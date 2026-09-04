@@ -97,7 +97,7 @@ export function useFileExplorer(
       }
     }
     catch {
-      // known-servers.json.txt missing/unreadable — fine, home (and
+      // known-servers.json missing/unreadable — fine, home (and
       // any cloud servers found above) is still browsable.
     }
     setHosts(result)

@@ -1,7 +1,7 @@
-import type { ManagedAppDefinition } from '../logic/types'
-import type { TaskManagerState } from '../logic/use-task-manager'
 import React from '@react'
 import { formatRam } from '../../../../utils/format/game'
+import type { ManagedAppDefinition } from '../logic/types'
+import type { TaskManagerState } from '../logic/use-task-manager'
 
 /**
  * Same spawn row for both loop apps and one-shot reports: the main button
@@ -11,7 +11,7 @@ import { formatRam } from '../../../../utils/format/game'
  * app, not already running it — see `useTaskManager`'s `hostOptions`);
  * picking one spawns there instead. A one-shot script often reads a file
  * local to whatever host it runs on (e.g. `backdoor.lite.app.js` reads
- * `known-servers.json.txt`, which `netmapper.app.js` only writes on the
+ * `known-servers.json`, which `netmapper.app.js` only writes on the
  * host *it* was spawned on) — that's why one-shot apps get the same host
  * choice as loop apps instead of being locked to `home`. Since `tasks`
  * never contains a one-shot app's script, `hostOptions` naturally never

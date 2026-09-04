@@ -1,7 +1,7 @@
 import type { NS, Server } from '@ns'
 
 // One-shot report, in the same spirit as backdoor.lite.app.ts: reads
-// known-servers.json.txt (written by netmapper.app.ts) and prints two
+// known-servers.json (written by netmapper.app.ts) and prints two
 // independent top-3 rankings of not-yet-rooted servers — closest to hack by
 // required hacking skill, and closest to hack by how many more port-opener
 // programs ("exploits") are still needed on top of what's currently owned.
@@ -39,7 +39,7 @@ function printTop3(ns: NS, title: string, rows: string[]) {
 
 export async function main(ns: NS) {
   ns.disableLog(`ALL`)
-  const serverFile = `known-servers.json.txt`
+  const serverFile = `known-servers.json`
 
   const servers: Server[] = JSON.parse(ns.read(serverFile))
   const playerSkill = ns.getHackingLevel()

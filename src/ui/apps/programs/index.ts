@@ -21,7 +21,7 @@ import { createTaskManagerApp } from '../task-manager'
  *
  * `cracker.app.js`, `flooder.app.js`, `backdoor.lite.app.js`,
  * `backdoor.app.js`, and `next-targets.app.js` all `requires:
- * ["netmapper.app.js"]` — they each read `known-servers.json.txt`, which
+ * ["netmapper.app.js"]` — they each read `known-servers.json`, which
  * only exists on a host where `netmapper.app.js` is (or has been) running,
  * so the task manager won't offer a host as a spawn target for any of them
  * until Netmapper is already running there too (see
@@ -109,4 +109,25 @@ export const ProgramsApp: AppDefinition = createTaskManagerApp('programs', 'Prog
   //   label: 'Contracts',
   //   singleInstance: true,
   // },
+])
+
+export const TradeProgramsApp: AppDefinition = createTaskManagerApp('trading-apps', 'Trading', '🗠', [
+  {
+    script: 'stock-reader.app.js',
+    label: 'Reader',
+    singleInstance: true,
+    excludes: ['stock-trader.app.js', 'stock-liquidator.app.js'],
+  },
+  {
+    script: 'stock-trader.app.js',
+    label: 'Trader',
+    singleInstance: true,
+    excludes: ['stock-reader.app.js', 'stock-liquidator.app.js'],
+  },
+  {
+    script: 'stock-liquidator.app.js',
+    label: 'Liquidator',
+    singleInstance: true,
+    excludes: ['stock-reader.app.js', 'stock-trader.app.js'],
+  },
 ])
