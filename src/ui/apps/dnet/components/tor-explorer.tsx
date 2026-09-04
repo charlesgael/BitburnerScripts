@@ -39,7 +39,7 @@ export function TorExplorer() {
           width: 180,
         }}
       >
-        {host && <Menu options={Object.keys(fsStore[host]).map(it => ({ key: it, label: it }))} onValueChange={setFile} />}
+        {host && <Menu key={host} options={Object.keys(fsStore[host]).map(it => ({ key: it, label: it }))} onValueChange={setFile} />}
       </div>
 
       <div
