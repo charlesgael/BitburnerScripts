@@ -2,6 +2,7 @@ import type { NS } from '@ns'
 import type { StockPrice } from './lib/stock-stats/state-file/types'
 import { recordStockTick } from './lib/stock-stats/state-file'
 import { formatMoney } from './utils/format/game'
+import { noDupe } from './utils/ns/nodupe'
 
 /**
  * Background collector for `ui/apps/`-adjacent stock trading work (not yet
@@ -42,6 +43,7 @@ export function collectPrices(ns: NS, has4SData: boolean): Record<string, StockP
 
 export async function main(ns: NS) {
   ns.disableLog('ALL')
+  noDupe(ns)
 
   // purchaseTixApi() is a no-op success if access is already owned, so this
   // covers both "buy it" and "confirm we already have it" in one call. Its
@@ -52,14 +54,6 @@ export async function main(ns: NS) {
     const cost = ns.stock.getConstants().TixApiCost
     const money = ns.getPlayer().money
     ns.tprint(`ERROR: stock-stats needs TIX API access and the automatic purchase failed - need ${formatMoney(cost)}, have ${formatMoney(money)}.`)
-    return
-  }
-
-  // Refuse to run alongside another live instance of this exact script -
-  // two copies would interleave writes into the same log file.
-  const dupe = ns.ps('home').find(p => p.filename === ns.getScriptName() && p.pid !== ns.pid)
-  if (dupe) {
-    ns.tprint(`WARNING: ${ns.getScriptName()} is already running (pid ${dupe.pid}) - exiting.`)
     return
   }
 

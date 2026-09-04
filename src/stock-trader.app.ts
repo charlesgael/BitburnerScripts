@@ -6,6 +6,7 @@ import { recordTraderEvent } from './lib/trader/state-file'
 import { collectPrices } from './stock-reader.app'
 import { arg, parseArgs } from './utils/args'
 import { formatMoney } from './utils/format/game'
+import { noDupe } from './utils/ns/nodupe'
 
 /**
  * Long-lived, unrestricted-ns trading loop (no UI, no cgd - same category
@@ -315,6 +316,7 @@ function tryEnter(ns: NS, symbols: string[], book: PositionBook, sym: string, si
 
 export async function main(ns: NS) {
   ns.disableLog('ALL')
+  noDupe(ns)
 
   const flags = parseArgs(ns, [
     arg('dry-run', false, 'Log intended trades without executing them', 'd'),
@@ -327,14 +329,6 @@ export async function main(ns: NS) {
     const cost = ns.stock.getConstants().TixApiCost
     const money = ns.getPlayer().money
     ns.tprint(`ERROR: trader needs TIX API access and the automatic purchase failed - need ${formatMoney(cost)}, have ${formatMoney(money)}.`)
-    return
-  }
-
-  // Refuse to run alongside another live instance - two copies would race
-  // to open/close the same positions against each other.
-  const dupe = ns.ps('home').find(p => p.filename === ns.getScriptName() && p.pid !== ns.pid)
-  if (dupe) {
-    ns.tprint(`WARNING: ${ns.getScriptName()} is already running (pid ${dupe.pid}) - exiting.`)
     return
   }
 
