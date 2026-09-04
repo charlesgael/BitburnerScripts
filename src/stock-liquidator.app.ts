@@ -66,12 +66,12 @@ export async function main(ns: NS) {
 
     if (sharesLong > 0) {
       const saleGain = ns.stock.getSaleGain(sym, sharesLong, 'L')
+      totalRecovered += saleGain
       if (dryRun) {
         ns.tprint(`DRY-RUN: would sell ${sharesLong} long ${sym} for ${formatMoney(saleGain)}`)
       }
       else {
         const price = ns.stock.sellStock(sym, sharesLong)
-        totalRecovered += saleGain
         ns.tprint(`SOLD ${sharesLong} long ${sym} @ ${formatMoney(price)}/share -> ${formatMoney(saleGain)}`)
         recordTraderEvent(ns, {
           type: 'trade',
@@ -95,12 +95,12 @@ export async function main(ns: NS) {
 
     if (sharesShort > 0) {
       const saleGain = ns.stock.getSaleGain(sym, sharesShort, 'S')
+      totalRecovered += saleGain
       if (dryRun) {
         ns.tprint(`DRY-RUN: would sell ${sharesShort} short ${sym} for ${formatMoney(saleGain)}`)
       }
       else {
         const price = ns.stock.sellShort(sym, sharesShort)
-        totalRecovered += saleGain
         ns.tprint(`SOLD ${sharesShort} short ${sym} @ ${formatMoney(price)}/share -> ${formatMoney(saleGain)}`)
         recordTraderEvent(ns, {
           type: 'trade',
