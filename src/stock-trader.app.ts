@@ -1,8 +1,9 @@
 import type { NS } from '@ns'
 import type { TradeSignal } from './lib/trader/signal'
-import { parseStockStatsLog, STOCK_STATS_LOG_FILE } from './lib/stock-stats/state-file'
+import { parseStockStatsLog, recordStockTick, STOCK_STATS_LOG_FILE } from './lib/stock-stats/state-file'
 import { getSignal, PriceWindow, WINDOW_TICKS } from './lib/trader/signal'
 import { recordTraderEvent } from './lib/trader/state-file'
+import { collectPrices } from './stock-reader.app'
 import { arg, parseArgs } from './utils/args'
 import { formatMoney } from './utils/format/game'
 
@@ -355,6 +356,7 @@ export async function main(ns: NS) {
 
   while (true) {
     await ns.stock.nextUpdate()
+    recordStockTick(ns, collectPrices(ns, has4SData))
 
     try {
       for (const sym of symbols)
