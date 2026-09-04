@@ -1,5 +1,5 @@
 import type { NS } from '@ns'
-import type { Mode } from '../ui/utils/money-farm-log/types'
+import type { Mode } from '../lib/money-farm/state-farm/types'
 import type { StatValue } from './stats'
 
 /**

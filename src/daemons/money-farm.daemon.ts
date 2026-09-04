@@ -1,14 +1,14 @@
 import type { NS, Server } from '@ns'
-import type { Mode, WorkerStatus } from '../ui/utils/money-farm-log/types'
+import type { Mode, WorkerStatus } from '../lib/money-farm/state-farm/types'
 import type { BatchPlan } from '../utils/hack-math'
 import { getCgdStore } from '../cgd/store'
+import { addMoneyFarmLog } from '../lib/money-farm/state-farm'
 import {
   MONEY_FARM_CONFIG_FILE as CONFIG_FILE,
   MONEY_FARM_GROW_SCRIPT as GROW_SCRIPT,
   MONEY_FARM_HACK_SCRIPT as HACK_SCRIPT,
   MONEY_FARM_WEAKEN_SCRIPT as WEAKEN_SCRIPT,
 } from '../ui/utils/money-farm-config'
-import { addMoneyFarmLog } from '../ui/utils/money-farm-log'
 import { BATCH_SPACING, computeBatchPlan, computeHackMath } from '../utils/hack-math'
 import { noDupe } from '../utils/ns/nodupe'
 import { MONEY_FARM_PORT } from '../utils/ports.lib'
