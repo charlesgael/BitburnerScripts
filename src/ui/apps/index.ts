@@ -1,6 +1,7 @@
 import type { AppDefinition } from '../types'
 import { CloudServersApp } from './cloud-servers'
 import { ContractsApp } from './contracts'
+import { DNetFS } from './dnet'
 import { FileExplorerApp } from './file-explorer'
 import { GoApp } from './go'
 import { MoneyFarmApp } from './money-farm'
@@ -27,4 +28,5 @@ export const APPS: AppDefinition[] = [
   TrainerApp,
   GoApp,
   ContractsApp,
+  DNetFS,
 ]

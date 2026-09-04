@@ -9,7 +9,7 @@ import { initChildPidsContext } from '../../context/child-pids-context'
 import { initDaemonTierContext } from '../../context/daemon-tier-context'
 // import { initHomeRamContext } from '../context/home-ram-context'
 import { initNsQueueContext } from '../../context/ns-queue-context'
-import { isAppVisible, ramShortfallReason } from '../../utils/app-availability'
+import { isAppVisible, isAvailableReason, ramShortfallReason } from '../../utils/app-availability'
 
 /**
  * Small icon launcher grid, meant for a sidebar hook. Clicking an icon opens
@@ -126,6 +126,20 @@ export function createAppGrid(
   }
   void fetchResetInfoIfNeeded()
 
+  const TOR_ROUTER_POLL_MS = 10000
+  async function refreshTorRouter() {
+    try {
+      const res = await queuedNs._hasTorRouter()
+      if (res !== torRouter) {
+        torRouter = res
+        render()
+      }
+    }
+    catch {}
+  }
+  void refreshTorRouter()
+  const torRouterPollId = setInterval(refreshTorRouter, TOR_ROUTER_POLL_MS)
+
   const TIER_POLL_MS = 1000
   const tierPollId = setInterval(() => {
     const next = getDaemon()?._getTier() ?? 0
@@ -134,23 +148,19 @@ export function createAppGrid(
     daemonTier = next
     render()
     void fetchResetInfoIfNeeded()
+    void refreshTorRouter()
   }, TIER_POLL_MS)
 
-  const TOR_ROUTER_POLL_MS = 10000
-  const torRouterPollId = setInterval(() => {
-    try {
-      queuedNs._hasTorRouter().then(res => torRouter = res)
-    }
-    catch {}
-  }, TOR_ROUTER_POLL_MS)
-
-  // Two different rules, two different treatments in the grid below (see
+  // Two different treatments in the grid below (see
   // `ui/utils/app-availability.ts`'s own header comments for why they're
-  // split): `minRam` shows the icon disabled with a reason (something the
-  // player can fix mid-session), while `minSourceFile`/`minDaemonTier`/
-  // `isAvailable` leaves the icon out of the grid entirely.
-  function ramReason(app: AppDefinition): string | null {
-    return ramShortfallReason(app, { homeRam })
+  // split): `minRam`, and an `isAvailable` lambda returning a string, both
+  // show the icon disabled with that string as a reason (something the
+  // player can act on without leaving the app grid) — combined into one
+  // `disabledReason` below. `minSourceFile`/`minDaemonTier`, and an
+  // `isAvailable` lambda returning `false`, leave the icon out of the grid
+  // entirely instead (`visible` below) — nothing to explain to the player.
+  function disabledReason(app: AppDefinition): string | null {
+    return ramShortfallReason(app, { homeRam }) ?? isAvailableReason(app.isAvailable, { ownedSF, currentNode, daemonTier, homeRam, torRouter })
   }
   function visible(app: AppDefinition): boolean {
     return isAppVisible(app, { ownedSF, currentNode, daemonTier, homeRam, torRouter })
@@ -165,7 +175,7 @@ export function createAppGrid(
     const app = apps.find(a => a.id === id)
     // Belt-and-suspenders alongside the disabled/hidden icon below —
     // this is what actually stops the window from opening.
-    if (app && (!visible(app) || ramReason(app)))
+    if (app && (!visible(app) || disabledReason(app)))
       return
     // Cascade each new window a bit further down/right than the last,
     // wrapping so a long session doesn't march windows off-screen.
@@ -298,12 +308,13 @@ export function createAppGrid(
   }
 
   function render() {
-    // Apps failing minSourceFile/isAvailable are left out of the icon
-    // list entirely (see visible() above) — filter before map rather
-    // than returning null from within it, so there's no gap left in the
-    // grid where a hidden icon would've sat.
+    // Apps failing minSourceFile/minDaemonTier, or whose isAvailable
+    // returns false, are left out of the icon list entirely (see visible()
+    // above) — filter before map rather than returning null from within
+    // it, so there's no gap left in the grid where a hidden icon would've
+    // sat.
     const icons = apps.filter(visible).map((app) => {
-      const reason = ramReason(app)
+      const reason = disabledReason(app)
       return (
         <button
           key={app.id}

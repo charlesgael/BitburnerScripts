@@ -1,6 +1,6 @@
+import type { CloudServerRow } from '../../../utils/cloud-list'
 import React from '@react'
 import { TitlebarToolbar } from '../../../components/window/titlebar-toolbar'
-import type { CloudServerRow } from '../../../utils/cloud-list'
 import { useCloudServers } from '../logic/use-cloud-servers'
 import { BuyForm } from './buy-form'
 import { CloudServerCard } from './server-card'

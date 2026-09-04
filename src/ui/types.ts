@@ -84,13 +84,18 @@ export interface AppDefinition {
   /**
    * Escape hatch for availability rules `minRam`/`minSourceFile` can't
    * express (e.g. OR-ing multiple conditions, or checking some other
-   * player state entirely). Return `true` when the app should be
-   * openable, or a string explaining why not — shown as the disabled
-   * icon's tooltip in `ui/components/app-grid.tsx`. Evaluated in addition
-   * to (AND'd with) `minRam`/`minSourceFile` when those are also set; see
+   * player state entirely). Three-way return, each treated differently
+   * in `ui/components/app-grid.tsx`: `true` — openable, shown normally.
+   * `false` — hidden from the grid outright, same treatment as a failed
+   * `minSourceFile`/`minDaemonTier` (nothing to explain to the player,
+   * e.g. a prerequisite they haven't discovered yet). A `string` — shown
+   * but disabled, the string as the tooltip (same treatment
+   * `ramShortfallReason` gets — something the player can act on, like
+   * `DNetFS` needing a TOR router). Evaluated in addition to (AND'd with)
+   * `minRam`/`minSourceFile` when those are also set; see
    * `ui/utils/app-availability.ts`.
    */
-  isAvailable?: (ctx: AppAvailabilityContext) => true | string
+  isAvailable?: (ctx: AppAvailabilityContext) => boolean | string
   /**
    * Optional flag to enable no padding border to border display
    */
