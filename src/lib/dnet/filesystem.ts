@@ -26,3 +26,9 @@ export function recordFile(hostname: string, filename: string, content: string):
 
   fs[hostname][filename] = content
 }
+
+/** Empties the store — called by darknet.app.ts at the start of each mutation-driven pass. */
+export function resetFilesystemStore(): void {
+  const win = eval('window') as { __dnetFilesystem?: FilesystemStore }
+  win.__dnetFilesystem = {}
+}
