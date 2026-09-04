@@ -1,6 +1,6 @@
 import type { NS } from '@ns'
-import type { TradeSignal } from './lib/trader/signal'
 import { parseStockStatsLog, recordStockTick, STOCK_STATS_LOG_FILE } from './lib/stock-stats/state-file'
+import type { TradeSignal } from './lib/trader/signal'
 import { getSignal, PriceWindow, WINDOW_TICKS } from './lib/trader/signal'
 import { recordTraderEvent } from './lib/trader/state-file'
 import { collectPrices } from './stock-reader.app'
@@ -27,6 +27,7 @@ const POSITION_FRACTION_OF_CASH = 0.1
 const MIN_EDGE_MULTIPLE = 2
 const STOP_LOSS_PCT = 0.08
 const MAX_DRAWDOWN_PCT = 0.20
+const READER_SCRIPT = 'stock-reader.app.js'
 
 interface Position {
   sym: string
@@ -330,6 +331,21 @@ export async function main(ns: NS) {
     const money = ns.getPlayer().money
     ns.tprint(`ERROR: trader needs TIX API access and the automatic purchase failed - need ${formatMoney(cost)}, have ${formatMoney(money)}.`)
     return
+  }
+
+  // Stop the reading daemon before trading.
+  // Trading daemon logs readings anyways.
+  const traderProcs = ns.ps(ns.getHostname()).filter(p => p.filename === READER_SCRIPT)
+  if (traderProcs.length > 0) {
+    const pids = traderProcs.map(p => p.pid).join(', ')
+    if (dryRun) {
+      ns.tprint(`DRY-RUN: would stop ${READER_SCRIPT} (pid ${pids}) before trading.`)
+    }
+    else {
+      for (const proc of traderProcs)
+        ns.kill(proc.pid)
+      ns.tprint(`Stopped ${READER_SCRIPT} (pid ${pids}) before trading.`)
+    }
   }
 
   const symbols = ns.stock.getSymbols()
