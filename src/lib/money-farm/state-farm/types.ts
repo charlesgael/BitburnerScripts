@@ -1,8 +1,11 @@
 import type { InferSchema } from '../../../utils/tiny-schema/types'
 import { logSchema } from '../../../utils/log-helper'
+import { array } from '../../../utils/tiny-schema/array'
+import { combine } from '../../../utils/tiny-schema/combine'
 import { number } from '../../../utils/tiny-schema/number'
 import { object } from '../../../utils/tiny-schema/object'
 import { or } from '../../../utils/tiny-schema/or'
+import { record } from '../../../utils/tiny-schema/record'
 import { string } from '../../../utils/tiny-schema/string'
 
 const modeSchema = string('weaken', 'grow-prep', 'farm')
@@ -109,5 +112,96 @@ export type WorkerStatus = InferSchema<typeof hgwSchema>
 const orSchema = or(updateServer, hgwSchema, changeModeSchema, workLifecycleSchema)
 export type AddLogInput = InferSchema<typeof orSchema>
 
-export const moneyFarmLogEntrySchema = logSchema(orSchema)
+/*
+ * --- ROLLUP ---
+ *
+ * `'rollup'` isn't something `addMoneyFarmLog` callers ever construct
+ * (it's intentionally left out of `orSchema`/`AddLogInput` above) — it's
+ * synthesized by `mk-stats.ts`'s `buildMoneyFarmRollup` when
+ * `state-farm/index.ts` collapses a chunk of aging log entries that would
+ * otherwise just be truncated away (see that file's own header comment).
+ * A rollup is a compact, purely additive digest of everything it replaces:
+ * raw summable fields only (`count`/`threads`/`totalDuration`/`money`/
+ * `growth`, `mode.durationMs`, the two time-weighted `*TimeMs` integrals),
+ * never the derived per-average fields `finalizeAction`/`finalizeHack`/
+ * `finalizeGrow`/`finalizeTarget` compute — those get recomputed once
+ * `mk-stats.ts` sums a rollup's raw numbers together with whatever real
+ * entries remain, the same way it always has.
+ */
+const actionTotalsSchema = object({
+  count: number(),
+  threads: number(),
+  totalDuration: number(),
+})
+const hackTotalsSchema = combine(actionTotalsSchema, object({ money: number() }))
+const growTotalsSchema = combine(actionTotalsSchema, object({ growth: number() }))
+// weakens has no extra field beyond the shared totals — reuse actionTotalsSchema directly.
+
+const modeDurationSchema = object({
+  'weaken': number(),
+  'grow-prep': number(),
+  'farm': number(),
+})
+
+const rollupTargetSchema = object({
+  target: string(),
+  totalMoney: number(),
+  uptimeMs: number(),
+  hacks: hackTotalsSchema,
+  grows: growTotalsSchema,
+  weakens: actionTotalsSchema,
+  modeChanges: number(),
+  modeTransitions: record(number()),
+  modeDurationMs: modeDurationSchema,
+  /**
+   * Time-weighted integral — paired with `uptimeMs` by `finalizeTarget`
+   * to re-derive `server.averageMoneyDeficit`, the same computation
+   * `closeServerInterval` performs live.
+   */
+  moneyDeficitTimeMs: number(),
+  /** Same pairing, for `server.averageSecurityExcess`. */
+  securityExcessTimeMs: number(),
+  /**
+   * Present only when this target's session was still open (no
+   * `end-work` seen) at the moment this chunk got collapsed — a
+   * continuously-farming target never re-emits `start-work` just because
+   * a rollup happened, and `uptimeMs` is *only* ever advanced via
+   * `start-work`/`end-work` bookkeeping, so without this the target's
+   * uptime clock would freeze forever while `totalMoney` kept climbing
+   * (silently inflating `moneyPerHour` without bound). The value is the
+   * fake restart timestamp `mk-stats.ts` reseeds `runtime.startedAt`
+   * with — a deliberate, disclosed approximation, not the target's true
+   * original start instant. Only the uptime clock is reseeded this way;
+   * `runtime.mode`/`lastServerSnapshot` are left for the next real
+   * `change-mode`/`update-server` entry to reinitialize on its own
+   * (both handlers already do this unconditionally), leaving a small,
+   * self-healing blind spot in the mode-split/security-average tracking
+   * right at the rollup boundary.
+   */
+  reopenAt: number().optional(),
+})
+
+const rollupSchema = object({
+  action: string('rollup'),
+  totalMoney: number(),
+  totalHacks: number(),
+  totalGrows: number(),
+  totalWeakens: number(),
+  hacks: hackTotalsSchema,
+  grows: growTotalsSchema,
+  weakens: actionTotalsSchema,
+  targets: array(rollupTargetSchema),
+})
+export type RollupTarget = InferSchema<typeof rollupTargetSchema>
+
+/*
+ * The *read* schema is a superset of `orSchema` (the write/`AddLogInput`
+ * side) — `moneyFarmLogEntrySchema`/`MoneyFarmLogEntry` need to accept a
+ * `'rollup'` entry that `parseMoneyFarmLog` might encounter on disk, even
+ * though nothing ever constructs one through `addMoneyFarmLog` itself.
+ */
+const logEntrySchema = or(orSchema, rollupSchema)
+
+export const moneyFarmLogEntrySchema = logSchema(logEntrySchema)
 export type MoneyFarmLogEntry = InferSchema<typeof moneyFarmLogEntrySchema>
+export type RollupLogEntry = Extract<MoneyFarmLogEntry, { action: 'rollup' }>
