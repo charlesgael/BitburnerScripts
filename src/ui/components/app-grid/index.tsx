@@ -4,6 +4,7 @@ import type { QueuedNS } from '../../utils/ns-proxy'
 import type { OpenWindow } from './types'
 import React, { getWinGlobals, ReactDOM } from '@react'
 import { initCgdActionsContext } from '../../context/cgd-actions-context'
+import { initCgdCapabilityContext } from '../../context/cgd-capability-context'
 import { initChildPidsContext } from '../../context/child-pids-context'
 import { initDaemonTierContext } from '../../context/daemon-tier-context'
 // import { initHomeRamContext } from '../context/home-ram-context'
@@ -41,6 +42,7 @@ export function createAppGrid(
   const ChildPidsContext = initChildPidsContext()
   const DaemonTierContext = initDaemonTierContext()
   const CgdActionsContext = initCgdActionsContext()
+  const CgdCapabilityContext = initCgdCapabilityContext()
 
   // Resolves against whichever daemon is *currently* registered on every
   // call, not whatever was registered when this grid was created — same
@@ -53,6 +55,13 @@ export function createAppGrid(
       return Promise.reject(new Error(`No cgd daemon is currently registered — can't run action "${name}".`))
     }
     return daemon.queue.enqueueAction(name, args)
+  }
+
+  // Same live-getter resolution as `callAction` above, just synchronous —
+  // `CgdQueue.can` never needs a queue round-trip (see its own doc
+  // comment), so this can return a plain boolean instead of a promise.
+  const canCall = (path: string): boolean => {
+    return getDaemon()?.queue.can(path.split('.')) ?? false
   }
 
   const state: { windows: OpenWindow[] } = { windows: [] }
@@ -443,8 +452,10 @@ export function createAppGrid(
         <ChildPidsContext.Provider value={addChildPid}>
           <DaemonTierContext.Provider value={daemonTier}>
             <CgdActionsContext.Provider value={callAction}>
-              {grid}
-              {portalContainer ? ReactDOM.createPortal(windows, portalContainer, 'windows-portal') : windows}
+              <CgdCapabilityContext.Provider value={canCall}>
+                {grid}
+                {portalContainer ? ReactDOM.createPortal(windows, portalContainer, 'windows-portal') : windows}
+              </CgdCapabilityContext.Provider>
             </CgdActionsContext.Provider>
           </DaemonTierContext.Provider>
         </ChildPidsContext.Provider>
