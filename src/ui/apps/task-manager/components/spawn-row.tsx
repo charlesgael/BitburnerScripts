@@ -1,7 +1,7 @@
-import React from '@react'
-import { formatRam } from '../../../../utils/format/game'
 import type { ManagedAppDefinition } from '../logic/types'
 import type { TaskManagerState } from '../logic/use-task-manager'
+import React from '@react'
+import { formatRam } from '../../../../utils/format/game'
 
 /**
  * Same spawn row for both loop apps and one-shot reports: the main button

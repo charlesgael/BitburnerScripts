@@ -1,5 +1,5 @@
 import type { NS, Server } from '@ns'
-import { loadKnownServers, logError, printNextRun, purgeStaleHostnames, purgeStaleHosts, readIgnoredHostnames, registerFloodCleanup } from './utils/flood-daemon.lib'; // cpy
+import { loadKnownServers, logError, printNextRun, purgeStaleHostnames, purgeStaleHosts, readIgnoredHostnames, registerFloodCleanup } from './utils/flood-daemon.lib' // cpy
 
 const threadRam = 1.75 // mem of daemon script
 const hackScript = `daemons/hack.daemon.js`

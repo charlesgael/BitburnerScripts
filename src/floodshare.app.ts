@@ -1,6 +1,6 @@
 import type { NS, Server } from '@ns'
-import { SHARE_DAEMON_SCRIPT } from './ui/utils/share-config'; // cpy
-import { loadKnownServers, logError, printNextRun, purgeStaleHosts, readIgnoredHostnames, registerFloodCleanup } from './utils/flood-daemon.lib'; // cpy
+import { SHARE_DAEMON_SCRIPT } from './ui/utils/share-config' // cpy
+import { loadKnownServers, logError, printNextRun, purgeStaleHosts, readIgnoredHostnames, registerFloodCleanup } from './utils/flood-daemon.lib' // cpy
 
 const threadRam = 4 // mem of daemon script
 
