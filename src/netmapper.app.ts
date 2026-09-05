@@ -47,12 +47,15 @@ export async function main(ns: NS) {
     lastServerCount = servers.length
     ns.print(`Writing ${filename}...`)
     ns.write(filename, JSON.stringify(servers), `w`)
-    ns.print(
-      `Will search again at ${new Date(
-        Date.now() + tenMinutes,
-      ).toLocaleTimeString(undefined, { hour12: false })}.`,
-    )
-    await ns.sleep(tenMinutes)
+
+    if (repeat) {
+      ns.print(
+        `Will search again at ${new Date(
+          Date.now() + tenMinutes,
+        ).toLocaleTimeString(undefined, { hour12: false })}.`,
+      )
+      await ns.sleep(tenMinutes)
+    }
     // repeat is a const set once from `ns.args` above (run-once vs.
     // persistent-loop mode) — intentionally never reassigned.
     // eslint-disable-next-line no-unmodified-loop-condition
