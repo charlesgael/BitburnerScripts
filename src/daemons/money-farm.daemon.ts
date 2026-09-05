@@ -542,7 +542,7 @@ function sessionUsedGB(session: TargetSession, prepAssignment: Record<string, Pr
   for (const host of sessionHostList(session)) {
     const p = prepAssignment[prepKey(session.target, host)]
     if (p)
-      used += p.growThreads * rams.grow + p.weakenThreads * rams.weaken
+      used += p.growThreads * rams.grow + p.weakenThreads * rams['weaken'] // eslint-disable-line dot-notation
   }
   return used
 }
@@ -718,11 +718,13 @@ function estimateNeedGB(
       return 0
     const perBatch = batchPlan.hackThreads * rams.hack
       + batchPlan.growThreads * rams.grow
-      + (batchPlan.weaken1Threads + batchPlan.weaken2Threads) * rams.weaken
+      // eslint-disable-next-line dot-notation
+      + (batchPlan.weaken1Threads + batchPlan.weaken2Threads) * rams['weaken']
     return perBatch * batchPlan.maxConcurrentBatches
   }
   const need = computePrepNeed(ns, target, server, mode)
-  return need.growThreads * rams.grow + need.weakenThreads * rams.weaken
+  // eslint-disable-next-line dot-notation
+  return need.growThreads * rams.grow + need.weakenThreads * rams['weaken']
 }
 
 /**
@@ -1025,7 +1027,8 @@ function tickSession(
     }
   }
   else if (session.mode) {
-    applyPrepMode(ns, session, server, session.mode, rams.grow, rams.weaken, prepAssignment)
+    // eslint-disable-next-line dot-notation
+    applyPrepMode(ns, session, server, session.mode, rams.grow, rams['weaken'], prepAssignment)
   }
 }
 
@@ -1123,7 +1126,8 @@ function tickDispatch(ns: NS, session: TargetSession, rams: ScriptRams, now: num
       session.inFlightBatches.splice(i, 1)
   }
   if (session.inFlightBatches.length < session.batchPlan.maxConcurrentBatches) {
-    const result = tryDispatchBatch(ns, session, session.batchPlan, rams.hack, rams.grow, rams.weaken)
+    // eslint-disable-next-line dot-notation
+    const result = tryDispatchBatch(ns, session, session.batchPlan, rams.hack, rams.grow, rams['weaken'])
     if (result)
       session.inFlightBatches.push({ endsAt: now + session.batchPlan.totalDuration, pids: result.pids, hostUsage: result.hostUsage })
   }
@@ -1178,7 +1182,8 @@ export async function main(ns: NS) {
   const rams: ScriptRams = {
     hack: ns.getScriptRam(HACK_SCRIPT, 'home'),
     grow: ns.getScriptRam(GROW_SCRIPT, 'home'),
-    weaken: ns.getScriptRam(WEAKEN_SCRIPT, 'home'),
+    // eslint-disable-next-line style/quote-props
+    'weaken': ns.getScriptRam(WEAKEN_SCRIPT, 'home'),
   }
 
   ns.print(`Started. Checking ${CONFIG_FILE} every ${CHECK_INTERVAL / 1000}s.`)
@@ -1257,7 +1262,8 @@ export async function main(ns: NS) {
       // needed here either.
       const unassignedGB = [...managedHosts]
         .reduce((sum, host) => sum + unclaimedSlots(ns, host, sessions) * slotSizeGB(ns, host), 0)
-      if (unassignedGB / Math.max(rams.weaken, 1) >= MIN_CHAIN_EXTENSION_THREADS) {
+      // eslint-disable-next-line dot-notation
+      if (unassignedGB / Math.max(rams['weaken'], 1) >= MIN_CHAIN_EXTENSION_THREADS) {
         const exclude = new Set(sessions.map(s => s.target))
         const nextPicked = pickTarget(ns, null, exclude)
         const nextTarget = nextPicked.target

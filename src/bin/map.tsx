@@ -78,7 +78,7 @@ const THEME = {
   backgroundSecondary: `var(--bb-theme-backgroundsecondary, #0b0f0b)`,
   error: `var(--bb-theme-error, #f55)`,
   warning: `var(--bb-theme-warning, #cc0)`,
-  hack: `var(--bb-theme-hack, #8ccf27)`,
+  hackC: `var(--bb-theme-hack, #8ccf27)`,
   int: `var(--bb-theme-int, #6495ed)`,
   cha: `var(--bb-theme-cha, #6495ed)`,
   green: `rgb(0, 255, 0)`,
@@ -317,7 +317,7 @@ function nodeColor(
     && (server.numOpenPortsRequired || 0) <= exploitCount
     && server.hasAdminRights
   ) {
-    return THEME.hack
+    return THEME.hackC
   }
   return 'inherit'
 }
@@ -385,7 +385,7 @@ function TreeRow({
                 text={`Lv ${server.requiredHackingSkill}`}
                 color={
                   playerHackLevel >= server.requiredHackingSkill
-                    ? THEME.hack
+                    ? THEME.hackC
                     : THEME.error
                 }
               />
@@ -397,7 +397,7 @@ function TreeRow({
                 text={`Ex ${server.numOpenPortsRequired}`}
                 color={
                   exploitCount >= server.numOpenPortsRequired
-                    ? THEME.hack
+                    ? THEME.hackC
                     : THEME.error
                 }
               />
@@ -415,7 +415,7 @@ function TreeRow({
                   ? FACTION_HOSTS[server.hostname]
                   : server.organizationName}
                 color={(flags.factions && Object.keys(FACTION_HOSTS).includes(server.hostname))
-                  ? THEME.hack
+                  ? THEME.hackC
                   : (flags.corps && CORPS_HOSTS.includes(server.hostname))
                       ? THEME.int
                       : (flags.qol && Object.keys(QOL_HOSTS).includes(server.hostname))

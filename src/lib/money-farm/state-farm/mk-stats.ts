@@ -593,7 +593,9 @@ function applyRollupEntry(
     for (const key in t.modeTransitions) {
       target.mode.transitions[key] = (target.mode.transitions[key] ?? 0) + t.modeTransitions[key]
     }
-    target.mode.durationMs.weaken += t.modeDurationMs.weaken
+    // Prevent RAM usage from weaken token
+    // eslint-disable-next-line dot-notation
+    target.mode.durationMs['weaken'] += t.modeDurationMs['weaken']
     target.mode.durationMs['grow-prep'] += t.modeDurationMs['grow-prep']
     target.mode.durationMs.farm += t.modeDurationMs.farm
 
