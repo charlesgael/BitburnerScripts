@@ -23,16 +23,18 @@ export async function main(ns: NS) {
     arg('window', 30, 'Window size in minutes for the growth-by-window breakdown', 'w'),
   ])
   const windowMin = Number(flags.window) || 30
+  ns.ui.openTail(ns.pid)
+  ns.ui.resizeTail(1600, 800)
 
   const raw = ns.read(TRADER_LOG_FILE)
   if (!raw) {
-    ns.tprint(`No log found at ${TRADER_LOG_FILE} - has trader.app.js been run yet?`)
+    ns.print(`No log found at ${TRADER_LOG_FILE} - has trader.app.js been run yet?`)
     return
   }
 
   const entries = parseTraderLog(raw)
   for (const line of formatTraderLogSummary(summarizeTraderLog(entries)))
-    ns.tprint(line)
+    ns.print(line)
   for (const line of formatTraderLogSummaryByWindow(summarizeTraderLogByWindow(entries, windowMin), windowMin))
-    ns.tprint(line)
+    ns.print(line)
 }

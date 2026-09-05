@@ -7,6 +7,8 @@ import type { NS, Server } from '@ns'
 export async function main(ns: NS) {
   ns.disableLog(`ALL`)
   const serverFile = `known-servers.json`
+  ns.ui.openTail(ns.pid)
+  ns.ui.resizeTail(600, 800)
 
   const servers: Server[] = JSON.parse(ns.read(serverFile))
 
@@ -18,11 +20,11 @@ export async function main(ns: NS) {
       && !s.backdoorInstalled,
   )
 
-  ns.tprint(`\n--- Rooted servers without a backdoor (${needsBackdoor.length}) ---`)
+  ns.print(`\n--- Rooted servers without a backdoor (${needsBackdoor.length}) ---`)
   if (needsBackdoor.length === 0) {
-    ns.tprint(`None — everything rooted is already backdoored.`)
+    ns.print(`None — everything rooted is already backdoored.`)
   }
   for (const server of needsBackdoor) {
-    ns.tprint(server.hostname)
+    ns.print(server.hostname)
   }
 }

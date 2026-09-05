@@ -27,13 +27,13 @@ function isCandidate(s: Server): boolean {
 }
 
 function printTop3(ns: NS, title: string, rows: string[]) {
-  ns.tprint(`\n--- ${title} ---`)
+  ns.print(`\n--- ${title} ---`)
   if (rows.length === 0) {
-    ns.tprint(`None found.`)
+    ns.print(`None found.`)
     return
   }
   for (const row of rows) {
-    ns.tprint(row)
+    ns.print(row)
   }
 }
 
@@ -49,6 +49,8 @@ export async function main(ns: NS) {
   const ownedExploits = PROGRAMS.filter(p =>
     ns.fileExists(p, `home`),
   ).length
+  ns.ui.openTail(ns.pid)
+  ns.ui.resizeTail(900, 800)
 
   const candidates = servers.filter(isCandidate)
 
@@ -83,7 +85,7 @@ export async function main(ns: NS) {
     })
     .slice(0, 3)
 
-  ns.tprint(
+  ns.print(
     `\nPlayer hacking skill: ${playerSkill}  |  Exploits owned: ${ownedExploits}/${PROGRAMS.length}`,
   )
 
