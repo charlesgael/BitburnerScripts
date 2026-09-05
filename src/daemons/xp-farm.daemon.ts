@@ -1,7 +1,11 @@
 import type { NS, Server } from '@ns'
 import type { XpFarmAssignment } from '../ui/utils/xp-farm-config'
+import { getCgdStore } from '../cgd/store'
 import {
-    XP_FARM_CONFIG_FILE as CONFIG_FILE, XP_FARM_GROW_SCRIPT as GROW_SCRIPT, XP_FARM_LOOP_DELAY as CONTINUOUS, XP_FARM_WEAKEN_SCRIPT as WEAKEN_SCRIPT
+  XP_FARM_CONFIG_FILE as CONFIG_FILE,
+  XP_FARM_LOOP_DELAY as CONTINUOUS,
+  XP_FARM_GROW_SCRIPT as GROW_SCRIPT,
+  XP_FARM_WEAKEN_SCRIPT as WEAKEN_SCRIPT,
 } from '../ui/utils/xp-farm-config'
 import { noDupe } from '../utils/ns/nodupe'
 import { splitGrowWeakenThreads } from '../utils/thread-balance'
@@ -28,20 +32,51 @@ import { splitGrowWeakenThreads } from '../utils/thread-balance'
  * unlike hack() — but a target whose `requiredHackingSkill` is far beyond
  * the player's own still takes drastically longer per call, so this keeps
  * throughput reasonable) — XP per completed grow()/weaken() call scales
- * with the target's `baseDifficulty`, not its money or growth rate. Every
- * managed host shares that one target, and switches to it live — no
- * disable/re-enable or daemon restart needed — the moment a better one
- * becomes available (a server gets rooted, or the player's level clears its
- * requirement), since the target can only ever improve cycle over cycle,
- * never regress. It then fills the host's RAM with grow/weaken threads in a
- * ratio (via
+ * with the target's `baseDifficulty`, not its money or growth rate. Target
+ * selection itself is unaware of `money-farm.daemon.ts` — picking the
+ * single best `baseDifficulty` target regardless of who else might be
+ * working it — deliberately: once money-farm holds sessions against most
+ * or all rooted servers (its own partitioning is designed to let it), an
+ * XP-Farm that *excluded* every money-farm target would have nowhere left
+ * to go at all. See the dispatch paragraph below for how the two features
+ * actually avoid stepping on each other instead. Every managed host shares
+ * that one target, and switches to it live — no disable/re-enable or
+ * daemon restart needed — the moment a better one becomes available (a
+ * server gets rooted, or the player's level clears its requirement). This
+ * is no longer strictly monotonic the way it once was: a target can also
+ * change because it started or stopped being shared with money-farm (see
+ * below), which can move the *split* without moving `bestTarget` at all,
+ * and in principle `bestTarget` itself could still only ever improve —
+ * that part is unchanged.
+ *
+ * It then fills the host's RAM with grow/weaken threads in a ratio (via
  * `ns.weakenAnalyze`/`ns.growthAnalyzeSecurity`) that keeps the target's
  * security roughly flat forever, instead of grow-only threads slowly
  * driving security — and therefore every future call's time — upward.
  * Both actions never fail and give identical XP per completion; weaken
  * only exists here to offset grow's own security creep, not because it
  * scores extra XP on its own (see the "Weaken Grind" conversation this
- * feature grew out of).
+ * feature grew out of) — **unless the current target is also one
+ * money-farm currently holds a session against** (`moneyFarmTargets`,
+ * read from `cgd.store`'s `moneyFarm` field — see that field's own doc
+ * comment in `cgd/types.ts`), in which case the entire host runs
+ * weaken-only: 100% of its RAM as weaken threads, zero grow. Grow changes
+ * money and pushes security *up*; money-farm's own HWGW batch math has no
+ * way to know XP Farm did that on the same target and would misread it as
+ * drift (tripping `DESYNC_STRIKES_TO_FALLBACK`) or as money it didn't
+ * actually earn. Weaken only ever pushes security *down* (toward the same
+ * minimum money-farm itself wants, with a hard floor it can't overshoot),
+ * so it's the one action safe to keep running unconditionally on a shared
+ * target. This is a one-way accommodation — money-farm's own target
+ * selection stays completely unaware of XP Farm — deliberate, since
+ * money-farm's batch timing is the fragile side of this relationship and
+ * XP Farm's own goal doesn't care what security or money a target sits at.
+ * A transition (a target starts or stops being money-farm's) is caught
+ * every `CHECK_INTERVAL` tick regardless of whether `bestTarget` itself
+ * changed, and only re-splits (kill + relaunch) on an actual flip — never
+ * on every cycle — so a stable, non-shared target's ratio isn't disturbed
+ * just because it drifts by a thread as the target's own security shifts
+ * under this daemon's own activity.
  *
  * Split into its own script for the usual reason (see the RAM-cost model
  * section in CLAUDE.md): ns.getServer/ns.scan/ns.killall/ns.scp/etc. would
@@ -57,6 +92,57 @@ import { splitGrowWeakenThreads } from '../utils/thread-balance'
 const CHECK_INTERVAL = 15000
 
 type Assignment = XpFarmAssignment
+
+/**
+ * `Assignment` plus this daemon's own tracking of whether the target was
+ * shared with money-farm the last time it was (re)dispatched — never
+ * exposed outside this file. `XpFarmAssignment` itself stays exactly the
+ * shape `ui/apps/xp-farm/`'s UI expects, since that UI derives its own
+ * status by polling `ns.ps(host)` directly rather than trusting anything
+ * the daemon tracks internally (see `xp-farm-config.ts`'s header comment)
+ * — it has no need to know about this flag at all.
+ */
+interface ManagedAssignment extends Assignment {
+  sharedWithMoneyFarm: boolean
+}
+
+/**
+ * The set of targets money-farm currently holds a session against, per
+ * `cgd.store`'s `moneyFarm` field (pushed by `money-farm.daemon.ts` every
+ * few seconds — see that field's own doc comment in `cgd/types.ts`).
+ * Empty whenever money-farm isn't running, or its first push hasn't
+ * landed yet — XP Farm just behaves exactly as it always has in that
+ * case. Reading `cgd.store` here costs no RAM (`getCgdStore` is pure
+ * window access, no `ns.*` reference — see `window-cgd.ts`'s own header
+ * comment for why that's safe from any script), and the try/catch matches
+ * `money-farm.daemon.ts`'s own reasoning for guarding its store access: a
+ * transient failure here shouldn't crash this daemon's main loop, just
+ * make it act as if money-farm isn't running for this one check.
+ */
+function moneyFarmTargets(): Set<string> {
+  try {
+    const perTarget = getCgdStore().getState().moneyFarm?.perTarget ?? []
+    return new Set(perTarget.map(t => t.target))
+  }
+  catch {
+    return new Set()
+  }
+}
+
+/**
+ * The grow/weaken thread split `host` should run against `target` right
+ * now: the normal steady-state-security mix (`splitGrowWeakenThreads`) if
+ * `target` isn't one of `sharedTargets`, or 100% weaken if it is — see the
+ * module header comment's dispatch paragraph for why grow specifically is
+ * what needs to stop on a target money-farm also holds.
+ */
+function desiredSplit(ns: NS, host: string, target: string, sharedTargets: Set<string>): { growThreads: number, weakenThreads: number } {
+  const scriptRam = ns.getScriptRam(GROW_SCRIPT, 'home')
+  const totalThreads = scriptRam > 0 ? Math.floor(ns.getServerMaxRam(host) / scriptRam) : 0
+  if (sharedTargets.has(target))
+    return { growThreads: 0, weakenThreads: totalThreads }
+  return splitGrowWeakenThreads(ns, totalThreads, target)
+}
 
 function readHosts(ns: NS): string[] {
   const raw = ns.read(CONFIG_FILE)
@@ -128,6 +214,13 @@ function pickTarget(ns: NS): string | null {
  * relaunched fresh, rather than trying to identify and kill only the
  * intruder — simpler, and "this host runs nothing but its assigned
  * grow/weaken loops" is the invariant this daemon exists to hold.
+ *
+ * Only ever *adds* a missing loop — never corrects one that's already
+ * running with the wrong thread count. `ns.isRunning`'s args match on
+ * `target`/delay only, not thread count, so a live split change (the
+ * money-farm-shared transition, or a retarget) has to `ns.killall(host)`
+ * itself *before* calling this, or the stale-count loop would just be
+ * left running untouched.
  */
 function enforceOwnership(ns: NS, host: string, assignment: Assignment) {
   const foreign = ns.ps(host).some(p => p.filename !== GROW_SCRIPT && p.filename !== WEAKEN_SCRIPT)
@@ -147,13 +240,15 @@ function enforceOwnership(ns: NS, host: string, assignment: Assignment) {
 
 /**
  * Seizes exclusive control of a newly-dedicated host, splits its RAM into
- * grow/weaken threads for `target`, and starts its loops. Returns null (and
- * leaves the host unmanaged, to be retried next cycle) if there's not even
- * enough RAM for one thread. `target` is passed in (computed once per cycle
- * in `main`, shared by every host) rather than picked per-host — there's
- * only ever one globally-best target at a time, not a per-host one.
+ * grow/weaken threads for `target` (or 100% weaken if `target` is one of
+ * `sharedTargets` — see `desiredSplit`), and starts its loops. Returns
+ * null (and leaves the host unmanaged, to be retried next cycle) if
+ * there's not even enough RAM for one thread. `target` is passed in
+ * (computed once per cycle in `main`, shared by every host) rather than
+ * picked per-host — there's only ever one globally-best target at a time,
+ * not a per-host one.
  */
-function claim(ns: NS, host: string, target: string): Assignment | null {
+function claim(ns: NS, host: string, target: string, sharedTargets: Set<string>): ManagedAssignment | null {
   ns.killall(host)
 
   // Measured from "home" (where Viteburner always deploys these scripts),
@@ -171,10 +266,14 @@ function claim(ns: NS, host: string, target: string): Assignment | null {
   }
 
   ns.scp([GROW_SCRIPT, WEAKEN_SCRIPT], host)
-  const { growThreads, weakenThreads } = splitGrowWeakenThreads(ns, totalThreads, target)
-  const assignment: Assignment = { target, growThreads, weakenThreads }
+  const sharedWithMoneyFarm = sharedTargets.has(target)
+  const { growThreads, weakenThreads } = desiredSplit(ns, host, target, sharedTargets)
+  const assignment: ManagedAssignment = { target, growThreads, weakenThreads, sharedWithMoneyFarm }
   enforceOwnership(ns, host, assignment)
-  ns.print(`${host}: farming ${target} — ${growThreads} grow thread(s), ${weakenThreads} weaken thread(s).`)
+  ns.print(
+    `${host}: farming ${target} — ${growThreads} grow thread(s), ${weakenThreads} weaken thread(s)`
+    + `${sharedWithMoneyFarm ? ' (weaken-only — shared with money-farm)' : ''}.`,
+  )
   return assignment
 }
 
@@ -183,7 +282,23 @@ export async function main(ns: NS) {
   noDupe(ns)
 
   ns.print(`Started. Checking xp-farm-config.json every ${CHECK_INTERVAL / 1000}s.`)
-  const managed = new Map<string, Assignment>()
+  const managed = new Map<string, ManagedAssignment>()
+
+  // Registered once, up front, so it's armed for the whole run — killed
+  // manually (Task Manager), crashing, or falling off the end (config
+  // list empties) all trigger it, same as `money-farm.daemon.ts`'s
+  // identical cleanup. `managed` is read at call time via closure, not
+  // snapshotted here, so it reflects whatever this daemon actually had
+  // claimed by the time it died. Without this, killing the daemon's own
+  // pid directly (rather than disabling every host through the app, which
+  // the main loop's own release path already handles) left every managed
+  // host's grow/weaken loops running orphaned forever.
+  ns.atExit(() => {
+    for (const host of managed.keys()) {
+      if (ns.serverExists(host))
+        ns.killall(host)
+    }
+  }, 'xp-farm-cleanup')
 
   while (true) {
     const configured = readHosts(ns)
@@ -210,12 +325,13 @@ export async function main(ns: NS) {
     // globally-best target at a time (see pickTarget), so every host
     // shares it rather than each re-running the same network scan.
     const bestTarget = pickTarget(ns)
+    const sharedTargets = moneyFarmTargets()
 
     if (bestTarget) {
       for (const host of validHosts) {
         if (managed.has(host))
           continue
-        const assignment = claim(ns, host, bestTarget)
+        const assignment = claim(ns, host, bestTarget, sharedTargets)
         if (assignment)
           managed.set(host, assignment)
       }
@@ -238,7 +354,33 @@ export async function main(ns: NS) {
       if (bestTarget && bestTarget !== assignment.target) {
         ns.print(`${host}: switching target ${assignment.target} → ${bestTarget}.`)
         ns.killall(host)
+        const { growThreads, weakenThreads } = desiredSplit(ns, host, bestTarget, sharedTargets)
         assignment.target = bestTarget
+        assignment.growThreads = growThreads
+        assignment.weakenThreads = weakenThreads
+        assignment.sharedWithMoneyFarm = sharedTargets.has(bestTarget)
+        enforceOwnership(ns, host, assignment)
+        continue
+      }
+
+      // Same target, but its money-farm-shared status may have flipped
+      // since last cycle (money-farm just started or stopped a session
+      // against it) — re-split only on an actual transition, never just
+      // because splitGrowWeakenThreads's own ratio drifted a thread from
+      // the target's security shifting under this daemon's own activity.
+      // See enforceOwnership's own comment for why the kill has to happen
+      // here, before it's called, rather than inside it.
+      const nowShared = sharedTargets.has(assignment.target)
+      if (nowShared !== assignment.sharedWithMoneyFarm) {
+        ns.print(
+          `${host}: ${assignment.target} `
+          + `${nowShared ? 'now shared with money-farm — switching to weaken-only' : 'no longer shared with money-farm — resuming grow/weaken mix'}.`,
+        )
+        ns.killall(host)
+        const { growThreads, weakenThreads } = desiredSplit(ns, host, assignment.target, sharedTargets)
+        assignment.growThreads = growThreads
+        assignment.weakenThreads = weakenThreads
+        assignment.sharedWithMoneyFarm = nowShared
       }
       enforceOwnership(ns, host, assignment)
     }
