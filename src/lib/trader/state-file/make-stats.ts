@@ -37,6 +37,12 @@ export interface WindowSummary {
   closedRoundTrips: number
   winRatePct: number | null
   meanRawReturnPct: number | null
+  /**
+   * Minutes of zero logged activity immediately before this window (e.g.
+   * the daemon/game wasn't running) - 0 for a window that picks up right
+   * where the previous one left off.
+   */
+  gapMinBefore: number
 }
 
 export interface ReturnHistogramBucket {
@@ -262,11 +268,18 @@ export function summarizeTraderLog(entries: TraderLogEntry[]): TraderLogSummary 
  * checkpoints: +42.7% in the first 89 min, only +4.7% in the next 118).
  *
  * Each window's start value/time is carried forward from the previous
- * window's actual last entry (not an idealized window boundary), so a
- * window with no entries (e.g. the daemon was down) just carries forward
- * unchanged instead of producing a divide-by-zero or a misleading value,
- * and the final, likely-partial window still gets an accurate per-minute
- * rate rather than being diluted by the nominal window size.
+ * window's actual last entry (not an idealized window boundary), so the
+ * final, likely-partial window still gets an accurate per-minute rate
+ * rather than being diluted by the nominal window size.
+ *
+ * A window with zero logged entries (e.g. the daemon/game wasn't running -
+ * a computer-off overnight gap, not a bug) is skipped entirely rather than
+ * emitted as a degenerate zero-width row: a real multi-hour gap otherwise
+ * produces one identical `no trades` line per empty bucket (dozens of them
+ * for an overnight gap), which reads as broken output even though the
+ * underlying math was technically correct. Instead, the gap's duration is
+ * folded into the next real window's `gapMinBefore`, so the formatter can
+ * surface it as a single note.
  */
 export function summarizeTraderLogByWindow(entries: TraderLogEntry[], windowMin = 30): WindowSummary[] {
   if (entries.length === 0)
@@ -313,34 +326,17 @@ export function summarizeTraderLogByWindow(entries: TraderLogEntry[], windowMin 
     }
   }
 
-  const maxIdx = Math.max(...buckets.keys())
+  const sortedIdxs = [...buckets.keys()].sort((a, b) => a - b)
   const windows: WindowSummary[] = []
   let carryValue = entries[0].portfolioValue
   let carryTs = firstTs
 
-  for (let idx = 0; idx <= maxIdx; idx++) {
-    const windowEntries = buckets.get(idx)
-
-    if (!windowEntries) {
-      windows.push({
-        windowIndex: idx,
-        startTs: carryTs,
-        endTs: carryTs,
-        startPortfolioValue: carryValue,
-        endPortfolioValue: carryValue,
-        returnPct: 0,
-        ratePerMin: 0,
-        buyCount: 0,
-        sellCount: 0,
-        closedRoundTrips: 0,
-        winRatePct: null,
-        meanRawReturnPct: null,
-      })
-      continue
-    }
+  for (const idx of sortedIdxs) {
+    const windowEntries = buckets.get(idx)!
 
     const startTs = carryTs
     const startValue = carryValue
+    const firstEntryTs = windowEntries[0].ts
     const endEntry = windowEntries[windowEntries.length - 1]
     const endTs = endEntry.ts
     const endValue = endEntry.portfolioValue
@@ -361,6 +357,7 @@ export function summarizeTraderLogByWindow(entries: TraderLogEntry[], windowMin 
       closedRoundTrips: closes.length,
       winRatePct: closes.length > 0 ? 100 * closes.filter(r => r > 0).length / closes.length : null,
       meanRawReturnPct: closes.length > 0 ? mean(closes) : null,
+      gapMinBefore: (firstEntryTs - carryTs) / 60000,
     })
 
     carryValue = endValue
@@ -461,8 +458,16 @@ export function formatTraderLogSummaryByWindow(windows: WindowSummary[], windowM
   if (windows.length === 0)
     return [`No entries to bucket into ${windowMin}-min windows.`]
 
+  // A gap under 5 min is normal startup/tick jitter, not worth a note -
+  // only flag a gap large enough to mean the daemon/game genuinely wasn't
+  // running (e.g. computer off overnight).
+  const GAP_NOTE_THRESHOLD_MIN = 5
+
   const lines: string[] = [`Growth by ${windowMin}-min window:`]
   for (const w of windows) {
+    if (w.gapMinBefore > GAP_NOTE_THRESHOLD_MIN)
+      lines.push(`  [gap: ${(w.gapMinBefore / 60).toFixed(1)}h with no logged activity]`)
+
     const range = `${new Date(w.startTs).toLocaleTimeString()}-${new Date(w.endTs).toLocaleTimeString()}`
     const trend = `${formatMoney(w.startPortfolioValue)} -> ${formatMoney(w.endPortfolioValue)} (${w.returnPct >= 0 ? '+' : ''}${w.returnPct.toFixed(2)}%, ${w.ratePerMin >= 0 ? '+' : ''}${w.ratePerMin.toFixed(3)}%/min)`
     const activity = w.buyCount + w.sellCount === 0
