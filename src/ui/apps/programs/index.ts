@@ -51,7 +51,19 @@ export const ProgramsApp: AppDefinition = createTaskManagerApp('programs', 'Prog
       await ns._getHostname(),
     ],
     singleInstance: true,
-    excludes: ['floodshare.app.js'],
+    excludes: ['floodshare.app.js', 'early-hack.app.js'],
+    requires: ['netmapper.app.js'],
+  },
+  {
+    script: 'early-hack.app.js',
+    label: 'Early hack',
+    buildArgs: async ns => [
+      ...(await readSlaveNodes(ns)),
+      // We do not want to kill the daemon
+      await ns._getHostname(),
+    ],
+    singleInstance: true,
+    excludes: ['floodshare.app.js', 'flooder.app.js'],
     requires: ['netmapper.app.js'],
   },
   {
@@ -63,7 +75,7 @@ export const ProgramsApp: AppDefinition = createTaskManagerApp('programs', 'Prog
       await ns._getHostname(),
     ],
     singleInstance: true,
-    excludes: ['flooder.app.js'],
+    excludes: ['flooder.app.js', 'early-hack.app.js'],
     requires: ['netmapper.app.js'],
   },
   {
