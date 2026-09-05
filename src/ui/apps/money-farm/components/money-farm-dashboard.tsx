@@ -35,6 +35,7 @@ const MODE_COLORS: Record<LiveStatus, string> = {
   'farm': 'var(--bb-theme-success)',
   'weaken': 'var(--bb-theme-warning)',
   'grow-prep': 'var(--bb-theme-info)',
+  'early': 'var(--bb-theme-int)',
   'offline': 'var(--bb-theme-secondary)',
 }
 
@@ -42,6 +43,7 @@ const STATUS_ORDER: Record<LiveStatus, number> = {
   'farm': 0,
   'weaken': 0,
   'grow-prep': 0,
+  'early': 0,
   'offline': 1,
 }
 
@@ -186,7 +188,6 @@ export function MoneyFarmDashboard() {
             </div>
           )
         : null}
-
       {state.durationMs > 0
         ? (
             <>
@@ -253,11 +254,13 @@ export function MoneyFarmDashboard() {
 
                       {targetRows.map((t) => {
                         // eslint-disable-next-line dot-notation
-                        const modeTotal = t.mode.durationMs['weaken'] + t.mode.durationMs['grow-prep'] + t.mode.durationMs.farm
+                        const modeTotal = t.mode.durationMs['weaken'] + t.mode.durationMs['grow-prep'] + t.mode.durationMs.farm + t.mode.durationMs.early
 
                         return (
                           <tr key={t.target}>
-                            <td className="bb-wrap">{t.target}</td>
+                            <td className="bb-wrap">
+                              {t.target}
+                            </td>
                             <td className="smallest">
                               <span
                                 className="bb-pill"
@@ -273,7 +276,7 @@ export function MoneyFarmDashboard() {
                               {modeTotal > 0
                                 ? (
                                     <div style={{ display: 'flex', height: 10, borderRadius: 3, overflow: 'hidden' }}>
-                                      {(['weaken', 'grow-prep', 'farm'] as const).map(mode => (
+                                      {(['weaken', 'grow-prep', 'farm', 'early'] as const).map(mode => (
                                         t.mode.durationMs[mode] > 0 && (
                                           <div
                                             key={mode}

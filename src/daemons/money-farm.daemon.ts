@@ -612,7 +612,7 @@ function isWorkerStatus(value: unknown): value is WorkerStatus {
  * referenced once regardless of how many times it's actually called at
  * runtime) — see `grow.daemon.ts`'s header comment.
  */
-function drainStatusPort(ns: NS) {
+export function drainStatusPort(ns: NS) {
   const port = ns.getPortHandle(MONEY_FARM_PORT)
   while (!port.empty()) {
     const raw = port.read()
@@ -722,9 +722,12 @@ function estimateNeedGB(
       + (batchPlan.weaken1Threads + batchPlan.weaken2Threads) * rams['weaken']
     return perBatch * batchPlan.maxConcurrentBatches
   }
-  const need = computePrepNeed(ns, target, server, mode)
-  // eslint-disable-next-line dot-notation
-  return need.growThreads * rams.grow + need.weakenThreads * rams['weaken']
+  if (mode !== 'early') {
+    const need = computePrepNeed(ns, target, server, mode)
+    // eslint-disable-next-line dot-notation
+    return need.growThreads * rams.grow + need.weakenThreads * rams['weaken']
+  }
+  return 0
 }
 
 /**
@@ -1026,7 +1029,7 @@ function tickSession(
       ns.print(`${session.target}: ${session.inFlightBatches.length}/${session.batchPlan?.maxConcurrentBatches ?? 0} batches in flight.`)
     }
   }
-  else if (session.mode) {
+  else if (session.mode !== null && session.mode !== 'early') {
     // eslint-disable-next-line dot-notation
     applyPrepMode(ns, session, server, session.mode, rams.grow, rams['weaken'], prepAssignment)
   }
@@ -1175,6 +1178,7 @@ function pushMoneyFarmStats(
 
 export async function main(ns: NS) {
   ns.disableLog('ALL')
+  ns.scriptKill('early-hack.app.js')
   noDupe(ns)
 
   // Measured from home (Viteburner always deploys these there), not

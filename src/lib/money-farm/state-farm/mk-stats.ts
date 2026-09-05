@@ -155,6 +155,7 @@ function createTargetSummary(): MoneyFarmTargetSummary {
         'weaken': 0,
         'grow-prep': 0,
         'farm': 0,
+        'early': 0,
       },
     },
 

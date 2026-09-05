@@ -1,14 +1,18 @@
 import type { NS } from '@ns'
 import { parseArgs } from '../utils/args' // cpy
 
+const HACK_SECURITY_PER_THREAD = 0.002
+
 export async function main(ns: NS) {
   // We pass money and security as params to keep the RAM cost low
   const args = parseArgs(ns, [
     { long: 'money', defaultValue: 1, description: 'Max money of the server', short: 'm' },
     { long: 'security', defaultValue: 1, description: 'Minimum security of the server', short: 's' },
+    { long: 'port', defaultValue: 0, description: 'Minimum security of the server', short: 'p' },
   ] as const)
   // Target server, passed as the first positional arg (falls back to "foodnstuff" if none given)
   const target = (args._[0] as string) || 'foodnstuff'
+  const threads = (args._[2] as number) || 1
 
   // Defines the thresholds for money and security
   const moneyThresh = args.money * 0.75
@@ -16,17 +20,46 @@ export async function main(ns: NS) {
 
   // Infinite loop keeps the script running forever
   while (true) {
+    const startedAt = Date.now()
     if (ns.getServerSecurityLevel(target) > securityThresh) {
       // If security is too high, weaken it
-      await ns.weaken(target)
+      const s = await ns.weaken(target)
+      if (args.port > 0) {
+        ns.writePort(args.port, {
+          action: 'weaken',
+          target,
+          threads,
+          duration: Date.now() - startedAt,
+          deltaSecurity: -s,
+        })
+      }
     }
     else if (ns.getServerMoneyAvailable(target) < moneyThresh) {
       // If money is too low, grow it
-      await ns.grow(target)
+      const g = await ns.grow(target)
+      if (args.port > 0) {
+        ns.writePort(args.port, {
+          action: 'grow',
+          target,
+          threads,
+          duration: Date.now() - startedAt,
+          growth: g,
+        })
+      }
     }
     else {
       // If security is low and money is high, steal it!
-      await ns.hack(target)
+      const m = await ns.hack(target)
+      if (args.port > 0) {
+        ns.writePort(args.port, {
+          action: 'hack',
+          target,
+          threads,
+          duration: Date.now() - startedAt,
+          money: m,
+          deltaSecurity: threads * HACK_SECURITY_PER_THREAD,
+        })
+      }
     }
   }
 }

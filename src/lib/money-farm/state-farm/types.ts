@@ -8,7 +8,7 @@ import { or } from '../../../utils/tiny-schema/or'
 import { record } from '../../../utils/tiny-schema/record'
 import { string } from '../../../utils/tiny-schema/string'
 
-const modeSchema = string('weaken', 'grow-prep', 'farm')
+const modeSchema = string('weaken', 'grow-prep', 'farm', 'early')
 export type Mode = InferSchema<typeof modeSchema>
 
 const changeModeSchema = object({
