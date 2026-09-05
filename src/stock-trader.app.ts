@@ -27,6 +27,22 @@ const POSITION_FRACTION_OF_CASH = 0.1
 const MIN_EDGE_MULTIPLE = 2
 const STOP_LOSS_PCT = 0.08
 const MAX_DRAWDOWN_PCT = 0.20
+const READER_SCRIPT = 'stock-reader.app.js'
+
+/**
+ * Max fraction of a position's own entry cost allowed to be price impact
+ * (getPurchaseCost's "large transactions influence price" behavior) rather
+ * than the pre-trade market price. POSITION_FRACTION_OF_CASH sizes every
+ * entry off the same dollar budget regardless of the stock's own price/
+ * liquidity - on a cheap, thin stock that budget can buy a large enough
+ * share count that the trade moves the price against itself while filling,
+ * inflating avgLongPrice above the pre-trade price before the market does
+ * anything. That eats into STOP_LOSS_PCT's cushion before any real adverse
+ * move happens, making a supposedly-8%-cushioned stock effectively much
+ * tighter. Capping impact at 2% keeps that self-inflicted cost small
+ * relative to the stop, independent of the stock's liquidity.
+ */
+const MAX_ENTRY_IMPACT_PCT = 0.02
 
 interface Position {
   sym: string
@@ -237,9 +253,11 @@ function tryExit(ns: NS, symbols: string[], book: PositionBook, pos: Position, s
 }
 
 /**
- * Shares affordable within `budget`, capped by getMaxShares. getPurchaseCost
- * isn't linear (spread + large-order price impact), so the naive
- * budget/price estimate is stepped down until it actually fits.
+ * Shares affordable within `budget`, capped by getMaxShares and by
+ * MAX_ENTRY_IMPACT_PCT. getPurchaseCost isn't linear (spread + large-order
+ * price impact), so the naive budget/price estimate is stepped down until
+ * it actually fits - same iterative approach for the impact cap, since
+ * impact isn't linear either.
  */
 function affordableShares(ns: NS, sym: string, position: 'L' | 'S', budget: number): number {
   const price = position === 'L' ? ns.stock.getAskPrice(sym) : ns.stock.getBidPrice(sym)
@@ -250,6 +268,17 @@ function affordableShares(ns: NS, sym: string, position: 'L' | 'S', budget: numb
     if (cost <= budget)
       break
     shares = Math.floor(shares * (budget / cost))
+  }
+
+  // Reducing further for impact can only lower cost too, so this never
+  // needs to re-check the budget constraint above.
+  for (let i = 0; i < 5 && shares > 0; i++) {
+    const cost = ns.stock.getPurchaseCost(sym, shares, position)
+    const noImpactCost = shares * price
+    const impactPct = (cost - noImpactCost) / noImpactCost
+    if (impactPct <= MAX_ENTRY_IMPACT_PCT)
+      break
+    shares = Math.floor(shares * (MAX_ENTRY_IMPACT_PCT / impactPct))
   }
 
   return Math.max(0, shares)
@@ -330,6 +359,21 @@ export async function main(ns: NS) {
     const money = ns.getPlayer().money
     ns.tprint(`ERROR: trader needs TIX API access and the automatic purchase failed - need ${formatMoney(cost)}, have ${formatMoney(money)}.`)
     return
+  }
+
+  // Stop the reading daemon before trading.
+  // Trading daemon logs readings anyways.
+  const traderProcs = ns.ps(ns.getHostname()).filter(p => p.filename === READER_SCRIPT)
+  if (traderProcs.length > 0) {
+    const pids = traderProcs.map(p => p.pid).join(', ')
+    if (dryRun) {
+      ns.tprint(`DRY-RUN: would stop ${READER_SCRIPT} (pid ${pids}) before trading.`)
+    }
+    else {
+      for (const proc of traderProcs)
+        ns.kill(proc.pid)
+      ns.tprint(`Stopped ${READER_SCRIPT} (pid ${pids}) before trading.`)
+    }
   }
 
   const symbols = ns.stock.getSymbols()

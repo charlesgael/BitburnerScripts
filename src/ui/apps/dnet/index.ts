@@ -6,8 +6,8 @@ export const DNetFS: AppDefinition = {
   icon: '🖧',
   label: 'DNetFS',
   Content: TorExplorer,
-  isAvailable({ torRouter }: Pick<AppAvailabilityContext, 'torRouter'>) {
-    return torRouter || 'Needs TOR Router'
+  isAvailable({ darkscapeNavigator }: Pick<AppAvailabilityContext, 'darkscapeNavigator'>) {
+    return darkscapeNavigator || 'Needs TOR Router'
   },
   unmanaged: true,
   preferredWidth: 180 + 180 + 320,

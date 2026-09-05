@@ -142,5 +142,5 @@ export interface AppAvailabilityContext {
   /**
    * True if the player has tor router unlocked.
    */
-  torRouter: boolean
+  darkscapeNavigator: boolean
 }

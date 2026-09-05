@@ -91,7 +91,7 @@ export function createAppGrid(
   let nextZ = 0
   // Mutable, updated when daemon updates and checks the availability of
   // Tor Router to the player
-  let torRouter: boolean = false
+  let darkscapeNavigator: boolean = false
 
   // Mutable, not the plain parameter it started as: the daemon actually
   // running can change in the background (a different tier taking over
@@ -129,9 +129,8 @@ export function createAppGrid(
   const TOR_ROUTER_POLL_MS = 10000
   async function refreshTorRouter() {
     try {
-      const res = await queuedNs._hasTorRouter()
-      if (res !== torRouter) {
-        torRouter = res
+      if (await queuedNs._fileExists('DarkscapeNavigator.exe')) {
+        darkscapeNavigator = true
         render()
       }
     }
@@ -160,10 +159,10 @@ export function createAppGrid(
   // `isAvailable` lambda returning `false`, leave the icon out of the grid
   // entirely instead (`visible` below) — nothing to explain to the player.
   function disabledReason(app: AppDefinition): string | null {
-    return ramShortfallReason(app, { homeRam }) ?? isAvailableReason(app.isAvailable, { ownedSF, currentNode, daemonTier, homeRam, torRouter })
+    return ramShortfallReason(app, { homeRam }) ?? isAvailableReason(app.isAvailable, { ownedSF, currentNode, daemonTier, homeRam, darkscapeNavigator })
   }
   function visible(app: AppDefinition): boolean {
-    return isAppVisible(app, { ownedSF, currentNode, daemonTier, homeRam, torRouter })
+    return isAppVisible(app, { ownedSF, currentNode, daemonTier, homeRam, darkscapeNavigator })
   }
 
   function openApp(id: string) {

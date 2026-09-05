@@ -9,7 +9,7 @@ function useConfirm(cb: () => Promise<void> | void) {
   const [id, setId] = useState<NodeJS.Timeout | undefined>()
   const [confirm, setConfirm] = useState(false)
   const [error, setError] = useState<string | null>()
-  const exec = async () => {
+  const update = async () => {
     clearTimeout(id)
     if (confirm) {
       try {
@@ -27,7 +27,7 @@ function useConfirm(cb: () => Promise<void> | void) {
     }
   }
 
-  return [confirm, exec, error] as const
+  return [confirm, update, error] as const
 }
 
 export function TorExplorer() {
@@ -36,7 +36,7 @@ export function TorExplorer() {
   const [host, setHost] = useState<string | null>(null)
   const [file, setFile] = useState<string | null>(null)
 
-  const [confirm, exec] = useConfirm(() => {
+  const [confirm, clickConfirm] = useConfirm(() => {
     void resetFilesystemStore()
     setTimeout(() => setHost(null))
   })
@@ -45,7 +45,7 @@ export function TorExplorer() {
     <>
       <TitlebarToolbar>
         <button
-          onClick={exec}
+          onClick={clickConfirm}
           className="bb-icon-link"
         >
           {confirm ? 'Sure?' : 'Clear'}

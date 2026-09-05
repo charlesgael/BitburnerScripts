@@ -4,7 +4,7 @@ import type { NS, Server } from '@ns'
  * Shared plumbing for the two standalone "flood every reachable server"
  * daemons — `flooder.app.ts` (hack/grow/weaken) and `floodshare.app.ts`
  * (share) — factored out of what used to be near-verbatim duplicated code
- * between them: reading `known-servers.json.txt` on a fixed cadence,
+ * between them: reading `known-servers.json` on a fixed cadence,
  * skipping cloud/slave-node/home hosts, and cleaning up every host either
  * daemon ever touched on exit.
  *

@@ -37,7 +37,7 @@ export interface ManagedAppDefinition {
    * that just prints to the terminal and returns) rather than looping
    * forever. Still gets the same host picker as any other app (its
    * report may depend on files local to whichever host it runs on — e.g.
-   * `backdoor.lite.app.js` reading `known-servers.json.txt` wherever
+   * `backdoor.lite.app.js` reading `known-servers.json` wherever
    * `netmapper.app.js` last wrote it), but is skipped by the
    * running-task list entirely and its button always reads "Run" instead
    * of "Spawn" (see `../index.ts`'s header comment). Defaults to false.
@@ -66,7 +66,7 @@ export interface ManagedAppDefinition {
    * running on the *same host* before this app can spawn there. E.g.
    * `cracker.app.js`/`flooder.app.js`/`backdoor.lite.app.js`/
    * `backdoor.app.js`/`next-targets.app.js` all read
-   * `known-servers.json.txt`, which only exists on a host where
+   * `known-servers.json`, which only exists on a host where
    * `netmapper.app.js` is (or has been) running — so they all set
    * `requires: ["netmapper.app.js"]`. Checked per-candidate-host in
    * `hostOptions`: a host is only offered once every required script

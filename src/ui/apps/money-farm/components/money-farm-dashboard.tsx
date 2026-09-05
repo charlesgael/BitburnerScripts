@@ -232,7 +232,8 @@ export function MoneyFarmDashboard() {
                   <span>Per-target performance</span>
                   <span style={{ fontSize: 11, fontWeight: 'normal', display: 'flex', gap: 8 }}>
                     <span style={{ color: MODE_COLORS.farm }}>■ farm</span>
-                    <span style={{ color: MODE_COLORS.weaken }}>■ weaken</span>
+                    {/* eslint-disable-next-line dot-notation */}
+                    <span style={{ color: MODE_COLORS['weaken'] }}>■ weaken</span>
                     <span style={{ color: MODE_COLORS['grow-prep'] }}>■ grow-prep</span>
                     <span style={{ color: MODE_COLORS.offline }}>■ offline</span>
                   </span>
@@ -251,7 +252,8 @@ export function MoneyFarmDashboard() {
                       </tr>
 
                       {targetRows.map((t) => {
-                        const modeTotal = t.mode.durationMs.weaken + t.mode.durationMs['grow-prep'] + t.mode.durationMs.farm
+                        // eslint-disable-next-line dot-notation
+                        const modeTotal = t.mode.durationMs['weaken'] + t.mode.durationMs['grow-prep'] + t.mode.durationMs.farm
 
                         return (
                           <tr key={t.target}>
@@ -289,8 +291,8 @@ export function MoneyFarmDashboard() {
                             </td>
                             <td className="smallest">{formatMoney(t.moneyPerHour)}</td>
                             <td className="smallest">{formatDuration(t.uptimeMs / 1000)}</td>
-                            <td className="smallest">{formatNumber(t.server.averageSecurityExcess, 1)}</td>
-                            <td className="smallest">{formatMoney(t.server.averageMoneyDeficit)}</td>
+                            <td className="smallest">{formatNumber(t.server.latestSecurityExcess, 1)}</td>
+                            <td className="smallest">{formatMoney(t.server.latestMoneyDeficit)}</td>
                           </tr>
                         )
                       })}

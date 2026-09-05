@@ -19,7 +19,7 @@ import type { QueuedNS } from './ns-proxy'
  * control, and a farm-claimed host always has non-zero used RAM from its
  * own loops/batches.
  */
-export const MONEY_FARM_CONFIG_FILE = 'money-farm-config.txt'
+export const MONEY_FARM_CONFIG_FILE = 'money-farm-config.json'
 export const MONEY_FARM_DAEMON_SCRIPT = 'daemons/money-farm.daemon.js'
 export const MONEY_FARM_DAEMON_HOST = 'home'
 

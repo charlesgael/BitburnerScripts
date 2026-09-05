@@ -27,7 +27,7 @@ export function XpFarmServerCard({
   s: CloudServerRow
 }) {
   const isEnabled = xf.enabled.has(s.hostname)
-  const isOccupied = xf.busyHost === s.hostname
+  const isOccupied = xf.busyHost === s.hostname || xf.bulkBusy
   const assignment = xf.status[s.hostname]
   const hasProcess = !isEnabled && s.ramUsed > 0
 

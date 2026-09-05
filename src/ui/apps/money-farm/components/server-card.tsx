@@ -26,7 +26,7 @@ export function MoneyFarmServerCard({
   s: CloudServerRow
 }) {
   const isEnabled = mf.enabled.has(s.hostname)
-  const isOccupied = mf.busyHost === s.hostname
+  const isOccupied = mf.busyHost === s.hostname || mf.bulkBusy
   const assignment = mf.status[s.hostname]
   const hasProcess = !isEnabled && s.ramUsed > 0
 

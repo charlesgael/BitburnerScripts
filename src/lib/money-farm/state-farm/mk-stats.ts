@@ -67,6 +67,10 @@ export interface MoneyFarmTargetSummary {
   server: {
     averageMoneyDeficit: number
     averageSecurityExcess: number
+
+    /** Latest `update-server` snapshot seen for this target, rather than a time-weighted average. */
+    latestMoneyDeficit: number
+    latestSecurityExcess: number
   }
 }
 
@@ -157,6 +161,9 @@ function createTargetSummary(): MoneyFarmTargetSummary {
     server: {
       averageMoneyDeficit: 0,
       averageSecurityExcess: 0,
+
+      latestMoneyDeficit: 0,
+      latestSecurityExcess: 0,
     },
   }
 }
@@ -457,6 +464,7 @@ function finalizeTarget(
   target: MoneyFarmTargetSummary,
   serverMoneyDeficitTime: number,
   serverSecurityExcessTime: number,
+  lastServerSnapshot: MoneyFarmServerSnapshot | undefined,
 ): void {
   target.uptimeHours
     = target.uptimeMs / MS_PER_HOUR
@@ -483,6 +491,9 @@ function finalizeTarget(
     = target.uptimeMs > 0
       ? serverSecurityExcessTime / target.uptimeMs
       : 0
+
+  target.server.latestMoneyDeficit = lastServerSnapshot?.moneyDeficit ?? 0
+  target.server.latestSecurityExcess = lastServerSnapshot?.securityExcess ?? 0
 }
 
 function finalizeAction(
@@ -582,7 +593,9 @@ function applyRollupEntry(
     for (const key in t.modeTransitions) {
       target.mode.transitions[key] = (target.mode.transitions[key] ?? 0) + t.modeTransitions[key]
     }
-    target.mode.durationMs.weaken += t.modeDurationMs.weaken
+    // Prevent RAM usage from weaken token
+    // eslint-disable-next-line dot-notation
+    target.mode.durationMs['weaken'] += t.modeDurationMs['weaken']
     target.mode.durationMs['grow-prep'] += t.modeDurationMs['grow-prep']
     target.mode.durationMs.farm += t.modeDurationMs.farm
 
@@ -732,6 +745,7 @@ export function summarizeMoneyLog(
       target,
       runtime.serverMoneyDeficitTime,
       runtime.serverSecurityExcessTime,
+      runtime.lastServerSnapshot,
     )
   }
 

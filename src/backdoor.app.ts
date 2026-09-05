@@ -49,7 +49,7 @@ async function installBackdoor(ns: NS, hostname: string) {
 export async function main(ns: NS) {
   ns.disableLog(`ALL`)
   const tenMinutes = 1000 * 60 * 10
-  const serverFile = `known-servers.json.txt`
+  const serverFile = `known-servers.json`
 
   while (true) {
     const servers: Server[] = JSON.parse(ns.read(serverFile))

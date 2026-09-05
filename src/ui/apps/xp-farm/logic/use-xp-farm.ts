@@ -37,6 +37,7 @@ export function useXpFarm() {
   const [status, setStatus] = React.useState<XpFarmStatus>({})
   const [loading, setLoading] = React.useState(true)
   const [busyHost, setBusyHost] = React.useState<string | null>(null)
+  const [bulkBusy, setBulkBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
   // Reads the grow/weaken processes actually running on each `hosts` entry
@@ -191,16 +192,83 @@ export function useXpFarm() {
     }
   }
 
+  // A host with `ramUsed > 0` that this app hasn't itself enabled is
+  // claimed by something else (Money Farm, Share, a manual process) — the
+  // same "Occupied" gate `server-card.tsx`'s `hasProcess` disables the
+  // per-host Start button on. `selectAll` must respect it too: it's the
+  // set of hosts already selectable one at a time, not "every purchased
+  // server regardless of who's using it."
+  const selectableServers = servers.filter(s => enabled.has(s.hostname) || s.ramUsed === 0)
+
+  // Bulk versions of `toggle` above: a single `writeXpFarmHosts` call for
+  // the whole target set rather than looping `toggle()` per host, which
+  // would fire one queued-`ns` round trip (and, for select-all, one
+  // redundant `ensureDaemonRunning` check) per server. `selectAll` still
+  // calls `ensureDaemonRunning` once at the end, same as `toggle` does on
+  // its own 0→N transition.
+  async function selectAll() {
+    if (selectableServers.length === 0)
+      return
+    setError(null)
+    setBulkBusy(true)
+    try {
+      const next = new Set(selectableServers.map(s => s.hostname))
+      await writeXpFarmHosts(ns, [...next])
+      setEnabled(next)
+      const launchError = await ensureDaemonRunning()
+      if (launchError) {
+        setError(launchError)
+      }
+    }
+    catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
+    finally {
+      setBulkBusy(false)
+    }
+  }
+
+  async function selectNone() {
+    if (enabled.size === 0)
+      return
+    setError(null)
+    setBulkBusy(true)
+    try {
+      await writeXpFarmHosts(ns, [])
+      setEnabled(new Set())
+      setStatus({})
+    }
+    catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
+    finally {
+      setBulkBusy(false)
+    }
+  }
+
+  // Distinct from `allSelected` below: this is true both when every
+  // selectable host is already enabled *and* when there's nothing
+  // selectable at all (every host occupied elsewhere) — either way,
+  // clicking "Select All" would be a no-op, so the button should read
+  // disabled rather than silently doing nothing.
+  const allSelected = selectableServers.length === 0 || selectableServers.every(s => enabled.has(s.hostname))
+  const noneSelected = enabled.size === 0
+
   return {
     servers,
     enabled,
     status,
     loading,
     busyHost,
+    bulkBusy,
     error,
     refresh,
     openLoopLog,
     toggle,
+    selectAll,
+    selectNone,
+    allSelected,
+    noneSelected,
   }
 }
 

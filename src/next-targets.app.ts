@@ -1,7 +1,7 @@
 import type { NS, Server } from '@ns'
 
 // One-shot report, in the same spirit as backdoor.lite.app.ts: reads
-// known-servers.json.txt (written by netmapper.app.ts) and prints two
+// known-servers.json (written by netmapper.app.ts) and prints two
 // independent top-3 rankings of not-yet-rooted servers — closest to hack by
 // required hacking skill, and closest to hack by how many more port-opener
 // programs ("exploits") are still needed on top of what's currently owned.
@@ -27,19 +27,19 @@ function isCandidate(s: Server): boolean {
 }
 
 function printTop3(ns: NS, title: string, rows: string[]) {
-  ns.tprint(`\n--- ${title} ---`)
+  ns.print(`\n--- ${title} ---`)
   if (rows.length === 0) {
-    ns.tprint(`None found.`)
+    ns.print(`None found.`)
     return
   }
   for (const row of rows) {
-    ns.tprint(row)
+    ns.print(row)
   }
 }
 
 export async function main(ns: NS) {
   ns.disableLog(`ALL`)
-  const serverFile = `known-servers.json.txt`
+  const serverFile = `known-servers.json`
 
   const servers: Server[] = JSON.parse(ns.read(serverFile))
   const playerSkill = ns.getHackingLevel()
@@ -49,6 +49,8 @@ export async function main(ns: NS) {
   const ownedExploits = PROGRAMS.filter(p =>
     ns.fileExists(p, `home`),
   ).length
+  ns.ui.openTail(ns.pid)
+  ns.ui.resizeTail(900, 800)
 
   const candidates = servers.filter(isCandidate)
 
@@ -83,7 +85,7 @@ export async function main(ns: NS) {
     })
     .slice(0, 3)
 
-  ns.tprint(
+  ns.print(
     `\nPlayer hacking skill: ${playerSkill}  |  Exploits owned: ${ownedExploits}/${PROGRAMS.length}`,
   )
 

@@ -47,13 +47,14 @@ There are **two separate source trees** — don't confuse them:
 
 ## Known pre-existing issues
 
-`npx tsc --noEmit` is currently clean. It previously reported errors in `src/servers.ts`, `src/contracts.app.ts`, and
-`src/contracts.lib.ts`, all from the same root cause: the game's NS API moved some functions into namespaces since
-those files were written — `getPurchasedServers`/`getPurchasedServerLimit`/`getPurchasedServerCost`/
-`purchaseServer`/`deleteServer` moved under `ns.cloud.*` (as `getServerNames`/`getServerLimit`/`getServerCost`/
-`purchaseServer`/`deleteServer`); bare `tail()` moved to `ns.ui.openTail()`; the exported type `CodingContractData`
-was removed (`ns.codingcontract.getData` returns `any`, so call sites just use `any` now — `CodingContract`, the
-name TS suggests instead, is actually the unrelated `ns.codingcontract` namespace interface, not a data type).
+`npx tsc --noEmit` is currently clean. It previously reported errors in `src/contracts.app.ts` and
+`src/lib/contracts/contracts.lib.ts` (see "Everything else under `src/`" below for the current `src/lib/` layout),
+both from the same root cause: the game's NS API moved some functions into namespaces since those files were written — `getPurchasedServers`/`getPurchasedServerLimit`/
+`getPurchasedServerCost`/`purchaseServer`/`deleteServer` moved under `ns.cloud.*` (as `getServerNames`/
+`getServerLimit`/`getServerCost`/`purchaseServer`/`deleteServer`); bare `tail()` moved to `ns.ui.openTail()`; the
+exported type `CodingContractData` was removed (`ns.codingcontract.getData` returns `any`, so call sites just use
+`any` now — `CodingContract`, the name TS suggests instead, is actually the unrelated `ns.codingcontract` namespace
+interface, not a data type).
 `src.prestige/` still has many more instances of this same pattern (old flat Singularity calls like `ns.gymWorkout`
 that now live under `ns.singularity.*`), since it's unmaintained reference material — see
 `src/daemons/train.daemon.ts` for how one of those was actually fixed for real, live code.
@@ -119,7 +120,11 @@ under `src/ui/`:
   see the daemon section) in a Proxy that reads like calling `ns` directly, `_`-prefixed (see the RAM-cost model
   section above for why). `useQueuedNs()` (`ui/context/ns-queue-context.ts`) is how a component gets one.
 - `ui/context/` — React Context providers (`useQueuedNs`, `useAddChildPid`, `useHomeRam`, `useDaemonTier`,
-  `useCgdActions`) so apps don't need these threaded through every component as props.
+  `useCgdActions`, `useCgdCapability`) so apps don't need these threaded through every component as props.
+  `useCgdCapability()` (`ui/context/cgd-capability-context.ts`) is the odd one out — it returns a synchronous
+  `(path: string) => boolean` check (backed by `CgdQueue.can()`, see the daemon section below) rather than
+  triggering a call, for gating UI on whether an `ns.*` method is dispatchable at the current tier without an async
+  round-trip through `useQueuedNs()`.
 - `ui/components/app-grid.tsx` — the sidebar icon grid plus the floating windows apps open into: draggable,
   independently closable, no modal backdrop, multiple open at once. Polls the live daemon getter once a second and
   re-renders on an actual tier change, so switching daemon tiers in the background updates which apps are visible
@@ -195,14 +200,17 @@ summary.
     pay its RAM cost forever, not just while actually in use. `daemons/lv0/lv1/lv2.daemon.ts` form a strict
     one-directional import chain (`lv1 ← lv2 ← ...`, see `docs/epic-cgd-namespace.md`'s import-chain section) — a
     lower tier must never statically reference a higher tier's capability.
-- **Two ways an app reaches the daemon**, both via context hooks, never `window.cgd` directly:
+- **Three ways an app reaches the daemon**, all via context hooks, never `window.cgd` directly:
   `useQueuedNs()` → a raw single-`ns.*`-method forward (`cgd/dispatch.ts`'s `dispatchCall`, genuinely computed
-  dispatch — see the RAM-cost model section above for why that matters and what it does _not_ buy you), and
+  dispatch — see the RAM-cost model section above for why that matters and what it does _not_ buy you);
   `useCgdActions()` → a named, tier-registered "compound action" (`cgd/types.ts`'s `CgdActionHandler`) for anything
   needing more than one `ns.*` call as a single atomic step (a network BFS in `cgd/actions/slave-nodes.ts`; a
-  fetch-then-self-heal-a-config-file in `cgd/actions/cloud.ts`). Compound actions don't need the `_`-prefix
-  treatment — their literal `ns.*` calls live directly in the handler body and get counted the ordinary way just
-  by the function being defined, with no decoy/allow-list sync required.
+  fetch-then-self-heal-a-config-file in `cgd/actions/cloud.ts`) — compound actions don't need the `_`-prefix
+  treatment, since their literal `ns.*` calls live directly in the handler body and get counted the ordinary way
+  just by the function being defined, with no decoy/allow-list sync required; and `useCgdCapability()` → a
+  synchronous `CgdQueue.can(path)` check (`cgd/queue.ts`) for whether a dotted `ns.*` path is in the current tier's
+  allow-list, with no queue round-trip and no throw — it returns `false` when no daemon is registered at all,
+  mirroring `callAction`'s "no daemon" handling in app-grid.
 - **Startup/handoff protocol** (`cgd/daemon-core.ts`'s `runTieredDaemon`, shared by every tier): on start, a
   daemon asks whatever's currently registered in `cgd.daemon` to stop (`_stop()`, which rejects everything pending
   on its queue and clears `cgd.daemon` via its own `ns.atExit`), polls until that's actually gone, then registers
@@ -246,25 +254,69 @@ follow. `ns.toast` is a real `ns.*` call (0 GB RAM cost, but still subject to th
 never call them with a raw `ns` — and, like every other queued call, go through `_toast(...)`, not `.toast(...)`
 (see the RAM-cost model section above).
 
+## `darknet.app.ts` and the Darknet (`ns.dnet`) subsystem
+
+Wraps Bitburner's Darknet mechanic (`ns.dnet` in `NetscriptDefinitions.d.ts` — `probe`, `authenticate`,
+`heartbleed`, `nextMutation`, `phishingAttack`, `openCache`, ...). Unlike most top-level `.app.ts` files,
+`darknet.app.ts` is **not** one-shot — it loops forever on `home`, blocking on `await ns.dnet.nextMutation()` each
+iteration, so it's a genuinely independent long-running process in the same vein as `train.daemon.ts`/
+`xp-farm.daemon.ts` even though it isn't filed under `src/daemons/`.
+
+- **`darknet.app.ts`** (entry point): refuses to start without a TOR router (`DarkscapeNavigator.exe`). On boot, and
+  again every `RESET_EVERY_N_TICKS` (10) darknet mutations, it resets the colonization store, re-runs
+  `ns.dnet.probe()` from `home`, authenticates onto each directly-reachable host via `lib/dnet/auth.ts`'s
+  `tryAuth()`, and — for each one that succeeds — `scp`+launches a copy of `daemons/dnet-probe.daemon.ts` onto it
+  (`utils/scp-run.ts`'s `scpRun`). Ticks are throttled to every 10th mutation deliberately: resetting the
+  colonization store on every single mutation was hammering the network harder than needed.
+- **`daemons/dnet-probe.daemon.ts`**: a _self-replicating_ one-shot probe, not a persistent daemon in the tiered-`cgd`
+  sense — each copy authenticates onto its own host's neighbors (`ns.dnet.probe()` from wherever it's running) and
+  `scpRun`s a fresh copy of itself onto every host it successfully authenticates, cascading the colonization
+  outward hop-by-hop. After exhausting its neighbors it drops into an infinite `ns.dnet.phishingAttack()` loop,
+  opening any `.cache` file that shows up as a side effect. `preemptStaleInstances` (exported from this file, reused
+  by `darknet.app.ts`) kills any earlier generation of itself still running on a host before relaunching, so a code
+  change doesn't leave stale in-memory copies fighting the current one.
+- **`lib/dnet/colonized.ts`**: a `window`-global store (`eval("window")`, same trick as the `cgd`/React-globals
+  pattern) tracking each host as `'tentative' | 'online' | 'failed'` for the _current_ colonization pass only —
+  `'tentative'` is set before `tryAuth()` is even called, closing the race where two neighbors reach the same
+  third host before either's (potentially slow, multi-round-trip) auth attempt resolves. Reset at the start of each
+  mutation-driven pass; `lib/dnet/auth.ts` keeps its own separate, _never_-reset password memory (also
+  window-global) so re-authenticating an already-known host is a cheap `connectToSession` rather than a real re-solve.
+- **`lib/dnet/filesystem.ts`**: another `window`-global store, recording every file listing seen while crawling each
+  colonized host. Feeds the TOR filesystem explorer UI app.
+- **`lib/dnet/auth.ts`** (750 lines): the actual per-host authentication algorithm, exporting `tryAuth()`. Read it
+  directly before touching auth logic — it's too large to distill accurately here.
+- **`ui/apps/dnet/`** (`DNetFS`, registered in `ui/apps/index.ts`): sidebar app with a TOR filesystem explorer
+  (`components/tor-explorer.tsx`) browsing the `lib/dnet/filesystem.ts` store.
+
+`floodshare.app.ts` and `flooder.app.ts` are unrelated to Darknet — see "The `// cpy` import-inlining marker" below
+for what they actually are.
+
 ## Everything else under `src/`
 
-The rest of `src/` — the top-level `*.app.ts` (application scripts), `*.lib.ts` (shared helpers),
-`init.ts`/`map.ts`/`servers.ts` (functional scripts), `src/daemons/` (every `*.daemon.ts`), and `src/contracts/`
-(one file per coding-contract solver) — is the original project this repo was built from, plus the tiered daemon
-described above. `src/daemons/` mixes two genuinely different kinds of file, easy to conflate:
+The rest of `src/` — the top-level `*.app.ts` (application scripts), `*.lib.ts` (shared helpers), `src/bin/` (small
+Unix-utility-style scripts run directly from the in-game terminal rather than the sidebar — `ls`/`wc`/`rmdir`-style
+one-shots, plus the heavier `map.tsx`), `src/lib/` (shared logic grouped by feature: `contracts/` — one file per
+coding-contract solver — plus `dnet/`, `go/`, `money-farm/`, `stock-stats/`, `trader/`), and `src/daemons/` (every
+`*.daemon.ts`) — is the original project this repo was built from, plus the tiered daemon described above.
+`src/daemons/` mixes two genuinely different kinds of file, easy to conflate:
 
 - **Worker payloads / genuinely independent processes**, meant to keep running regardless of what the UI does:
   `hack`/`grow`/`weaken`/`share.daemon.ts` (generic loops, launched with args by whichever app needs them; see
   "The `// cpy` import-inlining marker" below for how one of these can pull in a small shared helper without
   needing that helper `ns.scp`'d to every remote server too),
   `xp-farm.daemon.ts` (self-managing orchestrator — deliberately _not_ folded into the tiered daemon; see
-  `docs/epic-cgd-namespace.md`'s "Daemon classification" table for why that would've been a regression), and
+  `docs/epic-cgd-namespace.md`'s "Daemon classification" table for why that would've been a regression),
   `train.daemon.ts` (Singularity training loop, SF4/BitNode-4-gated, also deliberately independent — see the
-  daemon section above).
+  daemon section above), and `dnet-probe.daemon.ts` (self-_replicating_ one-shot probe rather than a single
+  long-running loop — see "`darknet.app.ts` and the Darknet (`ns.dnet`) subsystem" above).
 - **The tiered daemon itself**: `lv0.daemon.ts`/`lv1.daemon.ts`/`lv2.daemon.ts` (see the daemon section above) —
   persistent, not one-shot, and structurally different from every other file in this folder (each imports the
   daemon file of the tier below it, forming a strict chain, and none of them are ever launched with
   action-specific args the way a worker payload is).
+
+`darknet.app.ts` is a third exception worth flagging separately: it's a genuinely independent, always-running
+process like the worker payloads above, but it's a top-level `.app.ts`, not filed under `src/daemons/` at all — see
+its own section above. Don't assume every top-level `.app.ts` is one-shot just because most of them are.
 
 Every daemon deploys to `daemons/<name>.daemon.js` in the game (Viteburner mirrors `src/`'s own folder structure
 minus the `src/` prefix), so any `ns.exec`/`ns.run`/`ns.kill`/`ns.isRunning`/`ns.getScriptRam`/`ns.scp` call
@@ -283,6 +335,11 @@ directly into the bottom of the compiled output instead of emitting a real impor
 mean the imported file has to be copied to every one of those servers too. Marking the import `// cpy` keeps the
 source ergonomic — a normal, `tsc`-type-checked import against the real file — while the deployed script comes out
 self-contained, with nothing else to `scp` alongside it.
+
+The pattern isn't confined to `src/daemons/`: `flooder.app.ts` and `floodshare.app.ts` are top-level `.app.ts`
+files that also get `ns.scp`'d standalone to whichever host runs them (including a cloud server, not just `home`),
+so both mark their import of the shared `utils/flood-daemon.lib.ts` (host-list loading, ignore-list filtering,
+exit cleanup — logic both daemons need identically) `// cpy` for the same reason.
 
 Mechanics, if you're touching this:
 

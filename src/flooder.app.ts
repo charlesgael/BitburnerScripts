@@ -135,7 +135,7 @@ async function execHGW(ns: NS, server: Server, target: Server = server) {
 export async function main(ns: NS) {
   ns.disableLog(`ALL`)
   const tenMinutes = 1000 * 60 * 10
-  const serverFile = `known-servers.json.txt`
+  const serverFile = `known-servers.json`
   const flooded: Server[] = []
   const bots: Server[] = []
   const weakeningHosts: string[] = []
@@ -157,7 +157,7 @@ export async function main(ns: NS) {
 
   while (true) {
     // Ground truth for which hosts are cloud servers, straight from the
-    // Cloud API rather than relying on known-servers.json.txt's cached
+    // Cloud API rather than relying on known-servers.json's cached
     // `purchasedByPlayer` flag (which could be stale, or wrong for a
     // server bought/deleted since netmapper.app.ts last wrote the
     // file) — re-fetched every cycle since the player can buy/delete
