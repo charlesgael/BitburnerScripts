@@ -130,4 +130,9 @@ export const TradeProgramsApp: AppDefinition = createTaskManagerApp('trading-app
     singleInstance: true,
     excludes: ['stock-reader.app.js', 'stock-trader.app.js'],
   },
+  {
+    script: 'stock-trader-summary.app.js',
+    label: 'Print analysis',
+    oneShot: true,
+  },
 ])

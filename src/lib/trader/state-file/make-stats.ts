@@ -1,4 +1,5 @@
 import type { TraderLogEntry } from './types'
+import { formatMoney } from '../../../utils/format/game'
 
 /// TYPES
 
@@ -380,7 +381,7 @@ function formatRoundTrip(t: ClosedRoundTrip): string {
 
 /**
  * Plain text lines, one summary per array entry - environment-agnostic
- * (no ns.tprint/console.log inside) so both trader-log-summary.app.ts
+ * (no ns.tprint/console.log inside) so both stock-trader-summary.app.ts
  * (ns.tprint per line) and test-trader-log.tmp.ts (console.log per line)
  * render the exact same summary instead of maintaining two formatters.
  */
@@ -395,7 +396,7 @@ export function formatTraderLogSummary(summary: TraderLogSummary): string[] {
     + `(${new Date(summary.startTs!).toLocaleString()} -> ${new Date(summary.endTs!).toLocaleString()})`,
   )
   lines.push(
-    `Portfolio: ${summary.startPortfolioValue!.toFixed(0)} -> ${summary.endPortfolioValue!.toFixed(0)} `
+    `Portfolio: ${formatMoney(summary.startPortfolioValue!)} -> ${formatMoney(summary.endPortfolioValue!)} `
     + `(${summary.returnPct!.toFixed(2)}%)`,
   )
   lines.push(`By type: ${JSON.stringify(summary.byType)}`)
@@ -463,7 +464,7 @@ export function formatTraderLogSummaryByWindow(windows: WindowSummary[], windowM
   const lines: string[] = [`Growth by ${windowMin}-min window:`]
   for (const w of windows) {
     const range = `${new Date(w.startTs).toLocaleTimeString()}-${new Date(w.endTs).toLocaleTimeString()}`
-    const trend = `${w.startPortfolioValue.toFixed(0)} -> ${w.endPortfolioValue.toFixed(0)} (${w.returnPct >= 0 ? '+' : ''}${w.returnPct.toFixed(2)}%, ${w.ratePerMin >= 0 ? '+' : ''}${w.ratePerMin.toFixed(3)}%/min)`
+    const trend = `${formatMoney(w.startPortfolioValue)} -> ${formatMoney(w.endPortfolioValue)} (${w.returnPct >= 0 ? '+' : ''}${w.returnPct.toFixed(2)}%, ${w.ratePerMin >= 0 ? '+' : ''}${w.ratePerMin.toFixed(3)}%/min)`
     const activity = w.buyCount + w.sellCount === 0
       ? 'no trades'
       : `buys=${w.buyCount} sells=${w.sellCount} closed=${w.closedRoundTrips}${

@@ -1,6 +1,7 @@
 import type { NS } from '@ns'
 import type { StatProvider, StatValue } from './stats'
 import type { CgdStore, CgdStoreState } from './types'
+import { formatRam } from '../utils/format/game'
 
 const REFRESH_INTERVAL_MS = 2000
 
@@ -49,7 +50,7 @@ export function makeStatPusher(providers: StatProvider[]) {
     const pct = max > 0 ? Math.min(100, (used / max) * 100) : 0
 
     const stats: Record<string, StatValue> = {
-      'home-ram': { kind: 'bar', label: 'RAM', value: `${used.toFixed(0)}/${max.toFixed(0)}GB`, pct },
+      'home-ram': { kind: 'bar', label: 'RAM', value: `${formatRam(used)}/${formatRam(max)}`, pct },
     }
     for (const provider of providers) {
       if (!provider.enabled)
