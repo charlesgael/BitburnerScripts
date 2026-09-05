@@ -8,3 +8,4 @@ test.ts
 src.*/
 dist/
 .setup-cache/
+usage.md
