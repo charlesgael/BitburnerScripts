@@ -1,18 +1,9 @@
 /*
- * All the formatter from game (without configuration from game, so you have to report the configs here)
+ * All the formatter from game, reading live in-game settings via utils/game/Settings.ts's synchronous cache
+ * (falls back to the same defaults the game itself uses until that cache has loaded real data).
  */
 
-const Settings = {
-  Locale: 'en-US',
-  useEngineeringNotation: false,
-  disableSuffixes: false,
-  hideThousandsSeparator: false,
-  fractionalDigits: 2,
-  hideTrailingDecimalZeros: true,
-  UseIEC60027_2: false,
-  CurrencySymbol: '$',
-  CurrencySymbolAfterValue: false,
-}
+import { onSettingsChange, cachedFormatSettings as Settings } from '../game/Settings'
 
 const numberSuffixList = ['', 'k', 'm', 'b', 't', 'q', 'Q', 's', 'S', 'o', 'n']
 // exponents associated with each suffix
@@ -25,17 +16,31 @@ const binByteSuffixes = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB']
 // Items that get initialized in the initializer function.
 let digitFormats = {} as Record<number, Intl.NumberFormat | undefined>
 let percentFormats = {} as Record<number, Intl.NumberFormat | undefined>
+let exponentialFormatter: Intl.NumberFormat
+let basicFormatter: Intl.NumberFormat
+let unitSuffixes: string[]
+let unitLogFn: (x: number) => number
+let unitLogDivisor: number
+let unitExpList: number[]
 
-// Initialization function
-// Clear all cached formatters
-digitFormats = {}
-percentFormats = {}
-const exponentialFormatter = makeFormatter(3, { notation: Settings.useEngineeringNotation ? 'engineering' : 'scientific' })
-const basicFormatter = new Intl.NumberFormat([Settings.Locale, 'en'], { useGrouping: !Settings.hideThousandsSeparator })
-const [unitSuffixes, unitLogFn, unitLogDivisor] = Settings.UseIEC60027_2
-  ? [binByteSuffixes, Math.log2, 10]
-  : [decByteSuffixes, Math.log10, 3]
-const unitExpList = unitSuffixes.map((_, i) => (Settings.UseIEC60027_2 ? 1024 : 1000) ** i)
+/**
+ * (Re)builds every formatter/derived constant that depends on Settings. Called once eagerly below, and again
+ * whenever the cached settings actually change (see onSettingsChange) so a later-arriving real settings load
+ * doesn't leave these frozen at whatever the defaults were at import time.
+ */
+function reinit() {
+  // Clear all cached formatters
+  digitFormats = {}
+  percentFormats = {}
+  exponentialFormatter = makeFormatter(3, { notation: Settings.useEngineeringNotation ? 'engineering' : 'scientific' })
+  basicFormatter = new Intl.NumberFormat([Settings.Locale, 'en'], { useGrouping: !Settings.hideThousandsSeparator })
+  ;[unitSuffixes, unitLogFn, unitLogDivisor] = Settings.UseIEC60027_2
+    ? [binByteSuffixes, Math.log2, 10]
+    : [decByteSuffixes, Math.log10, 3]
+  unitExpList = unitSuffixes.map((_, i) => (Settings.UseIEC60027_2 ? 1024 : 1000) ** i)
+}
+reinit()
+onSettingsChange(reinit)
 
 /** Makes a new formatter */
 function makeFormatter(fractionalDigits: number, otherOptions: Intl.NumberFormatOptions = {}): Intl.NumberFormat {
