@@ -1,6 +1,7 @@
 import type { CloudServersState } from '../logic/use-cloud-servers'
 import React from '@react'
 import { formatRam } from '../../../../utils/format/game'
+import { SelectAllNone } from '../../../components/select-all-none'
 
 /**
  * The Slave Nodes tab's body: every rooted, non-purchased, non-`home` host
@@ -38,6 +39,12 @@ export function SlaveNodeChecklist({
       >
         ⚠ When changing slaves, remember to restart Flooder or ShareRAM program.
       </div>
+      <SelectAllNone
+        onSelectAll={() => void cs.selectAllSlaves()}
+        onSelectNone={() => void cs.selectNoneSlaves()}
+        selectAllDisabled={cs.slaveBulkBusy || cs.allSlavesSelected}
+        selectNoneDisabled={cs.slaveBulkBusy || cs.noSlavesSelected}
+      />
       <div
         style={{
           display: 'grid',
@@ -48,7 +55,7 @@ export function SlaveNodeChecklist({
       >
         {cs.slaveHosts.filter(i => i.ram).sort(({ ram: A }, { ram: B }) => B - A).map((h) => {
           const checked = designated.has(h.hostname)
-          const busy = cs.toggleSlaveBusyHost === h.hostname
+          const busy = cs.toggleSlaveBusyHost === h.hostname || cs.slaveBulkBusy
           return (
             <label
               key={h.hostname}

@@ -1,6 +1,7 @@
 import type { CloudServerRow } from '../../../utils/cloud-list'
 import React from '@react'
 import { InstanceManager } from '../../../components/instance-manager'
+import { SelectAllNone } from '../../../components/select-all-none'
 import { TitlebarToolbar } from '../../../components/window/titlebar-toolbar'
 import { useXpFarm } from '../logic/use-xp-farm'
 import { XpFarmServerCard } from './server-card'
@@ -50,6 +51,17 @@ export function XpFarmContent() {
               >
                 {xf.error}
               </div>
+            )
+          : null}
+
+        {xf.servers.length > 0
+          ? (
+              <SelectAllNone
+                onSelectAll={() => void xf.selectAll()}
+                onSelectNone={() => void xf.selectNone()}
+                selectAllDisabled={xf.bulkBusy || xf.allSelected}
+                selectNoneDisabled={xf.bulkBusy || xf.noneSelected}
+              />
             )
           : null}
 

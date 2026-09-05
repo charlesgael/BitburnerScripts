@@ -1,6 +1,7 @@
 import type { CloudServerRow } from '../../../utils/cloud-list'
 import type { useMoneyFarm } from '../logic/use-money-farm'
 import React from '@react'
+import { SelectAllNone } from '../../../components/select-all-none'
 import { MoneyFarmServerCard } from './server-card'
 
 /**
@@ -43,6 +44,17 @@ export function MoneyFarmContent(props: {
               >
                 {mf.error}
               </div>
+            )
+          : null}
+
+        {mf.servers.length > 0
+          ? (
+              <SelectAllNone
+                onSelectAll={() => void mf.selectAll()}
+                onSelectNone={() => void mf.selectNone()}
+                selectAllDisabled={mf.bulkBusy || mf.allSelected}
+                selectNoneDisabled={mf.bulkBusy || mf.noneSelected}
+              />
             )
           : null}
 

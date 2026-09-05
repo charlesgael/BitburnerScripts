@@ -46,6 +46,7 @@ export function useCloudServers() {
   const [slaveHostsError, setSlaveHostsError] = React.useState<string | null>(null)
   const [toggleSlaveBusyHost, setToggleSlaveBusyHost] = React.useState<string | null>(null)
   const [toggleSlaveError, setToggleSlaveError] = React.useState<string | null>(null)
+  const [slaveBulkBusy, setSlaveBulkBusy] = React.useState(false)
 
   const busy = listLoading || buyBusy || deleteBusyHost != null
   // Purchased servers vs. slave nodes are the same `servers` snapshot
@@ -210,6 +211,57 @@ export function useCloudServers() {
     }
   }
 
+  // Bulk versions of `toggleSlave` above: a single `writeSlaveNodes` call
+  // for the whole eligible set rather than looping `toggleSlave()` per
+  // host. "All" matches exactly what `SlaveNodeChecklist` renders as
+  // checkable rows (`slaveHosts.filter(i => i.ram)`), not every entry in
+  // `slaveHosts` — a host with no reported RAM isn't offered as a
+  // checkbox at all.
+  const eligibleSlaveHosts = slaveHosts.filter(h => h.ram).map(h => h.hostname)
+
+  async function selectAllSlaves() {
+    if (eligibleSlaveHosts.length === 0)
+      return
+    setToggleSlaveError(null)
+    setSlaveBulkBusy(true)
+    try {
+      await writeSlaveNodes(ns, eligibleSlaveHosts)
+      await refreshList()
+    }
+    catch (err) {
+      setToggleSlaveError(err instanceof Error ? err.message : String(err))
+    }
+    finally {
+      setSlaveBulkBusy(false)
+    }
+  }
+
+  async function selectNoneSlaves() {
+    if (slaveServers.length === 0)
+      return
+    setToggleSlaveError(null)
+    setSlaveBulkBusy(true)
+    try {
+      await writeSlaveNodes(ns, [])
+      await refreshList()
+    }
+    catch (err) {
+      setToggleSlaveError(err instanceof Error ? err.message : String(err))
+    }
+    finally {
+      setSlaveBulkBusy(false)
+    }
+  }
+
+  // True both when every eligible host is already designated *and* when
+  // there's nothing eligible at all (no rooted host reports RAM) —
+  // either way "Select All" would be a no-op, so it should read disabled
+  // rather than silently doing nothing. See `use-xp-farm.ts`'s identical
+  // `allSelected` for the same reasoning.
+  const allSlavesSelected = eligibleSlaveHosts.length === 0
+    || eligibleSlaveHosts.every(h => slaveServers.some(s => s.hostname === h))
+  const noSlavesSelected = slaveServers.length === 0
+
   const ramTiers = Object.keys(costByRam)
     .map(Number)
     .sort((a, b) => a - b)
@@ -240,6 +292,11 @@ export function useCloudServers() {
     toggleSlaveBusyHost,
     toggleSlaveError,
     toggleSlave,
+    slaveBulkBusy,
+    selectAllSlaves,
+    selectNoneSlaves,
+    allSlavesSelected,
+    noSlavesSelected,
 
     buyHostname,
     setBuyHostname,
