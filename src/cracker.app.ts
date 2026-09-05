@@ -1,4 +1,5 @@
 import type { NS, Server } from '@ns'
+import { parseArgs } from './utils/args'
 
 class Program {
   constructor(
@@ -9,7 +10,10 @@ class Program {
 
 export async function main(ns: NS) {
   ns.disableLog(`ALL`)
-  const tenMinutes = 1000 * 60 * 10
+  const args = parseArgs(ns, [
+    { long: 'delay', defaultValue: 60, description: 'Delay between passes', short: 'delay' },
+  ] as const)
+  const delay = args.delay * 1000
   const serverFile = `known-servers.json`
   const programs = [
     new Program(`BruteSSH.exe`, host => ns.brutessh(host)),
@@ -18,7 +22,7 @@ export async function main(ns: NS) {
     new Program(`FTPCrack.exe`, host => ns.ftpcrack(host)),
     new Program(`HTTPWorm.exe`, host => ns.httpworm(host)),
   ]
-  const repeat = !ns.args.includes('once')
+  const repeat = !args._.includes('once')
   do {
     const servers: Server[] = JSON.parse(ns.read(serverFile))
     ns.print(`\nReloaded ${serverFile}`)
@@ -80,10 +84,10 @@ export async function main(ns: NS) {
     if (repeat) {
       ns.print(
         `Will search again at ${new Date(
-          Date.now() + tenMinutes,
+          Date.now() + delay,
         ).toLocaleTimeString(undefined, { hour12: false })}.`,
       )
-      await ns.sleep(tenMinutes)
+      await ns.sleep(delay)
     }
     // repeat is a const set once from `ns.args` above (run-once vs.
     // persistent-loop mode) — intentionally never reassigned.

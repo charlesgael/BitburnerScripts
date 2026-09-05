@@ -1,4 +1,5 @@
 import type { NS, Server } from '@ns'
+import { parseArgs } from './utils/args'
 
 function findServers(ns: NS, current: Server, knownServers: Server[]) {
   const hosts = ns.scan(current.hostname)
@@ -24,11 +25,14 @@ function findServers(ns: NS, current: Server, knownServers: Server[]) {
 
 export async function main(ns: NS) {
   ns.disableLog(`ALL`)
+  const args = parseArgs(ns, [
+    { long: 'delay', defaultValue: 60, description: 'Delay between passes', short: 'delay' },
+  ] as const)
+  const delay = args.delay * 1000
   const filename = `known-servers.json`
-  const tenMinutes = 1000 * 60 * 10
   const servers: Server[] = []
 
-  const repeat = !ns.args.includes('once')
+  const repeat = !args._.includes('once')
 
   if (ns.fileExists(filename)) {
     ns.rm(filename)
@@ -51,10 +55,10 @@ export async function main(ns: NS) {
     if (repeat) {
       ns.print(
         `Will search again at ${new Date(
-          Date.now() + tenMinutes,
+          Date.now() + delay,
         ).toLocaleTimeString(undefined, { hour12: false })}.`,
       )
-      await ns.sleep(tenMinutes)
+      await ns.sleep(delay)
     }
     // repeat is a const set once from `ns.args` above (run-once vs.
     // persistent-loop mode) — intentionally never reassigned.
