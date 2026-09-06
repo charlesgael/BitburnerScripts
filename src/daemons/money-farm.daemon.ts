@@ -1,4 +1,4 @@
-import type { NS, Server } from '@ns'
+import type { NS, Player, Server } from '@ns'
 import type { Mode, WorkerStatus } from '../lib/money-farm/state-farm/types'
 import type { BatchPlan } from '../utils/hack-math'
 import { getCgdStore } from '../cgd/store'
@@ -375,17 +375,64 @@ function scanNetwork(ns: NS): string[] {
 }
 
 /**
+ * `moneyMax * hackChance / weakenTime` for one candidate — `pickTarget`'s
+ * own scoring formula, factored out so its main scan and its current-target
+ * re-check always score identically (a divergence there would make the
+ * 1.5x hysteresis comparison below meaningless). Returns `null` when
+ * `weakenTime` comes back non-positive — mirrors the original inline
+ * `continue`/`: 0` guards, just centralized.
+ *
+ * When `player` is non-null (`Formulas.exe` owned, fetched once per
+ * `pickTarget` call — see there), scores the candidate's *steady-state*
+ * potential instead of its live one: `hackDifficulty` mocked down to
+ * `minDifficulty`, `moneyAvailable` mocked up to `moneyMax`, via
+ * `ns.formulas.hacking.*`. Without Formulas, a freshly-scanned or
+ * long-idle target's live security sits well above its minimum, which
+ * inflates `weakenTime` and depresses `hackChance` relative to what it'll
+ * actually run at once farmed — badly underrating a target's true
+ * potential before anything has prepped it, and risking exactly the kind
+ * of late 1.5x re-pick that discards prep work already sunk into a worse
+ * target. Falls back to today's live-state formula when `player` is null.
+ *
+ * Confirmed live via `mem daemons/money-farm.daemon.js` before/after:
+ * `ns.formulas.hacking.hackChance`/`weakenTime` themselves cost **0GB**
+ * each — the daemon's total went from 17.05GB to 17.65GB, and every bit of
+ * that 0.6GB traces to `ns.getPlayer` (documented 0.5GB) and
+ * `ns.fileExists` (0.1GB) below, both needed for the gate regardless of
+ * which formulas functions end up called. This contradicts the assumption
+ * behind `computeHackMath`'s reverted Formulas branch (see
+ * `utils/hack-math.ts`'s header comment, and commit `3ca2e82`) that
+ * referencing `ns.formulas.hacking.*` always reserves nonzero RAM — that
+ * clearly isn't true for at least these two functions. Whatever actually
+ * caused that revert (a different function in the set it referenced —
+ * `growThreads`, `hackTime`, `growTime`, `hackPercent` — or the
+ * `mockPlayer`/`mockServer` probe calls in the retired
+ * `utils/formula-available.ts` helper — remains unverified; don't assume
+ * it generalizes to every `ns.formulas.*` function from this one
+ * measurement).
+ */
+function scoreServer(ns: NS, hostname: string, server: Server, player: Player | null): number | null {
+  if (player) {
+    const mock: Server = { ...server, hackDifficulty: server.minDifficulty ?? 0, moneyAvailable: server.moneyMax ?? 0 }
+    const weakenTime = ns.formulas.hacking.weakenTime(mock, player)
+    return weakenTime > 0 ? (server.moneyMax ?? 0) * ns.formulas.hacking.hackChance(mock, player) / weakenTime : null
+  }
+  const weakenTime = ns.getWeakenTime(hostname)
+  return weakenTime > 0 ? (server.moneyMax ?? 0) * ns.hackAnalyzeChance(hostname) / weakenTime : null
+}
+
+/**
  * The rooted, non-purchased, eligible (hacking-level-cleared, has money)
- * server with the best money/sec potential — `moneyMax * hackChance /
- * weakenTime` — excluding anything in `exclude` (every other session's
- * current target, so two sessions never converge on the same one). Unlike
- * XP Farm's `baseDifficulty`-only metric, this can't be proven
- * monotonically improving (`weakenTime` depends on the target's *current*
- * security, which our own farming activity moves around), so a hysteresis
- * margin guards against thrashing: once `currentTarget` is adopted, a
- * candidate only replaces it by scoring at least 1.5x higher, not just
- * momentarily ahead. `currentTarget` is treated as unset if it's in
- * `exclude` (can happen transiently right after a session hand-off).
+ * server with the best money/sec potential (`scoreServer` above) —
+ * excluding anything in `exclude` (every other session's current target,
+ * so two sessions never converge on the same one). Unlike XP Farm's
+ * `baseDifficulty`-only metric, this can't be proven monotonically
+ * improving (`weakenTime` depends on the target's *current* security,
+ * which our own farming activity moves around), so a hysteresis margin
+ * guards against thrashing: once `currentTarget` is adopted, a candidate
+ * only replaces it by scoring at least 1.5x higher, not just momentarily
+ * ahead. `currentTarget` is treated as unset if it's in `exclude` (can
+ * happen transiently right after a session hand-off).
  *
  * Returns the winning target's own score alongside it — not logged here
  * (this function doesn't know whether its result is actually a new
@@ -396,6 +443,9 @@ function scanNetwork(ns: NS): string[] {
 function pickTarget(ns: NS, currentTarget: string | null, exclude: Set<string>): { target: string | null, score: number } {
   const effectiveCurrent = currentTarget && !exclude.has(currentTarget) ? currentTarget : null
   const hackingLevel = ns.getHackingLevel()
+  // Formulas.exe is optional — see scoreServer's own header comment for
+  // what owning it changes here and the fixed RAM cost accepted for it.
+  const player = ns.fileExists('Formulas.exe') ? ns.getPlayer() : null
   let best: Server | null = null
   let bestScore = -Infinity
   for (const hostname of scanNetwork(ns)) {
@@ -408,11 +458,8 @@ function pickTarget(ns: NS, currentTarget: string | null, exclude: Set<string>):
       continue
     if ((server.moneyMax ?? 0) <= 0)
       continue
-    const weakenTime = ns.getWeakenTime(hostname)
-    if (weakenTime <= 0)
-      continue
-    const score = (server.moneyMax ?? 0) * ns.hackAnalyzeChance(hostname) / weakenTime
-    if (score > bestScore) {
+    const score = scoreServer(ns, hostname, server, player)
+    if (score !== null && score > bestScore) {
       bestScore = score
       best = server
     }
@@ -423,10 +470,7 @@ function pickTarget(ns: NS, currentTarget: string | null, exclude: Set<string>):
     return { target: best.hostname, score: bestScore }
 
   const currentServer = ns.getServer(effectiveCurrent)
-  const currentWeakenTime = ns.getWeakenTime(effectiveCurrent)
-  const currentScore = currentWeakenTime > 0
-    ? (currentServer.moneyMax ?? 0) * ns.hackAnalyzeChance(effectiveCurrent) / currentWeakenTime
-    : 0
+  const currentScore = scoreServer(ns, effectiveCurrent, currentServer, player) ?? 0
   return bestScore > currentScore * 1.5
     ? { target: best.hostname, score: bestScore }
     : { target: effectiveCurrent, score: currentScore }

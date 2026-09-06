@@ -99,7 +99,7 @@ export const BATCH_SPACING = 100
  * folds this in directly (`min` of the two caps) so
  * `money-farm.daemon.ts`'s dispatch gate doesn't need a second check.
  */
-export const SAFE_TOTAL_HACK_FRACTION = 0.5
+export const SAFE_TOTAL_HACK_FRACTION = 1
 
 export interface BatchPlan {
   hackThreads: number

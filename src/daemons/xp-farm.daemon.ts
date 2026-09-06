@@ -8,7 +8,7 @@ import {
   XP_FARM_WEAKEN_SCRIPT as WEAKEN_SCRIPT,
 } from '../ui/utils/xp-farm-config'
 import { noDupe } from '../utils/ns/nodupe'
-import { splitGrowWeakenThreads } from '../utils/thread-balance'
+import { growWeakenRatio, splitGrowWeakenThreads } from '../utils/thread-balance'
 
 /**
  * Background orchestrator for the XP Farm feature (`ui/apps/xp-farm/`).
@@ -26,28 +26,33 @@ import { splitGrowWeakenThreads } from '../utils/thread-balance'
  * empty, rather than idling forever with nothing to manage; the app
  * re-launches it the next time a server is (re-)enabled.
  *
- * Every cycle it (re-)picks the single rooted, non-purchased server with the
- * highest `baseDifficulty` among those at or below the player's current
- * hacking level (grow()/weaken() need no hacking-skill check to succeed,
- * unlike hack() — but a target whose `requiredHackingSkill` is far beyond
- * the player's own still takes drastically longer per call, so this keeps
- * throughput reasonable) — XP per completed grow()/weaken() call scales
- * with the target's `baseDifficulty`, not its money or growth rate. Target
- * selection itself is unaware of `money-farm.daemon.ts` — picking the
- * single best `baseDifficulty` target regardless of who else might be
- * working it — deliberately: once money-farm holds sessions against most
- * or all rooted servers (its own partitioning is designed to let it), an
- * XP-Farm that *excluded* every money-farm target would have nowhere left
- * to go at all. See the dispatch paragraph below for how the two features
- * actually avoid stepping on each other instead. Every managed host shares
- * that one target, and switches to it live — no disable/re-enable or
- * daemon restart needed — the moment a better one becomes available (a
- * server gets rooted, or the player's level clears its requirement). This
- * is no longer strictly monotonic the way it once was: a target can also
- * change because it started or stopped being shared with money-farm (see
- * below), which can move the *split* without moving `bestTarget` at all,
- * and in principle `bestTarget` itself could still only ever improve —
- * that part is unchanged.
+ * Every cycle it (re-)picks the single rooted, non-purchased server that
+ * maximizes expected XP *per second*, among those at or below the player's
+ * current hacking level (grow()/weaken() need no hacking-skill check to
+ * succeed, unlike hack()). XP per completed grow()/weaken() call scales
+ * with the target's `baseDifficulty`, not its money or growth rate — but a
+ * higher-`baseDifficulty` target can still lose on throughput to a lower
+ * one if its calls take proportionally longer, so the score weights
+ * `baseDifficulty` by an estimated completions-per-thread-per-second
+ * figure (`pickTarget`'s own header comment has the full derivation and
+ * why it needs no Formulas API, unlike `money-farm.daemon.ts`'s analogous
+ * fix). That estimate depends on whether the target would actually run
+ * weaken-only or a grow/weaken mix once claimed, which is exactly the
+ * `sharedWithMoneyFarm` question the dispatch paragraph below covers — so,
+ * unlike before, scoring *does* consult `moneyFarmTargets()`, even though
+ * candidacy still never excludes a money-farm target (once money-farm
+ * holds sessions against most or all rooted servers — its own
+ * partitioning is designed to let it — an XP-Farm that *excluded* every
+ * money-farm target would have nowhere left to go at all). Every managed
+ * host shares that one target, and switches to it live — no disable/
+ * re-enable or daemon restart needed — the moment a better one becomes
+ * available (a server gets rooted, the player's level clears its
+ * requirement, or its score simply shifts — no hysteresis, recomputed
+ * fresh every cycle). Not monotonic even in principle now: a target's own
+ * `weakenTime`/`growTime` can drift with live security, and its
+ * `sharedWithMoneyFarm` status can flip in either direction, either of
+ * which can move a candidate's score up or down between cycles independent
+ * of `baseDifficulty` or hacking level.
  *
  * It then fills the host's RAM with grow/weaken threads in a ratio (via
  * `ns.weakenAnalyze`/`ns.growthAnalyzeSecurity`) that keeps the target's
@@ -178,14 +183,64 @@ function scanNetwork(ns: NS): string[] {
 }
 
 /**
- * The rooted, non-purchased server with the highest `baseDifficulty`
- * (more XP per grow/weaken completion) among those whose hacking-skill
- * requirement the player has already met (keeps per-call time reasonable).
- * null if nothing qualifies (e.g. nothing rooted yet besides home).
+ * Expected grow/weaken completions per thread per second against
+ * `hostname` right now — the throughput half of `pickTarget`'s score,
+ * `baseDifficulty` (exp per completion) being the other half.
+ *
+ * `weakenOnly` mirrors exactly what `desiredSplit` will actually dispatch
+ * if this target is picked: 100% weaken (`1/weakenTime`) when it's one of
+ * money-farm's own targets, or the steady-state grow/weaken mix
+ * (`growWeakenRatio`, the same ratio `splitGrowWeakenThreads` uses to size
+ * an actual dispatch — reused here, not re-derived, so a candidate is never
+ * ranked against a mix it wouldn't really run) otherwise. Scoring a shared target as if it got the full mix would
+ * overrate it: a target forced to weaken-only completes calls slower
+ * per thread than a grow/weaken mix does, since grow's shorter `growTime`
+ * completes more often per unit time than weaken's longer one.
+ *
+ * No Formulas API involved, unlike `money-farm.daemon.ts`'s analogous
+ * fix — and deliberately so: `ns.getWeakenTime`/`ns.getGrowTime` already
+ * read this target's live security exactly, and that live security *is*
+ * the real steady state XP-Farm will actually run it at (unlike
+ * money-farm, which actively drives a target down to `minDifficulty`
+ * before farming it, `splitGrowWeakenThreads` only ever holds security
+ * flat wherever it already sits — see that function's own header comment).
+ * A Formulas-based `minDifficulty` projection here would describe a state
+ * this daemon never actually reaches, making the estimate *less* accurate,
+ * not more.
  */
-export function pickTarget(ns: NS): string | null {
+function expectedCompletionsPerThread(ns: NS, hostname: string, weakenOnly: boolean): number {
+  const weakenTime = ns.getWeakenTime(hostname)
+  if (weakenTime <= 0)
+    return 0
+  if (weakenOnly)
+    return 1 / weakenTime
+  const growTime = ns.getGrowTime(hostname)
+  if (growTime <= 0)
+    return 1 / weakenTime
+  const weakenFraction = 1 / (growWeakenRatio(ns, hostname) + 1)
+  return (1 - weakenFraction) / growTime + weakenFraction / weakenTime
+}
+
+/**
+ * The rooted, non-purchased server that maximizes expected XP/sec —
+ * `baseDifficulty * expectedCompletionsPerThread` (see that function's own
+ * header comment for the full reasoning) — among those whose hacking-skill
+ * requirement the player has already met. null if nothing qualifies (e.g.
+ * nothing rooted yet besides home).
+ *
+ * `willRunWeakenOnly` decides, per candidate, which of
+ * `expectedCompletionsPerThread`'s two throughput models actually applies
+ * to it — required rather than defaulted, since the two real callers
+ * disagree: `main`'s own loop passes `sharedTargets.has` (mixed unless
+ * money-farm also holds this target), while `home-xp.app.ts` passes a
+ * constant `true` (it only ever dispatches a weaken-only loop itself,
+ * regardless of what any candidate would run under the daemon's own
+ * policy).
+ */
+export function pickTarget(ns: NS, willRunWeakenOnly: (hostname: string) => boolean): string | null {
   const hackingLevel = ns.getHackingLevel()
   let best: Server | null = null
+  let bestScore = -Infinity
   for (const hostname of scanNetwork(ns)) {
     if (hostname === 'home')
       continue
@@ -194,7 +249,9 @@ export function pickTarget(ns: NS): string | null {
       continue
     if ((server.requiredHackingSkill ?? 0) > hackingLevel)
       continue
-    if (best === null || (server.baseDifficulty ?? 0) > (best.baseDifficulty ?? 0)) {
+    const score = (server.baseDifficulty ?? 0) * expectedCompletionsPerThread(ns, hostname, willRunWeakenOnly(hostname))
+    if (score > bestScore) {
+      bestScore = score
       best = server
     }
   }
@@ -324,8 +381,10 @@ export async function main(ns: NS) {
     // Computed once per cycle, not per host — there's only ever one
     // globally-best target at a time (see pickTarget), so every host
     // shares it rather than each re-running the same network scan.
-    const bestTarget = pickTarget(ns)
+    // sharedTargets has to exist before pickTarget runs now: its score
+    // needs to know which candidates would actually run weaken-only.
     const sharedTargets = moneyFarmTargets()
+    const bestTarget = pickTarget(ns, hostname => sharedTargets.has(hostname))
 
     if (bestTarget) {
       for (const host of validHosts) {

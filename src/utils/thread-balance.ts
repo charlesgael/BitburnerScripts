@@ -1,10 +1,45 @@
 import type { NS } from '@ns'
 
 /**
- * Splits `totalThreads` between weaken and grow so that, cycle over cycle,
- * weaken's security decrease roughly matches grow's security increase —
- * computed from the actual live multipliers rather than a hardcoded ratio,
- * so it stays correct across BitNodes/augmentations that alter them.
+ * The weaken:grow thread ratio that holds `target`'s security flat in
+ * steady state — factored out of `splitGrowWeakenThreads` below so a
+ * caller that only wants the *ratio* (to estimate an expected completion
+ * rate, say) isn't forced to fake a `totalThreads` value to get one.
+ * `xp-farm.daemon.ts`'s `pickTarget` is exactly that caller: it needs this
+ * same ratio to rank targets by realistic XP/sec, not just to size an
+ * actual dispatch.
+ *
+ * Balanced *per unit time*, not per action: `weakenAnalyze(1)`/
+ * `growthAnalyzeSecurity(1)` alone only balance security effect per single
+ * completed action, but a continuous grow loop completes more often per
+ * unit time than a continuous weaken loop does (`growTime < weakenTime`
+ * always) — so a per-action-balanced split still nets security upward over
+ * time, since grow's higher completion cadence outweighs its smaller
+ * per-action effect. Scaling the per-action ratio by `growTime / weakenTime`
+ * corrects for that cadence difference, so the split holds security flat in
+ * steady state instead of needing a periodic weaken-only correction —
+ * confirmed live as the cause of a real sawtooth pattern in money-farm's
+ * own `grow-prep` mode, back when it still used this.
+ */
+export function growWeakenRatio(ns: NS, target: string): number {
+  const weakenPerThread = ns.weakenAnalyze(1)
+  const growPerThread = ns.growthAnalyzeSecurity(1)
+  let ratio = growPerThread > 0 ? weakenPerThread / growPerThread : 12.5
+
+  const growTime = ns.getGrowTime(target)
+  const weakenTime = ns.getWeakenTime(target)
+  if (growTime > 0 && weakenTime > 0)
+    ratio *= growTime / weakenTime
+
+  return ratio
+}
+
+/**
+ * Splits `totalThreads` between weaken and grow using `growWeakenRatio`
+ * above so that, cycle over cycle, weaken's security decrease roughly
+ * matches grow's security increase — computed from the actual live
+ * multipliers rather than a hardcoded ratio, so it stays correct across
+ * BitNodes/augmentations that alter them.
  *
  * Lives in `daemons/xp-farm.daemon.ts` (its original home), whose own
  * `claim()` is the only remaining caller — `daemons/money-farm.daemon.ts`'s
@@ -16,33 +51,14 @@ import type { NS } from '@ns'
  * out to waste most of a large fleet's dispatched threads once capacity
  * routinely exceeded what a target actually needed.
  *
- * The ratio here is balanced *per unit time*, not per action:
- * `weakenAnalyze(1)`/`growthAnalyzeSecurity(1)` alone only balance security
- * effect per single completed action, but a continuous grow loop completes
- * more often per unit time than a continuous weaken loop does (`growTime <
- * weakenTime` always) — so a per-action-balanced split still nets security
- * upward over time, since grow's higher completion cadence outweighs its
- * smaller per-action effect. Scaling the per-action ratio by `growTime /
- * weakenTime` corrects for that cadence difference, so the split holds
- * security flat in steady state instead of needing a periodic weaken-only
- * correction — confirmed live as the cause of a real sawtooth pattern in
- * money-farm's own `grow-prep` mode, back when it still used this. Harmless
- * for XP Farm's own use: its actual goal is just running grow/weaken as
- * fast as possible regardless of the exact split, so a more accurate
- * balance can only help, never hurt, its throughput.
+ * Harmless for XP Farm's own use: its actual goal is just running
+ * grow/weaken as fast as possible regardless of the exact split, so a more
+ * accurate balance can only help, never hurt, its throughput.
  */
 export function splitGrowWeakenThreads(ns: NS, totalThreads: number, target: string): { growThreads: number, weakenThreads: number } {
   if (totalThreads <= 1)
     return { growThreads: 0, weakenThreads: totalThreads }
-  const weakenPerThread = ns.weakenAnalyze(1)
-  const growPerThread = ns.growthAnalyzeSecurity(1)
-  let ratio = growPerThread > 0 ? weakenPerThread / growPerThread : 12.5
-
-  const growTime = ns.getGrowTime(target)
-  const weakenTime = ns.getWeakenTime(target)
-  if (growTime > 0 && weakenTime > 0)
-    ratio *= growTime / weakenTime
-
+  const ratio = growWeakenRatio(ns, target)
   const weakenThreads = Math.min(totalThreads - 1, Math.max(1, Math.round(totalThreads / (ratio + 1))))
   return { growThreads: totalThreads - weakenThreads, weakenThreads }
 }
