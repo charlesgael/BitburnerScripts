@@ -127,3 +127,54 @@ export function distributeThreads(
     result[largestHost] = (result[largestHost] ?? 0) + remainder
   return result
 }
+
+/** Sums a `Record<string, number>`'s own values — e.g. thread counts across hosts. */
+export function sumValues(record: Record<string, number>): number {
+  return Object.values(record).reduce((sum, v) => sum + v, 0)
+}
+
+/**
+ * Converts `ramSource` (GB, mutated in place — decremented by whatever this
+ * category consumes) into per-host thread counts for one category, using
+ * `scriptRam` as that category's own script cost. Sequential calls against
+ * the same `ramSource`/`hosts` (e.g. hack, then grow, then weaken1, then
+ * weaken2) correctly account for RAM already claimed by an earlier
+ * category. Shared by `money-farm.daemon.ts` and `steady-farm.daemon.ts` —
+ * originally lived in the former alone, moved here once the latter needed
+ * the identical capacity-to-threads conversion rather than duplicating it.
+ */
+export function allocateCategory(
+  ramSource: Record<string, number>,
+  hosts: string[],
+  scriptRam: number,
+  threadsNeeded: number,
+): Record<string, number> {
+  const capacity: Record<string, number> = {}
+  for (const host of hosts)
+    capacity[host] = scriptRam > 0 ? Math.floor(ramSource[host] / scriptRam) : 0
+  const assigned = distributeThreads(hosts, capacity, threadsNeeded)
+  for (const [host, threads] of Object.entries(assigned))
+    ramSource[host] -= threads * scriptRam
+  return assigned
+}
+
+/**
+ * `allocateCategory`, but caps `needed` to what `hosts` can actually run
+ * before calling it — `distributeThreads` doesn't clamp per-host beyond a
+ * host's own capacity when the requested total exceeds pooled capacity (see
+ * that function's own "Known caveat" paragraph above). Needed by any caller
+ * sizing to actual need rather than to capacity, where that mismatch is
+ * expected and must be capped, not treated as an error.
+ */
+export function allocateNeeded(
+  ramSource: Record<string, number>,
+  hosts: string[],
+  scriptRam: number,
+  needed: number,
+): Record<string, number> {
+  const capacity: Record<string, number> = {}
+  for (const host of hosts)
+    capacity[host] = scriptRam > 0 ? Math.floor(ramSource[host] / scriptRam) : 0
+  const totalCapacity = hosts.reduce((sum, h) => sum + capacity[h], 0)
+  return allocateCategory(ramSource, hosts, scriptRam, Math.min(needed, totalCapacity))
+}

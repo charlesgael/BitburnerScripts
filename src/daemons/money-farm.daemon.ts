@@ -9,10 +9,10 @@ import {
   MONEY_FARM_HACK_SCRIPT as HACK_SCRIPT,
   MONEY_FARM_WEAKEN_SCRIPT as WEAKEN_SCRIPT,
 } from '../ui/utils/money-farm-config'
-import { BATCH_SPACING, computeBatchPlan, computeHackMath } from '../utils/hack-math'
+import { BATCH_SPACING, computeBatchPlan, computeHackMath, computePrepNeed } from '../utils/hack-math'
 import { noDupe } from '../utils/ns/nodupe'
 import { MONEY_FARM_PORT } from '../utils/ports.lib'
-import { distributeThreads } from '../utils/thread-balance'
+import { allocateCategory, allocateNeeded, sumValues } from '../utils/thread-balance'
 
 /**
  * Background orchestrator for the Money Farm feature (`ui/apps/money-farm/`).
@@ -591,57 +591,6 @@ function sessionUsedGB(session: TargetSession, prepAssignment: Record<string, Pr
   return used
 }
 
-/**
- * Converts `ramSource` (GB, mutated in place — decremented by whatever
- * this category consumes) into per-host thread counts for one category,
- * using `scriptRam` as that category's own script cost. Sequential calls
- * against the same `ramSource`/`hosts` (hack, then grow, then weaken1,
- * then weaken2) correctly account for RAM already claimed by an earlier
- * category.
- */
-function allocateCategory(
-  ramSource: Record<string, number>,
-  hosts: string[],
-  scriptRam: number,
-  threadsNeeded: number,
-): Record<string, number> {
-  const capacity: Record<string, number> = {}
-  for (const host of hosts)
-    capacity[host] = scriptRam > 0 ? Math.floor(ramSource[host] / scriptRam) : 0
-  const assigned = distributeThreads(hosts, capacity, threadsNeeded)
-  for (const [host, threads] of Object.entries(assigned))
-    ramSource[host] -= threads * scriptRam
-  return assigned
-}
-
-function sumValues(record: Record<string, number>): number {
-  return Object.values(record).reduce((sum, v) => sum + v, 0)
-}
-
-/**
- * `allocateCategory`, but caps `needed` to what `hosts` can actually run
- * before calling it — `distributeThreads` doesn't clamp per-host beyond a
- * host's own capacity when the requested total exceeds pooled capacity
- * (every host's share scales proportionally *above* what it can run, so
- * the sum comes out right but individual hosts get asked for more threads
- * than they have RAM for, which the later `ns.exec` would then just
- * fail). `applyPrepMode` is the only caller here, and its whole point is
- * sizing to the actual need rather than to capacity, so that mismatch is
- * expected and must be capped, not treated as an error.
- */
-function allocateNeeded(
-  ramSource: Record<string, number>,
-  hosts: string[],
-  scriptRam: number,
-  needed: number,
-): Record<string, number> {
-  const capacity: Record<string, number> = {}
-  for (const host of hosts)
-    capacity[host] = scriptRam > 0 ? Math.floor(ramSource[host] / scriptRam) : 0
-  const totalCapacity = hosts.reduce((sum, h) => sum + capacity[h], 0)
-  return allocateCategory(ramSource, hosts, scriptRam, Math.min(needed, totalCapacity))
-}
-
 function isWorkerStatus(value: unknown): value is WorkerStatus {
   return typeof value === 'object' && value !== null && 'action' in value && 'target' in value
 }
@@ -709,35 +658,6 @@ function killSession(ns: NS, session: TargetSession, prepAssignment: Record<stri
   session.mode = null
   session.batchPlan = null
   session.desyncStrikes = 0
-}
-
-/**
- * The uncapped thread counts that would fully close `mode`'s own gap in
- * one shot — shared by `applyPrepMode` (as the starting point for what to
- * actually dispatch, capacity permitting) and `estimateNeedGB` (to size a
- * session's entitlement against the *ideal* need, not whatever a
- * capacity-limited dispatch would actually manage this tick). `weaken`
- * mode only ever populates `weakenThreads`; `grow-prep` populates both,
- * with `weakenThreads` sized to counteract the *uncapped* grow figure —
- * `applyPrepMode` separately re-derives its own dispatch-time weaken figure
- * off whatever grow threads capacity actually allowed, which is
- * deliberately not this function's concern.
- */
-function computePrepNeed(ns: NS, target: string, server: Server, mode: 'weaken' | 'grow-prep'): { growThreads: number, weakenThreads: number } {
-  const weakenPerThread = ns.weakenAnalyze(1)
-  if (mode === 'weaken') {
-    const securityGap = Math.max(0, (server.hackDifficulty ?? 0) - (server.minDifficulty ?? 0))
-    const weakenThreads = weakenPerThread > 0 ? Math.ceil(securityGap / weakenPerThread) : 0
-    return { growThreads: 0, weakenThreads }
-  }
-  const hm = computeHackMath(ns, target)
-  const currentMoney = Math.max(server.moneyAvailable ?? 0, 1)
-  const moneyMax = server.moneyMax ?? 0
-  const growThreads = currentMoney < moneyMax ? Math.max(0, Math.ceil(hm.growThreadsFor(currentMoney, moneyMax))) : 0
-  const weakenThreads = growThreads > 0 && weakenPerThread > 0
-    ? Math.ceil(ns.growthAnalyzeSecurity(growThreads) / weakenPerThread)
-    : 0
-  return { growThreads, weakenThreads }
 }
 
 /**
@@ -821,11 +741,14 @@ function applyPrepMode(
     // Sized off what actually got dispatched (capacity-capped), not the
     // uncapped ideal above — if the entitlement couldn't fully cover
     // need.growThreads, the real security bump will be smaller than that
-    // ideal implies.
+    // ideal implies. Rate-balanced against actualGrowThreads for the same
+    // reason computePrepNeed's own uncapped version is — see that
+    // function's own header comment.
     const actualGrowThreads = sumValues(growAssigned)
     const weakenPerThread = ns.weakenAnalyze(1)
-    const neededWeakenThreads = actualGrowThreads > 0 && weakenPerThread > 0
-      ? Math.ceil(ns.growthAnalyzeSecurity(actualGrowThreads) / weakenPerThread)
+    const hm = computeHackMath(ns, target)
+    const neededWeakenThreads = actualGrowThreads > 0 && weakenPerThread > 0 && hm.growTime > 0
+      ? Math.ceil(ns.growthAnalyzeSecurity(actualGrowThreads) * hm.weakenTime / (hm.growTime * weakenPerThread))
       : 0
     weakenAssigned = allocateNeeded(ramSource, hosts, weakenScriptRam, neededWeakenThreads)
   }

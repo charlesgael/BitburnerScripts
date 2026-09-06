@@ -1,5 +1,6 @@
 import type { NS } from '@ns'
 import type { Mode } from '../lib/money-farm/state-farm/types'
+import type { Mode as SteadyFarmMode } from '../lib/steady-farm/types'
 import type { StatValue } from './stats'
 
 /**
@@ -185,6 +186,28 @@ export interface CgdStoreState {
      */
     totalRam: number
     perTarget: { target: string, mode: Mode, reserved: number, used: number }[]
+  }
+  /**
+   * Same shape as `moneyFarm` above, pushed independently by
+   * `daemons/steady-farm.daemon.ts` — a deliberately separate field, not
+   * merged into `moneyFarm`, since `setState`'s shallow merge replaces a
+   * top-level key wholesale on every push; two independent daemons sharing
+   * one field would clobber each other's data every cycle. `reserved` here
+   * always equals `totalRam` when a target is assigned: unlike money-farm's
+   * multiple competing sessions, this daemon only ever farms one target at
+   * a time against its entire dedicated fleet, so there's no partial
+   * reservation to track.
+   */
+  steadyFarm?: {
+    totalRam: number
+    /**
+     * `pid` is the owning instance's own `ns.pid` — used to garbage-collect
+     * an entry whose daemon died without its own `ns.atExit` cleanup
+     * landing (confirmed live: killing an instance sometimes leaves its
+     * entry behind), rather than trusting that cleanup alone. See
+     * `mergeSteadyFarmEntry` in `daemons/steady-farm.daemon.ts`.
+     */
+    perTarget: { target: string, pid: number, mode: SteadyFarmMode, reserved: number, used: number }[]
   }
 }
 

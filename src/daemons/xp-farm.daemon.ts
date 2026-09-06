@@ -38,21 +38,21 @@ import { growWeakenRatio, splitGrowWeakenThreads } from '../utils/thread-balance
  * why it needs no Formulas API, unlike `money-farm.daemon.ts`'s analogous
  * fix). That estimate depends on whether the target would actually run
  * weaken-only or a grow/weaken mix once claimed, which is exactly the
- * `sharedWithMoneyFarm` question the dispatch paragraph below covers — so,
- * unlike before, scoring *does* consult `moneyFarmTargets()`, even though
- * candidacy still never excludes a money-farm target (once money-farm
- * holds sessions against most or all rooted servers — its own
- * partitioning is designed to let it — an XP-Farm that *excluded* every
- * money-farm target would have nowhere left to go at all). Every managed
- * host shares that one target, and switches to it live — no disable/
- * re-enable or daemon restart needed — the moment a better one becomes
- * available (a server gets rooted, the player's level clears its
- * requirement, or its score simply shifts — no hysteresis, recomputed
- * fresh every cycle). Not monotonic even in principle now: a target's own
- * `weakenTime`/`growTime` can drift with live security, and its
- * `sharedWithMoneyFarm` status can flip in either direction, either of
- * which can move a candidate's score up or down between cycles independent
- * of `baseDifficulty` or hacking level.
+ * `sharedWithHwgFarm` question the dispatch paragraph below covers — so,
+ * unlike before, scoring *does* consult `hwgFarmTargets()`, even though
+ * candidacy still never excludes a target either HWG farm daemon
+ * (money-farm or steady-farm) already holds (once money-farm holds
+ * sessions against most or all rooted servers — its own partitioning is
+ * designed to let it — an XP-Farm that *excluded* every such target would
+ * have nowhere left to go at all). Every managed host shares that one
+ * target, and switches to it live — no disable/re-enable or daemon restart
+ * needed — the moment a better one becomes available (a server gets
+ * rooted, the player's level clears its requirement, or its score simply
+ * shifts — no hysteresis, recomputed fresh every cycle). Not monotonic
+ * even in principle now: a target's own `weakenTime`/`growTime` can drift
+ * with live security, and its `sharedWithHwgFarm` status can flip in
+ * either direction, either of which can move a candidate's score up or
+ * down between cycles independent of `baseDifficulty` or hacking level.
  *
  * It then fills the host's RAM with grow/weaken threads in a ratio (via
  * `ns.weakenAnalyze`/`ns.growthAnalyzeSecurity`) that keeps the target's
@@ -61,25 +61,26 @@ import { growWeakenRatio, splitGrowWeakenThreads } from '../utils/thread-balance
  * Both actions never fail and give identical XP per completion; weaken
  * only exists here to offset grow's own security creep, not because it
  * scores extra XP on its own (see the "Weaken Grind" conversation this
- * feature grew out of) — **unless the current target is also one
- * money-farm currently holds a session against** (`moneyFarmTargets`,
- * read from `cgd.store`'s `moneyFarm` field — see that field's own doc
- * comment in `cgd/types.ts`), in which case the entire host runs
- * weaken-only: 100% of its RAM as weaken threads, zero grow. Grow changes
- * money and pushes security *up*; money-farm's own HWGW batch math has no
- * way to know XP Farm did that on the same target and would misread it as
- * drift (tripping `DESYNC_STRIKES_TO_FALLBACK`) or as money it didn't
- * actually earn. Weaken only ever pushes security *down* (toward the same
- * minimum money-farm itself wants, with a hard floor it can't overshoot),
- * so it's the one action safe to keep running unconditionally on a shared
- * target. This is a one-way accommodation — money-farm's own target
- * selection stays completely unaware of XP Farm — deliberate, since
- * money-farm's batch timing is the fragile side of this relationship and
- * XP Farm's own goal doesn't care what security or money a target sits at.
- * A transition (a target starts or stops being money-farm's) is caught
- * every `CHECK_INTERVAL` tick regardless of whether `bestTarget` itself
- * changed, and only re-splits (kill + relaunch) on an actual flip — never
- * on every cycle — so a stable, non-shared target's ratio isn't disturbed
+ * feature grew out of) — **unless the current target is also a target
+ * either money-farm or steady-farm currently holds a session against**
+ * (see `hwgFarmTargets`, read from `cgd.store`'s `moneyFarm`/`steadyFarm`
+ * fields — see those fields' own doc comments in `cgd/types.ts`), in which
+ * case the entire host runs weaken-only: 100% of its RAM as weaken
+ * threads, zero grow. Grow changes money and pushes security *up*; both
+ * daemons' own HWGW batch math has no way to know XP Farm did that on the
+ * same target and would misread it as drift (tripping
+ * `DESYNC_STRIKES_TO_FALLBACK`) or as money it didn't actually earn.
+ * Weaken only ever pushes security *down* (toward the same minimum both
+ * daemons want anyway, with a hard floor it can't overshoot), so it's the
+ * one action safe to keep running unconditionally on a shared target.
+ * This is a one-way accommodation — neither daemon's own target selection
+ * is aware of XP Farm — deliberate, since their batch timing is the
+ * fragile side of this relationship and XP Farm's own goal doesn't care
+ * what security or money a target sits at. A transition (a target starts
+ * or stops being shared) is caught every `CHECK_INTERVAL` tick regardless
+ * of whether `bestTarget` itself changed, and only re-splits (kill +
+ * relaunch) on an actual flip — never on every cycle — so a stable,
+ * non-shared target's ratio isn't disturbed
  * just because it drifts by a thread as the target's own security shifts
  * under this daemon's own activity.
  *
@@ -108,26 +109,33 @@ type Assignment = XpFarmAssignment
  * — it has no need to know about this flag at all.
  */
 interface ManagedAssignment extends Assignment {
-  sharedWithMoneyFarm: boolean
+  sharedWithHwgFarm: boolean
 }
 
 /**
- * The set of targets money-farm currently holds a session against, per
- * `cgd.store`'s `moneyFarm` field (pushed by `money-farm.daemon.ts` every
- * few seconds — see that field's own doc comment in `cgd/types.ts`).
- * Empty whenever money-farm isn't running, or its first push hasn't
- * landed yet — XP Farm just behaves exactly as it always has in that
- * case. Reading `cgd.store` here costs no RAM (`getCgdStore` is pure
- * window access, no `ns.*` reference — see `window-cgd.ts`'s own header
- * comment for why that's safe from any script), and the try/catch matches
- * `money-farm.daemon.ts`'s own reasoning for guarding its store access: a
- * transient failure here shouldn't crash this daemon's main loop, just
- * make it act as if money-farm isn't running for this one check.
+ * The union of every target either `money-farm.daemon.ts` or
+ * `steady-farm.daemon.ts` currently holds a session against, per
+ * `cgd.store`'s `moneyFarm`/`steadyFarm` fields (each pushed independently
+ * by its own daemon every few seconds — see those fields' own doc comments
+ * in `cgd/types.ts`, and `steady-farm.daemon.ts`'s header comment for why
+ * it's a separate field rather than sharing `moneyFarm`). Empty whenever
+ * neither daemon is running, or neither's first push has landed yet — XP
+ * Farm just behaves exactly as it always has in that case. Reading
+ * `cgd.store` here costs no RAM (`getCgdStore` is pure window access, no
+ * `ns.*` reference — see `window-cgd.ts`'s own header comment for why
+ * that's safe from any script), and the try/catch matches both daemons'
+ * own reasoning for guarding their store access: a transient failure here
+ * shouldn't crash this daemon's main loop, just make it act as if neither
+ * is running for this one check. Steady Farm's own batch math is exactly
+ * as vulnerable to XP Farm's grow interference as money-farm's is (see
+ * this file's own header comment), so it gets the identical protection for
+ * free by being included here rather than needing its own separate check.
  */
-function moneyFarmTargets(): Set<string> {
+function hwgFarmTargets(): Set<string> {
   try {
-    const perTarget = getCgdStore().getState().moneyFarm?.perTarget ?? []
-    return new Set(perTarget.map(t => t.target))
+    const store = getCgdStore().getState()
+    const targets = [...store.moneyFarm?.perTarget ?? [], ...store.steadyFarm?.perTarget ?? []]
+    return new Set(targets.map(t => t.target))
   }
   catch {
     return new Set()
@@ -139,7 +147,7 @@ function moneyFarmTargets(): Set<string> {
  * now: the normal steady-state-security mix (`splitGrowWeakenThreads`) if
  * `target` isn't one of `sharedTargets`, or 100% weaken if it is — see the
  * module header comment's dispatch paragraph for why grow specifically is
- * what needs to stop on a target money-farm also holds.
+ * what needs to stop on a target money-farm or steady-farm also holds.
  */
 function desiredSplit(ns: NS, host: string, target: string, sharedTargets: Set<string>): { growThreads: number, weakenThreads: number } {
   const scriptRam = ns.getScriptRam(GROW_SCRIPT, 'home')
@@ -189,7 +197,7 @@ function scanNetwork(ns: NS): string[] {
  *
  * `weakenOnly` mirrors exactly what `desiredSplit` will actually dispatch
  * if this target is picked: 100% weaken (`1/weakenTime`) when it's one of
- * money-farm's own targets, or the steady-state grow/weaken mix
+ * money-farm's or steady-farm's own targets, or the steady-state grow/weaken mix
  * (`growWeakenRatio`, the same ratio `splitGrowWeakenThreads` uses to size
  * an actual dispatch — reused here, not re-derived, so a candidate is never
  * ranked against a mix it wouldn't really run) otherwise. Scoring a shared target as if it got the full mix would
@@ -232,7 +240,7 @@ function expectedCompletionsPerThread(ns: NS, hostname: string, weakenOnly: bool
  * `expectedCompletionsPerThread`'s two throughput models actually applies
  * to it — required rather than defaulted, since the two real callers
  * disagree: `main`'s own loop passes `sharedTargets.has` (mixed unless
- * money-farm also holds this target), while `home-xp.app.ts` passes a
+ * money-farm or steady-farm also holds this target), while `home-xp.app.ts` passes a
  * constant `true` (it only ever dispatches a weaken-only loop itself,
  * regardless of what any candidate would run under the daemon's own
  * policy).
@@ -323,13 +331,13 @@ function claim(ns: NS, host: string, target: string, sharedTargets: Set<string>)
   }
 
   ns.scp([GROW_SCRIPT, WEAKEN_SCRIPT], host)
-  const sharedWithMoneyFarm = sharedTargets.has(target)
+  const sharedWithHwgFarm = sharedTargets.has(target)
   const { growThreads, weakenThreads } = desiredSplit(ns, host, target, sharedTargets)
-  const assignment: ManagedAssignment = { target, growThreads, weakenThreads, sharedWithMoneyFarm }
+  const assignment: ManagedAssignment = { target, growThreads, weakenThreads, sharedWithHwgFarm }
   enforceOwnership(ns, host, assignment)
   ns.print(
     `${host}: farming ${target} — ${growThreads} grow thread(s), ${weakenThreads} weaken thread(s)`
-    + `${sharedWithMoneyFarm ? ' (weaken-only — shared with money-farm)' : ''}.`,
+    + `${sharedWithHwgFarm ? ' (weaken-only — shared with money-farm/steady-farm)' : ''}.`,
   )
   return assignment
 }
@@ -383,7 +391,7 @@ export async function main(ns: NS) {
     // shares it rather than each re-running the same network scan.
     // sharedTargets has to exist before pickTarget runs now: its score
     // needs to know which candidates would actually run weaken-only.
-    const sharedTargets = moneyFarmTargets()
+    const sharedTargets = hwgFarmTargets()
     const bestTarget = pickTarget(ns, hostname => sharedTargets.has(hostname))
 
     if (bestTarget) {
@@ -417,7 +425,7 @@ export async function main(ns: NS) {
         assignment.target = bestTarget
         assignment.growThreads = growThreads
         assignment.weakenThreads = weakenThreads
-        assignment.sharedWithMoneyFarm = sharedTargets.has(bestTarget)
+        assignment.sharedWithHwgFarm = sharedTargets.has(bestTarget)
         enforceOwnership(ns, host, assignment)
         continue
       }
@@ -430,7 +438,7 @@ export async function main(ns: NS) {
       // See enforceOwnership's own comment for why the kill has to happen
       // here, before it's called, rather than inside it.
       const nowShared = sharedTargets.has(assignment.target)
-      if (nowShared !== assignment.sharedWithMoneyFarm) {
+      if (nowShared !== assignment.sharedWithHwgFarm) {
         ns.print(
           `${host}: ${assignment.target} `
           + `${nowShared ? 'now shared with money-farm — switching to weaken-only' : 'no longer shared with money-farm — resuming grow/weaken mix'}.`,
@@ -439,7 +447,7 @@ export async function main(ns: NS) {
         const { growThreads, weakenThreads } = desiredSplit(ns, host, assignment.target, sharedTargets)
         assignment.growThreads = growThreads
         assignment.weakenThreads = weakenThreads
-        assignment.sharedWithMoneyFarm = nowShared
+        assignment.sharedWithHwgFarm = nowShared
       }
       enforceOwnership(ns, host, assignment)
     }

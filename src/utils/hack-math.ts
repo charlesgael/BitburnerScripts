@@ -1,4 +1,4 @@
-import type { NS } from '@ns'
+import type { NS, Server } from '@ns'
 /**
  * Point-in-time hacking math for one target, sourced from the Formulas API
  * (`Formulas.exe`) when available, or the base always-available
@@ -29,6 +29,52 @@ export interface HackMath {
    * farm-mode entry against an already-prepped, near-max-money server).
    */
   growThreadsFor: (moneyAfter: number, moneyTarget: number) => number
+}
+
+/**
+ * The uncapped thread counts that would fully close `mode`'s own gap in
+ * one shot — shared by `money-farm.daemon.ts`'s `applyPrepMode` (as the
+ * starting point for what to actually dispatch, capacity permitting) and
+ * `steady-farm.daemon.ts`'s identical prep stage, plus each file's own
+ * partition/entitlement sizing. `weaken` mode only ever populates
+ * `weakenThreads`; `grow-prep` populates both, with `weakenThreads` sized
+ * to counteract the *uncapped* grow figure — a caller sizing an actual
+ * dispatch separately re-derives its own dispatch-time weaken figure off
+ * whatever grow threads capacity actually allowed, which is deliberately
+ * not this function's concern. Originally lived in `money-farm.daemon.ts`
+ * alone, moved here once `steady-farm.daemon.ts` needed the identical
+ * need-based prep math rather than duplicating it.
+ *
+ * `grow-prep`'s `weakenThreads` is rate-balanced, not just
+ * single-completion-balanced: both legs dispatch as continuous loops (see
+ * either daemon's `applyPrepMode`), and grow's own loop completes more
+ * often per unit time than weaken's does (`growTime < weakenTime` always)
+ * — so compensating only *one* grow completion's worth of security, as if
+ * grow only ever fired once, undershoots once it's actually running
+ * continuously, and the daemon oscillates between a grow-heavy dispatch
+ * and a follow-up weaken-only one instead of converging on a single
+ * steady pass. Confirmed live. The fix is the identical `growTime /
+ * weakenTime` cadence factor `growWeakenRatio` (`utils/thread-balance.ts`)
+ * already applies for the exact same reason — reusing that *principle*,
+ * not the function itself, since this is a needed-count against an
+ * already-decided `growThreads`, not a ratio over a caller-supplied
+ * `totalThreads`.
+ */
+export function computePrepNeed(ns: NS, target: string, server: Server, mode: 'weaken' | 'grow-prep'): { growThreads: number, weakenThreads: number } {
+  const weakenPerThread = ns.weakenAnalyze(1)
+  if (mode === 'weaken') {
+    const securityGap = Math.max(0, (server.hackDifficulty ?? 0) - (server.minDifficulty ?? 0))
+    const weakenThreads = weakenPerThread > 0 ? Math.ceil(securityGap / weakenPerThread) : 0
+    return { growThreads: 0, weakenThreads }
+  }
+  const hm = computeHackMath(ns, target)
+  const currentMoney = Math.max(server.moneyAvailable ?? 0, 1)
+  const moneyMax = server.moneyMax ?? 0
+  const growThreads = currentMoney < moneyMax ? Math.max(0, Math.ceil(hm.growThreadsFor(currentMoney, moneyMax))) : 0
+  const weakenThreads = growThreads > 0 && weakenPerThread > 0 && hm.growTime > 0
+    ? Math.ceil(ns.growthAnalyzeSecurity(growThreads) * hm.weakenTime / (hm.growTime * weakenPerThread))
+    : 0
+  return { growThreads, weakenThreads }
 }
 
 export function computeHackMath(ns: NS, target: string): HackMath {

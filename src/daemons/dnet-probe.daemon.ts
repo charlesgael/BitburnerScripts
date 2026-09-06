@@ -37,7 +37,7 @@ function openNewCaches(ns: NS, host: string, opened: Set<string>): void {
       continue
     opened.add(file)
     const res = ns.dnet.openCache(file, false)
-    console.log(`dnet-probe$ INFO [${host}] opened cache ${file}:`, res)
+    console.debug(`dnet-probe$ INFO [${host}] opened cache ${file}:`, res)
   }
 }
 
