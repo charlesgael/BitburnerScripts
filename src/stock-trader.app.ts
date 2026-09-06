@@ -385,6 +385,7 @@ export async function main(ns: NS) {
   warmStart(ns, window, symbols)
 
   const sessionStartValue = portfolioValue(ns, symbols, book)
+  let peakValue = sessionStartValue
   let halted = false
 
   ns.tprint(
@@ -414,13 +415,18 @@ export async function main(ns: NS) {
       }
 
       // Circuit breaker: halts new entries (never exits/stop-losses) once
-      // the session's cumulative drawdown crosses MAX_DRAWDOWN_PCT, and
-      // un-halts if it recovers.
+      // the portfolio's drawdown from its own running peak crosses
+      // MAX_DRAWDOWN_PCT, and un-halts if it recovers. Measured against the
+      // peak rather than sessionStartValue - a fixed session-start baseline
+      // only protects the original stake, so a session that ran up huge
+      // gains could give most of them back with drawdown-from-start still
+      // negative (still "up" overall) the entire way down, never tripping.
       const currentValue = portfolioValue(ns, symbols, book)
-      const drawdown = (sessionStartValue - currentValue) / sessionStartValue
+      peakValue = Math.max(peakValue, currentValue)
+      const drawdown = (peakValue - currentValue) / peakValue
       if (!halted && drawdown >= MAX_DRAWDOWN_PCT) {
         halted = true
-        ns.tprint(`WARNING: trader halted - portfolio down ${(drawdown * 100).toFixed(1)}% from session start (${formatMoney(sessionStartValue)} -> ${formatMoney(currentValue)}). New entries stopped; existing positions still managed.`)
+        ns.tprint(`WARNING: trader halted - portfolio down ${(drawdown * 100).toFixed(1)}% from peak (${formatMoney(peakValue)} -> ${formatMoney(currentValue)}). New entries stopped; existing positions still managed.`)
         recordTraderEvent(ns, { type: 'halt', cash: book.getCash(), portfolioValue: currentValue })
       }
       else if (halted && drawdown < MAX_DRAWDOWN_PCT) {
