@@ -1,8 +1,11 @@
 import type { NS } from '@ns'
 import type { StockPrice } from './lib/stock-stats/state-file/types'
 import { recordStockTick } from './lib/stock-stats/state-file'
+import { formatDuration, formatMediumHour } from './utils/format/dates'
 import { formatMoney } from './utils/format/game'
 import { noDupe } from './utils/ns/nodupe'
+
+const LOG_UPTIME_TICKS = 100
 
 /**
  * Background collector for `ui/apps/`-adjacent stock trading work (not yet
@@ -58,9 +61,15 @@ export async function main(ns: NS) {
   }
 
   const has4SData = ns.stock.has4SDataTixApi()
-  ns.print(`Started. Sampling every stock market tick${has4SData ? ' (with 4S forecast/volatility)' : ''}.`)
+  const start = Date.now()
+  let ticks = 0
+  ns.print(`Started. Sampling every stock market tick${has4SData ? ' (with 4S forecast/volatility)' : ''} @ ${formatMediumHour(start)}.`)
   while (true) {
     await ns.stock.nextUpdate()
     recordStockTick(ns, collectPrices(ns, has4SData))
+    ticks += 1
+    if (ticks % LOG_UPTIME_TICKS === 0) {
+      ns.print(`Uptime: ${formatDuration(Date.now() - start)}`)
+    }
   }
 }
