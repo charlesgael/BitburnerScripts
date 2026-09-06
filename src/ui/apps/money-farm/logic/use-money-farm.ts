@@ -11,6 +11,7 @@ import {
   readMoneyFarmHosts,
   writeMoneyFarmHosts,
 } from '../../../utils/money-farm-config'
+import { readXpFarmHosts } from '../../../utils/xp-farm-config'
 
 /**
  * All Money Farm state and behavior — mirrors `use-xp-farm.ts`'s own shape
@@ -75,11 +76,15 @@ export function useMoneyFarm() {
     setLoading(true)
     setError(null)
     try {
-      const [cloudList, hosts] = await Promise.all([
+      const [cloudList, hosts, xpFarmHosts] = await Promise.all([
         fetchCloudList(callAction),
         readMoneyFarmHosts(ns),
+        readXpFarmHosts(ns),
       ])
-      setServers(sortByHostname(cloudList.servers))
+      setServers(sortByHostname(
+        cloudList.servers
+          .filter(serv => !xpFarmHosts.includes(serv.hostname)),
+      ))
 
       // Self-heal: an augmentation install wipes every purchased server,
       // but money-farm-config.txt survives untouched — same reasoning as

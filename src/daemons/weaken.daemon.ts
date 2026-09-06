@@ -16,11 +16,11 @@ export async function main(ns: NS) {
     { long: 'port', defaultValue: 0, description: 'If >0, write a status object to this port after each completed weaken().' },
   ] as const, [
     { name: 'host', description: 'What is the target of the growth' },
-    { name: 'delay', description: 'Delay before each growth' },
+    { name: 'delay', description: 'Delay before each growth', optional: true },
     { name: 'threads', description: 'Number of threads for stats', optional: true },
   ])
   const host = flags.host as string
-  const delay = flags.delay as number
+  const delay = flags.delay as number || 0
   const threads = (flags.threads as number) || 1
 
   do {

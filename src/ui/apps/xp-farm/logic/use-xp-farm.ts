@@ -4,6 +4,7 @@ import React from '@react'
 import { useCgdActions } from '../../../context/cgd-actions-context'
 import { useQueuedNs } from '../../../context/ns-queue-context'
 import { fetchCloudList, sortByHostname } from '../../../utils/cloud-list'
+import { readMoneyFarmHosts } from '../../../utils/money-farm-config'
 import {
   readXpFarmHosts,
   writeXpFarmHosts,
@@ -68,11 +69,14 @@ export function useXpFarm() {
     setLoading(true)
     setError(null)
     try {
-      const [cloudList, hosts] = await Promise.all([
+      const [cloudList, hosts, moneyFarmHosts] = await Promise.all([
         fetchCloudList(callAction),
         readXpFarmHosts(ns),
+        readMoneyFarmHosts(ns),
       ])
-      setServers(sortByHostname(cloudList.servers))
+      setServers(sortByHostname(cloudList.servers
+        .filter(it => !moneyFarmHosts.includes(it.hostname)),
+      ))
 
       // Self-heal: installing an augmentation wipes every purchased server,
       // but xp-farm-config.txt survives the reset untouched — the daemon

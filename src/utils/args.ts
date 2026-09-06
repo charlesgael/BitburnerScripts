@@ -68,7 +68,7 @@ function parseArgsHelp<T extends readonly BitburnerFlagSpec[]>(
   let extraArgsStr = ''
   let optionals = 0
   for (const arg of extraArgs) {
-    extraArgsStr += `${(arg.optional ? '[' : '')}${arg.name}`
+    extraArgsStr += ` ${(arg.optional ? '[' : '')}${arg.name}`
     if (arg.optional)
       optionals++
 
@@ -77,11 +77,11 @@ function parseArgsHelp<T extends readonly BitburnerFlagSpec[]>(
       }${arg.description}`,
     )
   }
-  extraArgsStr += [...Array.from({ length: optionals }).fill('')].join(']')
+  extraArgsStr += [...Array.from({ length: optionals }).fill(']')].join('')
 
   ns.tprint(
     `
-Usage: run ${ns.getScriptName()} [options] ${extraArgsStr}
+Usage: run ${ns.getScriptName()} [options]${extraArgsStr}
 
 Options:
 ${helpTextRows.join('\n')}`,
