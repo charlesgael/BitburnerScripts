@@ -42,6 +42,13 @@ let saves = 0
 const AUTO_CLEAN_ROUNDS = 50
 const LOG_MAX_ENTRIES = 500
 
+/**
+ * Truncates `logFile` to its last `maxEntries` lines, but only every
+ * `cleanDelay`-th call (tracked via the module-level `saves` counter shared
+ * with `addLog`) — so a hot logging path isn't re-reading/rewriting the
+ * whole file on every single write. No-op if the file doesn't exist yet or
+ * is still under the cap.
+ */
 export function trimLogIfNeeded(ns: NS, logFile: string, cleanDelay = AUTO_CLEAN_ROUNDS, maxEntries = LOG_MAX_ENTRIES) {
   if (saves % cleanDelay !== 0)
     return
@@ -53,6 +60,12 @@ export function trimLogIfNeeded(ns: NS, logFile: string, cleanDelay = AUTO_CLEAN
     return
   ns.write(logFile, `${lines.slice(-maxEntries).join(`\n`)}\n`, `w`)
 }
+/**
+ * Appends one line to `logFile`: `input` objects are JSON-stringified with a
+ * `ts: Date.now()` field stamped on (see `logSchema` above, for reading such
+ * entries back typed), anything else is written as `"<timestamp> <input>"`
+ * plain text. Triggers `trimLogIfNeeded` afterward so the file stays capped.
+ */
 export function addLog(ns: NS, logFile: string, line: string, cleanDelay?: number, maxEntries?: number): void
 export function addLog(ns: NS, logFile: string, input: any, cleanDelay?: number, maxEntries?: number): void
 export function addLog(ns: NS, logFile: string, input: any, cleanDelay = AUTO_CLEAN_ROUNDS, maxEntries = LOG_MAX_ENTRIES) {
@@ -66,6 +79,12 @@ export function addLog(ns: NS, logFile: string, input: any, cleanDelay = AUTO_CL
   trimLogIfNeeded(ns, logFile, cleanDelay, maxEntries)
 }
 
+/**
+ * Parses `raw` (a log file's full contents, one JSON entry per line) into an
+ * array, validating each line through `schema` if given, or plain
+ * `JSON.parse` otherwise. A corrupt or partial line — e.g. a write cut short
+ * by a crash — is silently skipped rather than failing the whole parse.
+ */
 export function parseLog<Data, T extends Schema<Data>>(raw: string, schema: T): InferSchema<T>[]
 export function parseLog(raw: string): unknown[]
 export function parseLog(raw: string, schema?: any): any {

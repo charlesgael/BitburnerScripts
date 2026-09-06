@@ -1,6 +1,7 @@
 import type { Schema } from './types'
 import { schema } from './core'
 
+/** A `Schema` for an object with arbitrary string keys whose every value validates against `value` — unlike `object()`, the key set isn't fixed up front. */
 export function record<T>(value: Schema<T>): Schema<Record<string, T>> {
   return schema({
     validate(input: unknown): Record<string, T> {

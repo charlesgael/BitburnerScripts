@@ -1,6 +1,14 @@
 import type { StringSchema } from './types'
 import { schema } from './core'
 
+/**
+ * A `Schema<string>` with chainable length/format constraints. Called with
+ * no arguments it accepts any string; called with one or more literal
+ * `values`, it narrows to a string-literal union and only accepts one of
+ * those exact values (an enum-like schema) — `T[number]` in the return type
+ * is that narrowed type when `values` is non-empty, or plain `string`
+ * otherwise.
+ */
 export function string<T extends readonly string[] = []>(
   ...values: T
 ): StringSchema<[T[number]] extends [never] ? string : T[number]> {

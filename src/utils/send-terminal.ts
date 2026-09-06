@@ -1,5 +1,15 @@
 import { getWinGlobals } from '@react'
 
+/**
+ * Types `input` into the game's terminal input and submits it, as if the
+ * player had typed it and pressed Enter — via `window`/`document`
+ * (`getWinGlobals`, the same `eval("window")` trick used elsewhere), not any
+ * `ns.*` call. Resolves once the synthetic Enter keypress has been
+ * dispatched. No-ops (resolves immediately) if the terminal input isn't
+ * found in the DOM. See the inline comments below for why both the value
+ * assignment and the Enter dispatch need to go through native
+ * setters/events rather than simpler-looking direct mutation.
+ */
 export async function sendTerminal(input: string) {
   return new Promise<void>((resolve) => {
     const { win, doc } = getWinGlobals()

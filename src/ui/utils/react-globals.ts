@@ -1,6 +1,13 @@
 import type React from 'react'
 import type * as ReactDOMOrig from 'react-dom'
 
+/**
+ * Grabs the real browser `window`/`document` via `eval` — the RAM-free way
+ * to reach globals the game itself exposes there (React/ReactDOM included;
+ * see below), since a literal `window`/`document` reference would otherwise
+ * get bundled/resolved against whatever globals exist in the script's own
+ * scope rather than the game tab's real ones.
+ */
 export function getWinGlobals() {
   const doc = eval('document')
   const win = eval('window')

@@ -46,6 +46,7 @@ import { isMovable } from './file-types'
  */
 const STAGING_ROOT = 'remote'
 
+/** The namespaced cache-slot path on `home` for `path` as pulled from `host` — see the module doc comment above. */
 export function stagedPathFor(host: string, path: string): string {
   return `${STAGING_ROOT}/${host}/${path}`
 }

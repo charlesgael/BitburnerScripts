@@ -6,6 +6,13 @@ export type Argument = Value | Mapping | ArgumentArray | ReadonlyArgumentArray
 
 const hasOwn = {}.hasOwnProperty
 
+/**
+ * Joins its arguments into one space-separated class-name string — the
+ * classic `classnames`-library API (vendored here, no runtime dependency):
+ * falsy args are skipped, strings are used as-is, arrays are flattened
+ * recursively, and plain objects contribute each key whose value is truthy
+ * (e.g. `classNames('btn', { active: isActive })`).
+ */
 export function classNames(...args: ArgumentArray): string {
   let classes = ''
 

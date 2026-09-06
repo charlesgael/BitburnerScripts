@@ -1,5 +1,12 @@
 import type { NS, RunOptions, ScriptArg } from '@ns'
 
+/**
+ * Copies `script` (plus any `deps`) from `source` (default: the calling
+ * script's own host) to `dest`, then `ns.exec`s it there with `args`.
+ * Returns the new PID (0 on launch failure, same as `ns.exec`). See the
+ * inline comment below for the one failure mode this doesn't detect: a
+ * failed copy over an already-present stale copy still launches something.
+ */
 export function scpRun(ns: NS, script: string, dest: string, source: string | undefined = undefined, deps: string[] = [], threadOrOptions: number | RunOptions = 1, ...args: ScriptArg[]) {
   const files = [script, ...deps]
   const copied = ns.scp(files, dest, source)

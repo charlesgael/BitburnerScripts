@@ -104,6 +104,11 @@ function formatExponential(n: number) {
   return exponentialFormatter.format(n).toLocaleLowerCase()
 }
 
+/**
+ * Formats `n` (a fraction, e.g. `0.5` -> `"50.00%"`) as a percentage.
+ * Switches to a `"x<formatNumber>"` multiplier form once `|n| >= multStart`,
+ * since a percentage past that point reads better as a multiplier.
+ */
 // Default suffixing starts at 1e9 % which is 1e7.
 export function formatPercent(n: number, fractionalDigits = 2, multStart = 1e6) {
   // NaN does not get formatted
@@ -122,6 +127,15 @@ export function formatPercent(n: number, fractionalDigits = 2, multStart = 1e6) 
   return getFormatter(fractionalDigits, percentFormats, { style: 'percent' }).format(n)
 }
 
+/**
+ * The core suffixed-number formatter every other `format*` helper in this
+ * file ultimately delegates to (directly or via `formatNumberNoSuffix`).
+ * Below `suffixStart` it's a plain locale-formatted number; at or above it,
+ * a suffix (k/m/b/t/...) is applied, or exponential notation once past
+ * `1e33` or if `Settings.disableSuffixes` is set. `isInteger` selects
+ * `basicFormatter` (no forced fractional digits) instead of a
+ * `fractionalDigits`-pinned formatter for the un-suffixed case.
+ */
 export function formatNumber(
   n: number,
   fractionalDigits = Settings.fractionalDigits,
@@ -168,11 +182,17 @@ export function formatNumber(
 export function formatNumberNoSuffix(n: number, fractionalDigits = 0) {
   return formatNumber(n, fractionalDigits, 1e33)
 }
+/** Format a favor value: no suffix, 3 fractional digits. */
 export const formatFavor = (n: number) => formatNumberNoSuffix(n, 3)
 
 /** Standard noninteger formatting with no options set. Collapses to suffix at 1000 and shows 3 fractional digits. */
 export const formatBigNumber = (n: number) => formatNumber(n)
 export const formatExp = formatBigNumber
+/**
+ * Formats a hash count with more fractional digits the smaller `n` is (up
+ * to 8, below 0.00001) so a hashnet's fractional-hash-per-second rates don't
+ * all just round to 0 under the standard 3-digit default.
+ */
 export function formatHashes(n: number) {
   if (n < 0.00001) {
     return formatNumber(n, 8)
@@ -190,6 +210,7 @@ export const formatPopulation = formatBigNumber
 export const formatSecurity = formatBigNumber
 export const formatStamina = formatBigNumber
 export const formatStaneksGiftCharge = formatBigNumber
+/** Format a corp multiplier, prefixed with `×`. */
 export const formatCorpMultiplier = (n: number) => `×${formatBigNumber(n)}`
 
 /** Format a number with suffixes starting at 1000 and 2 fractional digits */
@@ -243,7 +264,11 @@ export const formatSleeveShock = (n: number) => formatNumberNoSuffix(n, 3)
 export const formatSleeveSynchro = formatSleeveShock
 export const formatCorpStat = formatSleeveShock
 
-/** Parsing numbers does not use the locale as this causes complications. */
+/**
+ * Parses a `formatNumber`-style suffixed string (e.g. `"1.5m"`, `"12,000"`,
+ * `"Infinity"`) back into a number. Parsing numbers does not use the locale
+ * as this causes complications.
+ */
 export function parseBigNumber(str: string): number {
   str = str.trim()
   // Remove all commas in case the player is typing a longform number

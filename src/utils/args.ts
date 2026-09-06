@@ -9,6 +9,7 @@ export interface BitburnerFlagSpec {
   description: string
 }
 
+/** Builds one `BitburnerFlagSpec` entry for a `parseArgs` schema — a thin constructor so call sites don't hand-assemble the object shape. */
 export function arg(long: string, defaultValue: Value, description: string, short?: string) {
   return { long, defaultValue, description, short } as const
 }

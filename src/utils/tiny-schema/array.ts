@@ -1,6 +1,7 @@
 import type { Schema } from './types'
 import { schema } from './core'
 
+/** A `Schema<T[]>` with chainable length constraints — see `array()`. */
 export interface ArraySchema<T>
   extends Schema<T[]> {
   min: (length: number) => ArraySchema<T>
@@ -8,6 +9,7 @@ export interface ArraySchema<T>
   len: (length: number) => ArraySchema<T>
 }
 
+/** A `Schema` for an array whose every element validates against `item`. */
 export function array<T>(
   item: Schema<T>,
 ): ArraySchema<T> {

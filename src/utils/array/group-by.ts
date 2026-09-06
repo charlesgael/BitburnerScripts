@@ -1,3 +1,8 @@
+/**
+ * Buckets `array` into a `Record` keyed by `selector(item)`, preserving each
+ * bucket's original relative order. Every key `selector` ever returns gets
+ * its own array — there's no pre-declared key set to fill.
+ */
 export function groupBy<T, K extends PropertyKey>(
   array: T[],
   selector: (item: T) => K,

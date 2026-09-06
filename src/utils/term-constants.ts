@@ -19,6 +19,7 @@ export const B_CYAN = '\x1B[46m'
 export const F_WHITE = '\x1B[37m'
 export const B_WHITE = '\x1B[47m'
 
+/** Wraps `text` in the given ANSI `mods` (e.g. `F_RED`, `BOLD`), resetting afterward via `ESC`. */
 export function f(text: string, ...mods: string[]) {
   return `${mods.join('')}${text}${ESC}`
 }

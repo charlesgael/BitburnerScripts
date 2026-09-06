@@ -2,6 +2,27 @@ import type { NS } from '@ns'
 import type { CgdDaemon } from '../../cgd/types'
 
 /**
+ * IDE hover note: `Underscored<T>`'s `as` key-remap (below) makes TypeScript
+ * drop every member's TSDoc comment — confirmed directly against this
+ * project's own installed `typescript` (4.9.5) via the checker API: a plain
+ * homomorphic mapped type (`{ [K in keyof T]: T[K] }`, no `as` clause) keeps
+ * a member's doc comment on hover, but *any* mapped type with an `as`
+ * remap — even one that maps a key to itself unchanged — loses it. This is
+ * a TypeScript-level limitation of key-remapped mapped types, not something
+ * fixable by writing `Underscored<T>` differently; there's no known
+ * workaround that keeps `QueuedNS` a type-level mirror of {@link NS} (rather
+ * than a hand-maintained copy that would drift from `NetscriptDefinitions.d.ts`
+ * on every game update) while also carrying real per-member doc text on
+ * hover. So `queuedNs._exec(...)`'s hover shows only the (accurate)
+ * signature — to read the real prose, strip the leading `_` and look up
+ * that name directly in `NetscriptDefinitions.d.ts` (or ctrl/cmd-click
+ * `NS` above, which *does* still jump there — only the doc *text* is lost,
+ * not the type link). The only way to get real per-member hover text back
+ * would be dropping the type-level rename entirely and pushing the `_`
+ * prefix into a build-time source rewrite instead (in the spirit of
+ * `plugin/inline-cpy-imports.ts`) — a real architecture change, not a
+ * doc-comment tweak, and not undertaken here.
+ *
  * `NS` with every property name prefixed with `_` (recursively, into every
  * nested namespace too) and every method's return type wrapped in a
  * `Promise` (already-async methods left as-is, not double-wrapped). Plain

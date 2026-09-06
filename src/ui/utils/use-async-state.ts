@@ -60,6 +60,15 @@ export interface UseAsyncStateOptions<D = any> {
   throwError?: boolean
 }
 
+/**
+ * React hook wrapping a promise (or promise-returning function) with
+ * `state`/`isReady`/`isLoading`/`error` and an `execute`/`executeImmediate`
+ * pair to (re-)trigger it — a small vendored subset of VueUse's
+ * `useAsyncState`, adapted to React. Runs once on mount if `immediate`
+ * (the default; see `UseAsyncStateOptions`). Guards against a stale response
+ * clobbering state: if `execute` is called again before an earlier call
+ * resolves, only the most recent call's result is applied.
+ */
 export function useAsyncState<Data, Params extends any[] = any[]>(
   promise: Promise<Data> | ((...args: Params) => Promise<Data>),
   initialState: Data,

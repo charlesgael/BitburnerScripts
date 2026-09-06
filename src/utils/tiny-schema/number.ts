@@ -1,6 +1,7 @@
 import type { NumberSchema } from './types'
 import { schema } from './core'
 
+/** A `Schema<number>` with chainable `.min()`/`.max()`/`.int()` constraints. Rejects `NaN`, `null`, and `undefined`. */
 export function number(): NumberSchema {
   const validations: Array<(value: number) => void> = []
 

@@ -20,6 +20,7 @@ import type { NS, Server } from '@ns'
  * types from `@ns`.
  */
 
+/** Prints `message` to the script's own log, prefixed with a `[HH:MM:SS]` timestamp and an `ERROR:` tag. */
 export async function logError(ns: NS, message: string) {
   const line = `[${new Date().toLocaleTimeString(undefined, {
     hour12: false,

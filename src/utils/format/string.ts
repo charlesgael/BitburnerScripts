@@ -1,3 +1,7 @@
+/**
+ * Picks `word` or `pluralForm` for `count` using English plural rules
+ * (`Intl.PluralRules`), prefixed with `count` unless `insertNumber` is false.
+ */
 export function pluralize(count: number, word: string, pluralForm: string, insertNumber = true) {
   // 1. Initialize the plural rules for the language
   const pr = new Intl.PluralRules('en')
