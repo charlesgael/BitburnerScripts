@@ -73,11 +73,17 @@ export async function main(ns: NS) {
       let prefix = `Reward`
       if (!result.solved) {
         ns.ui.openTail()
-        ns.print(`    !!!! FAILED !!!!`)
-        prefix = `Failure`
+        if (result.error) {
+          ns.print(`    !!!! ERROR !!!! ${result.error}`)
+          prefix = `Error`
+        }
+        else {
+          ns.print(`    !!!! FAILED !!!!`)
+          prefix = `Failure`
+        }
         failures.push(contract)
       }
-      ns.print(`    ${prefix}: ${result.reward}`)
+      ns.print(`    ${prefix}: ${result.reward ?? result.error ?? ''}`)
       recordContractResult(ns, result, contract)
     }
 

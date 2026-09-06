@@ -45,6 +45,7 @@ export class SolveResult {
     public data: any,
     public answer: any,
     public reward?: string,
+    public error?: string,
   ) {
   }
 
@@ -58,6 +59,16 @@ export class SolveResult {
     data: any,
     answer: any,
   ) => new SolveResult(false, data, answer)
+
+  // For a thrown exception (a malformed answer rejected by
+  // ns.codingcontract.attempt(), a solver script that never wrote to its
+  // response port, ...) rather than a legitimately-wrong answer — `answer`
+  // is omitted since whatever we sent may be exactly the thing responsible
+  // for the throw, not a value the failure was actually assessed against.
+  static error = (
+    data: any,
+    message: string,
+  ) => new SolveResult(false, data, undefined, undefined, message)
 }
 
 export class ContractSolver {
@@ -74,30 +85,43 @@ export class ContractSolver {
     port.clear()
 
     const input = ns.codingcontract.getData(filename, host)
-    const processedInput = this.processInput(input)
-    const runOptions = {
-      threads: 1,
-      preventDuplicates: true,
-    }
-    ns.run(this.script, runOptions, JSON.stringify(processedInput), portId)
 
-    while (port.empty()) {
-      await ns.sleep(1)
-    }
+    // ns.codingcontract.attempt() throws on a sufficiently malformed
+    // answer instead of just returning '' like it does for a wrong one —
+    // a bad processInput()/solver script (or a bug like the Generate IP
+    // Addresses one that prompted this) must not crash the whole daemon.
+    try {
+      const processedInput = this.processInput(input)
+      const runOptions = {
+        threads: 1,
+        preventDuplicates: true,
+      }
+      ns.run(this.script, runOptions, JSON.stringify(processedInput), portId)
 
-    const answer = JSON.parse(port.read().toString())
-    const reward = ns.codingcontract.attempt(answer, filename, host)
-    if (reward === '') {
-      return SolveResult.failure(
-        input,
-        answer,
-      )
+      while (port.empty()) {
+        await ns.sleep(1)
+      }
+
+      const answer = JSON.parse(port.read().toString())
+      const reward = ns.codingcontract.attempt(answer, filename, host)
+      if (reward === '') {
+        return SolveResult.failure(
+          input,
+          answer,
+        )
+      }
+      else {
+        return SolveResult.success(
+          input,
+          answer,
+          reward,
+        )
+      }
     }
-    else {
-      return SolveResult.success(
+    catch (e) {
+      return SolveResult.error(
         input,
-        answer,
-        reward,
+        e instanceof Error ? e.message : String(e),
       )
     }
   }

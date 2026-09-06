@@ -110,7 +110,7 @@ export function ContractsLog(props: {
               <th>Reward</th>
             </tr>
 
-            {contentArr.map(({ ts, time, title, host, solved, reward, type }) => (
+            {contentArr.map(({ ts, time, title, host, solved, reward, error, type }) => (
               <tr key={ts}>
                 <td className="smallest">{time}</td>
                 <td>{title}</td>
@@ -127,7 +127,12 @@ export function ContractsLog(props: {
                   </span>
                 </td>
                 <td className="smallest" style={{ textAlign: 'center' }}>{solved ? <CheckCircle style={{ color: 'var(--bb-theme-success)' }} /> : <CrossCircle style={{ color: 'var(--bb-theme-error)' }} />}</td>
-                <td>{reward}</td>
+                <td
+                  className={error ? 'bb-text-error bb-wrap' : undefined}
+                  title={error}
+                >
+                  {error ? `Error: ${error}` : reward}
+                </td>
               </tr>
             ))}
           </tbody>

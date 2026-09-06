@@ -25,6 +25,10 @@ export const solveResultSchema = object({
   data: any(),
   answer: any(),
   reward: string().optional(),
+  // Set instead of `reward` when ContractSolver.solve() caught an exception
+  // (e.g. ns.codingcontract.attempt() rejecting a malformed answer) rather
+  // than getting a legitimate empty-string "wrong answer" response.
+  error: string().optional(),
 })
 export type SolveResultData = InferSchema<typeof solveResultSchema>
 export class SolveResult implements SolveResultData {
@@ -33,6 +37,7 @@ export class SolveResult implements SolveResultData {
     public data: any,
     public answer: any,
     public reward?: string,
+    public error?: string,
   ) {
   }
 }
