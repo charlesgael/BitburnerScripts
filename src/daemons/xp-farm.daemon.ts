@@ -183,7 +183,7 @@ function scanNetwork(ns: NS): string[] {
  * requirement the player has already met (keeps per-call time reasonable).
  * null if nothing qualifies (e.g. nothing rooted yet besides home).
  */
-function pickTarget(ns: NS): string | null {
+export function pickTarget(ns: NS): string | null {
   const hackingLevel = ns.getHackingLevel()
   let best: Server | null = null
   for (const hostname of scanNetwork(ns)) {

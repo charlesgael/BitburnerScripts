@@ -67,6 +67,11 @@ export const ProgramsApp: AppDefinition = createTaskManagerApp('programs', 'Prog
     requires: ['netmapper.app.js'],
   },
   {
+    script: 'home-xp.app.js',
+    label: 'EZ home XP',
+    singleInstance: true,
+  },
+  {
     script: 'floodshare.app.js',
     label: 'ShareRAM',
     buildArgs: async ns => [
