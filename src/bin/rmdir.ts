@@ -10,7 +10,7 @@ export async function main(ns: NS) {
   }
 
   // Get a flat list of every file residing on the current server
-  const allFiles = ns.ls(ns.getHostname())
+  const allFiles = ns.ls(ns.self().server)
 
   // Process each directory path one by one
   for (const targetDir of targetDirs) {

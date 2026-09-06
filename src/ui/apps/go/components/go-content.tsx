@@ -1,4 +1,6 @@
 import React from '@react'
+import { GO_SCRIPT } from '../../../../lib/go/state-file'
+import { InstanceManager } from '../../../components/instance-manager'
 import { TitlebarToolbar } from '../../../components/window/titlebar-toolbar'
 import { useGo } from '../logic/use-go'
 import { GoBoard } from './go-board'
@@ -15,39 +17,8 @@ export function GoContent() {
 
   return (
     <>
-
       <TitlebarToolbar>
-        <span
-          style={{
-            color: go.running ? 'var(--bb-theme-success)' : 'var(--bb-theme-error)',
-            padding: '0 6px',
-            cursor: 'default',
-          }}
-          title={go.running ? 'Running' : 'Stopped'}
-        >
-          ⏺
-          {' '}
-          {go.running ? 'Live' : 'Halted'}
-        </span>
-        <button
-          onClick={() => void go.openLog()}
-          disabled={!go.running}
-          className="bb-icon-link"
-          title={go.running ? 'Open log' : 'App not running'}
-        >
-          📃
-        </button>
-        <button
-          className="bb-icon-link"
-          style={{
-            color: go.running ? 'var(--bb-theme-error)' : 'var(--bb-theme-success)',
-          }}
-          title={go.running ? 'Stop' : 'Launch'}
-          onClick={() => void go.toggle()}
-          disabled={go.busy}
-        >
-          {go.running ? '◼' : '▶'}
-        </button>
+        <InstanceManager filename={GO_SCRIPT} host="home" />
       </TitlebarToolbar>
       <div>
         <div

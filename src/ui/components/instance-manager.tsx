@@ -2,6 +2,7 @@ import type { ProcessInfo, ScriptArg } from '@ns'
 import type { MutableRefObject } from 'react'
 import React, { useEffect, useState } from '@react'
 import { useQueuedNs } from '../context/ns-queue-context'
+import { TitlebarPulldown } from './window/titlebar-pulldown'
 
 export function InstanceManager(props: {
   /** Script name. */
@@ -28,20 +29,30 @@ export function InstanceManager(props: {
   const [_error, setError] = useState<string | null>(null)
   const [_loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [log, setLog] = useState<string[]>([])
 
   const ns = useQueuedNs()
 
   async function refresh() {
     setLoading(true)
     try {
-      setRunning(await ns._ps(host)
-        .then(processes => processes.find(it => it.filename === goal.filename)))
+      const running = await ns._ps(host)
+        .then(processes => processes.find(it => it.filename === goal.filename))
+      setRunning(running)
+      void refreshLog(running)
     }
     catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     }
     finally {
       setLoading(false)
+    }
+  }
+
+  async function refreshLog(running?: ProcessInfo) {
+    if (running) {
+      const lines = await ns._getScriptLogs(running.pid)
+      setLog(lines)
     }
   }
 
@@ -65,12 +76,12 @@ export function InstanceManager(props: {
   //   onRunning?.(running)
   // }, [running, onRunning])
 
-  async function openLog() {
-    if (running) {
-      await ns._ui._openTail(goal.filename, host, ...running.args)
-      ns._ui._moveTail(285, 5, running.pid)
-    }
-  }
+  // async function openLog() {
+  //   if (running) {
+  //     await ns._ui._openTail(goal.filename, host, ...running.args)
+  //     ns._ui._moveTail(285, 5, running.pid)
+  //   }
+  // }
 
   async function toggle() {
     setError(null)
@@ -121,14 +132,17 @@ export function InstanceManager(props: {
         {' '}
         {running ? 'Live' : 'Halted'}
       </span>
-      <button
+      {/* <button
         onClick={() => void openLog()}
         disabled={!running}
         className="bb-icon-link"
         title={running ? 'Open log' : 'App not running'}
       >
         📃
-      </button>
+      </button> */}
+      <TitlebarPulldown btnText="📃" disabled={log.length === 0} width={550}>
+        {log.map((line, idx) => <div key={idx}>{line}</div>)}
+      </TitlebarPulldown>
       <button
         className="bb-icon-link"
         style={{

@@ -55,13 +55,13 @@ export const BASELINE_STAT_PROVIDERS: StatProvider[] = [
   {
     id: 'karma',
     label: 'Karma',
-    // ns.getPlayer — RAM cost: 0.5 GB.
-    ramCost: 0.5,
+    // ns.heart.break — RAM cost: 0 GB.
+    ramCost: 0,
     enabled: true,
     compute: async ns => ({
       kind: 'text',
       label: 'Karma',
-      value: (ns.getPlayer()).karma.toFixed(0),
+      value: ns.heart.break().toFixed(0),
     }),
   },
   {

@@ -1,4 +1,5 @@
 import type { NS } from '@ns'
+import { formatMoney } from './utils/format/game'
 
 type HacknetMultipliers = ReturnType<NS['getHacknetMultipliers']>
 
@@ -24,16 +25,6 @@ class Upgrade {
   get ratio(): number {
     return this.rankCost > 0 ? this.rankGain / this.rankCost : 0
   }
-}
-
-function formatMoney(amount: number): string {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: 'USD',
-    currencyDisplay: 'narrowSymbol',
-    currencySign: 'accounting',
-    maximumFractionDigits: 3,
-  }).format(amount)
 }
 
 /**

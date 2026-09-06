@@ -41,25 +41,17 @@ import { TIER_0_METHODS } from './lv0.daemon'
  */
 export const TIER_1_METHODS: readonly string[] = [
   ...TIER_0_METHODS,
+  // --- bare
   'exec',
   'fileExists',
-  'getHostname',
   'getPlayer',
-  'getPortHandle',
   'getResetInfo',
   'getScriptRam',
-  'getServerUsedRam',
-  'hacknet.getNodeStats',
-  'hacknet.numNodes',
   'isRunning',
   'kill',
   'ls',
-  'mv',
-  'ps',
-  'read',
   'rm',
   'scp',
-  'write',
 ]
 
 /**
@@ -80,24 +72,14 @@ export const TIER_1_METHODS: readonly string[] = [
 export function reserveTier1Ram(ns: NS): void {
   void ns.exec
   void ns.fileExists
-  void ns.getHostname
   void ns.getPlayer
-  void ns.getPortHandle
   void ns.getResetInfo
   void ns.getScriptRam
-  void ns.getServerUsedRam
-  void ns.hacknet.getNodeStats
-  void ns.hacknet.numNodes
   void ns.isRunning
   void ns.kill
   void ns.ls
-  void ns.mv
-  void ns.ps
-  void ns.read
   void ns.rm
   void ns.scp
-  void ns.ui.openTail
-  void ns.write
 }
 
 /**

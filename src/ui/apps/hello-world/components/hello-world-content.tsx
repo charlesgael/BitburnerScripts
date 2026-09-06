@@ -12,7 +12,7 @@ export function HelloWorldContent() {
   const [hostname, setHostname] = React.useState<string | null>(null)
 
   async function fetchHostname() {
-    setHostname(await ns._getHostname())
+    setHostname((await ns._self()).server)
   }
 
   return (

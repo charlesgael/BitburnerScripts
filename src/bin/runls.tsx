@@ -46,7 +46,7 @@ interface FileInfo {
 }
 
 function getScripts(ns: NS): FileInfo[] {
-  return ns.ls(ns.getHostname())
+  return ns.ls(ns.self().server)
     .filter(it => it.endsWith('.app.js'))
     .map(it => ({
       name: it,

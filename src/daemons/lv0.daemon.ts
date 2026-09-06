@@ -18,9 +18,121 @@ import { BASELINE_STAT_PROVIDERS } from '../cgd/stats'
  * Usage: `run daemons/lv0.daemon.js`
  */
 export const TIER_0_METHODS: readonly string[] = [
+  // --- UserInterface
+  'ui.closeTail',
+  'ui.getGameInfo',
+  'ui.getStyles',
+  'ui.getTheme',
+  'ui.moveTail',
   'ui.openTail',
   'ui.renderTail',
-  'ui.moveTail',
+  'ui.resetStyles',
+  'ui.resetTheme',
+  'ui.resizeTail',
+  'ui.setStyles',
+  'ui.setTailFontSize',
+  'ui.setTailMinimized',
+  'ui.setTailTitle',
+  'ui.setTheme',
+  'ui.windowSize',
+
+  // --- Gang
+  'gang.getBonusTime',
+  'gang.getEquipmentNames',
+  'gang.getTaskNames',
+  'gang.inGang',
+  'gang.nextUpdate',
+  'gang.renameMember',
+
+  // --- Stock
+  'stock.getBonusTime',
+  'stock.getConstants',
+  'stock.nextUpdate',
+
+  // --- Bladeburner
+  'bladeburner.getBlackOpNames',
+  'bladeburner.getBonusTime',
+  'bladeburner.getContractNames',
+  'bladeburner.getGeneralActionNames',
+  'bladeburner.getOperationNames',
+  'bladeburner.getSkillNames',
+  'bladeburner.inBladeburner',
+  'bladeburner.nextUpdate',
+
+  // --- CodingContrats
+  'codingcontract.getContractTypes',
+
+  // --- Cloud
+  'cloud.renameServer',
+
+  // --- GoAnalysis
+  'go.analysis.getStats',
+  'go.analysis.resetStats',
+
+  // --- Stranek
+  'stanek.clearGift',
+  'stanek.fragmentDefinitions',
+
+  // --- Infiltration
+  'infiltration.getPossibleLocations',
+
+  // --- Corporation
+  'corporation.canCreateCorporation',
+  'corporation.getBonusTime',
+  'corporation.getConstants',
+  'corporation.hasCorporation',
+  'corporation.nextUpdate',
+
+  // --- heart
+  'heart.break',
+
+  // --- bare
+  'alert',
+  'asleep',
+  'atExit',
+  'clear',
+  'clearLog',
+  'clearPort',
+  'disableLog',
+  'dynamicImport',
+  'enableLog',
+  'exit',
+  'flags',
+  'getFileMetadata',
+  'getFunctionRamCost',
+  'getPortHandle',
+  'getScriptLogs',
+  'getScriptName',
+  'isLogEnabled',
+  'mv',
+  'nextPortWrite',
+  'peek',
+  'print',
+  'printf',
+  'printRaw',
+  'prompt',
+  'ramOverride',
+  'read',
+  'readPort',
+  'self',
+  'sleep',
+  'sprintf',
+  'toast',
+  'tprint',
+  'tprintf',
+  'tprintRaw',
+  'tryWritePort',
+  'vsprintf',
+  'wget',
+  'write',
+  'writePort',
+
+  // --- Used for stats
+  'getServerMaxRam',
+  'getServerUsedRam',
+  'hacknet.getNodeStats',
+  'hacknet.numNodes',
+  'ps',
 ]
 
 export async function main(ns: NS): Promise<void> {

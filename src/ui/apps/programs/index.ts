@@ -48,7 +48,7 @@ export const ProgramsApp: AppDefinition = createTaskManagerApp('programs', 'Prog
     buildArgs: async ns => [
       ...(await readSlaveNodes(ns)),
       // We do not want to kill the daemon
-      await ns._getHostname(),
+      (await ns._self()).server,
     ],
     singleInstance: true,
     excludes: ['floodshare.app.js', 'early-hack.app.js'],
@@ -60,7 +60,7 @@ export const ProgramsApp: AppDefinition = createTaskManagerApp('programs', 'Prog
     buildArgs: async ns => [
       ...(await readSlaveNodes(ns)),
       // We do not want to kill the daemon
-      await ns._getHostname(),
+      (await ns._self()).server,
     ],
     singleInstance: true,
     excludes: ['floodshare.app.js', 'flooder.app.js'],
@@ -72,7 +72,7 @@ export const ProgramsApp: AppDefinition = createTaskManagerApp('programs', 'Prog
     buildArgs: async ns => [
       ...(await readSlaveNodes(ns)),
       // We do not want to kill the daemon
-      await ns._getHostname(),
+      (await ns._self()).server,
     ],
     singleInstance: true,
     excludes: ['flooder.app.js', 'early-hack.app.js'],

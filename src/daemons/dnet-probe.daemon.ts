@@ -59,7 +59,7 @@ export async function main(ns: NS) {
   ] as const, [
     { name: 'port', description: 'On which port to communicate', optional: true },
   ] as const)
-  const me = ns.getHostname()
+  const me = ns.self().server
   const script = ns.getScriptName()
   const colonized = getColonizedStore()
   colonized[me] = 'online'
