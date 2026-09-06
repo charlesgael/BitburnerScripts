@@ -4,7 +4,7 @@ import { getCgdStore } from '../../../../cgd/store'
 import { MONEY_FARM_LOG_FILE, parseMoneyFarmLog } from '../../../../lib/money-farm/state-farm'
 import { createLogSummary, summarizeMoneyLog } from '../../../../lib/money-farm/state-farm/mk-stats'
 import { formatDuration } from '../../../../utils/format/dates'
-import { formatMoney, formatNumber, formatPercent } from '../../../../utils/format/game'
+import { formatMoney, formatNumber, formatPercent, formatRam } from '../../../../utils/format/game'
 import { HeroStat } from '../../../components/hero-stat'
 import { InstanceManager } from '../../../components/instance-manager'
 import { TitlebarPulldown } from '../../../components/window/titlebar-pulldown'
@@ -222,7 +222,7 @@ export function MoneyFarmDashboard() {
                   title="Active Targets"
                   value={`${formatNumber(moneyFarm?.perTarget.length ?? 0)} / ${Object.keys(state.targets).length}`}
                   sub={moneyFarm
-                    ? `${formatPercent(moneyFarm.perTarget.reduce((total, p) => total + p.reserved, 0) / moneyFarm.totalRam)} capacity used`
+                    ? `${formatPercent(moneyFarm.perTarget.reduce((total, p) => total + p.reserved, 0) / moneyFarm.totalRam)} capacity used of ${formatRam(moneyFarm.totalRam)}`
                     : 'daemon offline'}
                   iconColor="var(--bb-theme-info)"
                 />
