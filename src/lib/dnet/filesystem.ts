@@ -20,7 +20,6 @@ export function recordFile(hostname: string, filename: string, content: string):
   const fs = getFilesystemStore()
 
   if (!fs[hostname]) {
-    console.log('dnet-probe/filesystem$ New host', hostname)
     fs[hostname] = {}
   }
 
