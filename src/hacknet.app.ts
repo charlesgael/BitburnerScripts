@@ -267,6 +267,13 @@ export async function main(ns: NS) {
       continue
     }
 
+    const MAX_PAYBACK_SECONDS = 10_000
+    if (1 / bestUpgrade.ratio >= MAX_PAYBACK_SECONDS) {
+      ns.print(`No best upgrade with payback < ${MAX_PAYBACK_SECONDS}s`)
+      await ns.sleep(60_000)
+      continue
+    }
+
     bestUpgrade.func()
     const payback = `pays back in ${(1 / bestUpgrade.ratio).toFixed(1)}s`
     if (bestUpgrade.type === `purchase`) {
