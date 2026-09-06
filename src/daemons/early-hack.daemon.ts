@@ -9,10 +9,13 @@ export async function main(ns: NS) {
     { long: 'money', defaultValue: 1, description: 'Max money of the server', short: 'm' },
     { long: 'security', defaultValue: 1, description: 'Minimum security of the server', short: 's' },
     { long: 'port', defaultValue: 0, description: 'Minimum security of the server', short: 'p' },
-  ] as const)
+  ] as const, [
+    { name: 'target', description: 'What is the target to hack', optional: true },
+    { name: 'threads', description: 'Number of threads for statistics', optional: true },
+  ])
   // Target server, passed as the first positional arg (falls back to "foodnstuff" if none given)
-  const target = (args._[0] as string) || 'foodnstuff'
-  const threads = (args._[2] as number) || 1
+  const target = (args.target as string) || 'foodnstuff'
+  const threads = (args.threads as number) || 1
 
   // Defines the thresholds for money and security
   const moneyThresh = args.money * 0.75

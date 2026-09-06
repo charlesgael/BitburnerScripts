@@ -22,10 +22,14 @@ export async function main(ns: NS) {
   const flags = parseArgs(ns, [
     { long: 'once', defaultValue: false, description: 'Run a single grow() call after the delay, then exit, instead of looping forever.' },
     { long: 'port', defaultValue: 0, description: 'If >0, write a status object to this port after each completed grow().' },
-  ] as const)
-  const host = flags._[0] as string
-  const delay = flags._[1] as number
-  const threads = (flags._[2] as number) || 1
+  ] as const, [
+    { name: 'host', description: 'What is the target of the growth' },
+    { name: 'delay', description: 'Delay before each growth' },
+    { name: 'threads', description: 'Number of threads for stats', optional: true },
+  ])
+  const host = flags.host as string
+  const delay = flags.delay as number
+  const threads = (flags.threads as number) || 1
 
   do {
     if (delay > 0)
