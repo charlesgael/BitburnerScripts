@@ -1,5 +1,6 @@
 import type { CloudServerRow } from '../../../utils/cloud-list'
 import React from '@react'
+import { TitlebarPulldown } from '../../../components/window/titlebar-pulldown'
 import { TitlebarToolbar } from '../../../components/window/titlebar-toolbar'
 import { useCloudServers } from '../logic/use-cloud-servers'
 import { BuyForm } from './buy-form'
@@ -21,6 +22,9 @@ export function CloudServersContent() {
   return (
     <>
       <TitlebarToolbar>
+        <TitlebarPulldown btnText="➕" disabled={tab !== 'purchased'} title="Purchase server" height={140}>
+          <BuyForm cs={cs} />
+        </TitlebarPulldown>
         <button onClick={() => void cs.refreshAll()} disabled={cs.busy} className="bb-icon-link">
           🗘
         </button>
@@ -111,8 +115,6 @@ export function CloudServersContent() {
                       </div>
                     )
                   : null}
-
-                <BuyForm cs={cs} />
               </div>
             )
           : (

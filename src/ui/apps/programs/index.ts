@@ -135,6 +135,7 @@ export const TradeProgramsApp: AppDefinition = createTaskManagerApp('trading-app
     script: 'stock-liquidator.app.js',
     label: 'Liquidator',
     singleInstance: true,
+    oneShot: true,
     excludes: ['stock-reader.app.js', 'stock-trader.app.js'],
   },
   {

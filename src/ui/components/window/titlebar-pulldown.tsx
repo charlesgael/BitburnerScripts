@@ -7,6 +7,7 @@ export function TitlebarPulldown(props: {
   height?: number
   btnText?: string
   disabled?: boolean
+  title?: string
 }) {
   const {
     width = 320,
@@ -14,6 +15,7 @@ export function TitlebarPulldown(props: {
     children,
     btnText = '☰',
     disabled = false,
+    title = 'Open Menu',
   } = props
 
   const ref = useRef<HTMLDivElement>(null)
@@ -28,7 +30,7 @@ export function TitlebarPulldown(props: {
 
   return (
     <>
-      <button className="bb-icon-link" onClick={toggleBtn} disabled={disabled} title="Open menu">{btnText}</button>
+      <button className="bb-icon-link" onClick={toggleBtn} disabled={disabled} title={title}>{btnText}</button>
       <div
         ref={ref}
         style={{

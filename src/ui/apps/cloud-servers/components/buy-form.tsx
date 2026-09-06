@@ -1,3 +1,4 @@
+import type { FormEvent } from 'react'
 import type { CloudServersState } from '../logic/use-cloud-servers'
 import React from '@react'
 import { formatMoney, formatRam } from '../../../../utils/format/game'
@@ -6,8 +7,13 @@ import { formatMoney, formatRam } from '../../../../utils/format/game'
  * Buy button.
  */
 export function BuyForm({ cs }: { cs: CloudServersState }) {
+  function submit(evt: FormEvent) {
+    evt.preventDefault()
+    void cs.handleBuy()
+  }
+
   return (
-    <div style={{ paddingTop: '10px' }}>
+    <form style={{ paddingTop: '10px' }} onSubmit={submit}>
       <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', marginBottom: '8px' }}>
         Hostname
         <input
@@ -60,6 +66,6 @@ export function BuyForm({ cs }: { cs: CloudServersState }) {
       >
         {cs.buyBusy ? '...' : `Buy`}
       </button>
-    </div>
+    </form>
   )
 }

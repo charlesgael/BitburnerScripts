@@ -1,7 +1,7 @@
 import type { CloudListResult, CloudServerRow } from '../../../utils/cloud-list'
 import type { SlaveNodeHost } from '../../../utils/slave-nodes'
 import type { ActionResult } from './types'
-import React from '@react'
+import React, { useEffect } from '@react'
 import { useCgdActions } from '../../../context/cgd-actions-context'
 import { useQueuedNs } from '../../../context/ns-queue-context'
 import { fetchCloudList, sortByHostname } from '../../../utils/cloud-list'
@@ -85,6 +85,11 @@ export function useCloudServers() {
     }
   }
 
+  useEffect(() => { // Refresh money
+    const id = setInterval(() => ns._getServerMoneyAvailable('home').then(setMoneyAvailable), 3000)
+    return () => clearInterval(id)
+  }, [])
+
   // Refreshes the full slave-node checklist: every rooted, non-purchased,
   // non-`home` host found by walking the whole network (see
   // `cgd/actions/slave-nodes.ts` — a separate tier-2 action from
@@ -140,7 +145,6 @@ export function useCloudServers() {
         setBuyError(result.error ?? 'Purchase failed.')
         return
       }
-      setBuyHostname('')
       await refreshList()
     }
     catch (err) {
