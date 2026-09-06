@@ -15,15 +15,10 @@ function StartBtn({ filename, children, clear }: { filename: string, children: a
 }
 
 export async function main(ns: NS) {
-  const apps = ns.ls('home', '.app.js')
-
   ns.tprintRaw(
     <>
       <div>Welcome back, let's start hacking!</div>
       <p><StartBtn filename="start.js" clear>Run ui.app</StartBtn></p>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-        {apps.map(app => <StartBtn key={app} filename={app}>{app}</StartBtn>)}
-      </div>
     </>,
   )
 }

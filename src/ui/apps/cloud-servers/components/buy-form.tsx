@@ -34,7 +34,7 @@ export function BuyForm({ cs }: { cs: CloudServersState }) {
           className="bb-field"
         >
           {cs.ramTiers.map(ram => (
-            <option key={ram} value={ram} disabled={cs.costByRam[ram] > cs.moneyAvailable}>
+            <option key={ram} value={ram}>
               {formatRam(ram)}
               {' — '}
               {formatMoney(cs.costByRam[ram])}

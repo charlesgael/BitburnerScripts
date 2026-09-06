@@ -69,13 +69,13 @@ export function useCloudServers() {
       // Default the RAM picker to the cheapest tier the player can
       // currently afford, if nothing sensible (or no longer
       // affordable) is selected.
-      const tiers = Object.keys(result.costByRam)
-        .map(Number)
-        .sort((a, b) => a - b)
-      const affordableTiers = tiers.filter(t => result.costByRam[t] <= result.moneyAvailable)
-      if (tiers.length > 0 && (!tiers.includes(buyRam) || result.costByRam[buyRam] > result.moneyAvailable)) {
-        setBuyRam(affordableTiers.length > 0 ? affordableTiers[0] : tiers[0])
-      }
+      // const tiers = Object.keys(result.costByRam)
+      //   .map(Number)
+      //   .sort((a, b) => a - b)
+      // const affordableTiers = tiers.filter(t => result.costByRam[t] <= result.moneyAvailable)
+      // if (tiers.length > 0 && (!tiers.includes(buyRam) || result.costByRam[buyRam] > result.moneyAvailable)) {
+      //   setBuyRam(affordableTiers.length > 0 ? affordableTiers[affordableTiers.length - 1] : tiers[0])
+      // }
     }
     catch (err) {
       setListError(err instanceof Error ? err.message : String(err))

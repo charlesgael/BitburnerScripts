@@ -3,11 +3,12 @@ import { parseArgs } from '../utils/args'
 import { formatMoney, formatRam } from '../utils/format/game'
 
 const FACTION_HOSTS: Record<string, string> = {
-  'CSEC': 'CyberSec',
   'avmnite-02h': 'NiteSec',
+  'b-and-a': 'Bachman & Associates',
+  'CSEC': 'CyberSec',
+  'fulcrumassets': 'Fulcrum Technologies',
   'I.I.I.I': 'The Black Hand',
   'run4theh111z': 'BitBurners',
-  'fulcrumassets': 'Fulcrum Technologies',
 }
 
 const CORPS_HOSTS: string[] = [
