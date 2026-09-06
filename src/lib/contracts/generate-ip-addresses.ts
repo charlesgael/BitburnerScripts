@@ -53,7 +53,13 @@ export async function main(ns: NS) {
     }
   }
 
-  // bugfix: Shouldn't need to .toString() here, but v2.1.0 has a bug
-  ns.print(`IP Addresses: ${JSON.stringify(addresses.toString())}`)
-  ns.writePort(responsePort, JSON.stringify(addresses.toString()))
+  // ns.codingcontract.attempt()'s parseArrayString only wraps the answer in
+  // `[...]` when it doesn't already start with "[" (see game source: any
+  // answer type gets coerced to a plain string somewhere upstream, losing
+  // real array structure/quoting). Handing it the full, already-bracketed
+  // JSON text as a single string sidesteps that entirely: startsWith("[")
+  // is true, so it's JSON.parse'd verbatim with no re-wrapping.
+  const answer = JSON.stringify(addresses)
+  ns.print(`IP Addresses: ${answer}`)
+  ns.writePort(responsePort, JSON.stringify(answer))
 }
