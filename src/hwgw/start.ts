@@ -179,6 +179,7 @@ export async function main(ns: NS) {
         continue
       }
       pids.push(...added)
+      await ns.sleep(Math.ceil(WAVE_LEG_GAP_MS * 3 + WAVE_SERIES_GAP_MS / 2))
       setState('done', snapshot)
     }
     else {
@@ -196,7 +197,7 @@ export async function main(ns: NS) {
         continue
       }
       setState('done', snapshot)
-      await ns.sleep(60_000)
+      await ns.sleep((WAVE_LEG_GAP_MS * 3 + WAVE_SERIES_GAP_MS) * 5)
     }
   }
 
