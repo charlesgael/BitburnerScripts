@@ -16,6 +16,28 @@ export const WINDOW_TICKS = 30
  */
 export const FORECAST_MARGIN = 0.05
 
+/**
+ * Consecutive ticks a new momentum direction must be raw-computed before
+ * getMomentumSignal actually reports it, instead of flipping the moment a
+ * single tick's window-endpoint difference crosses zero. trailingReturn is
+ * `arr[last]/arr[0] - 1` recomputed fresh every tick - one noisy tick
+ * entering or leaving the window can flip its sign with nothing about the
+ * underlying trend actually changing, and live trading confirmed this: 596
+ * of 602 exits in one session were signal-reversed (not stop-loss) at a
+ * 2.5-minute average hold, and the resulting net trading P&L (isolated from
+ * every other income source that session, ~0.2% return on capital
+ * deployed) was far thinner than the ~1.62% mean raw per-trade return -
+ * spread/commission/impact paid on that much churn ate most of the edge.
+ * Only the momentum path needs this: has4SData's ns.stock.getForecast is a
+ * real day-to-day probability, not a two-point window difference, and never
+ * touches PriceWindow at all (see getSignal below) - this constant and the
+ * state it drives has no effect whenever 4S access is owned. Picked as a
+ * reasonable starting value to filter single-tick noise without adding much
+ * lag on top of the already-throttled per-tick sampling; not yet tuned
+ * against a live before/after comparison the way WINDOW_TICKS was.
+ */
+const MOMENTUM_CONFIRM_TICKS = 3
+
 export interface TradeSignal {
   direction: 'long' | 'short' | null
   /**
@@ -28,6 +50,25 @@ export interface TradeSignal {
 }
 
 const NO_SIGNAL: TradeSignal = { direction: null, strength: 0 }
+
+/**
+ * Debounce state for one symbol's momentum direction - `confirmed` is what
+ * getMomentumSignal actually reports; `pending`/`pendingCount` track a
+ * not-yet-confirmed raw direction working towards MOMENTUM_CONFIRM_TICKS.
+ * `null` is a real value for both `confirmed` and `pending` (no signal /
+ * below noise floor), not just "unset" - dropping out of a confirmed
+ * direction needs the same persistence as flipping to the opposite one, so
+ * a momentary dip below the noise floor doesn't instantly exit a held
+ * position either. `pending` is `undefined` specifically for "no candidate
+ * currently accumulating" - collapsing that into `null` instead would make
+ * a reset-then-immediately-null tick collide with a genuine second
+ * consecutive null reading and undercount by one tick.
+ */
+interface MomentumDirectionState {
+  confirmed: 'long' | 'short' | null
+  pending: 'long' | 'short' | null | undefined
+  pendingCount: number
+}
 
 function mean(values: number[]): number {
   return values.reduce((a, b) => a + b, 0) / values.length
@@ -46,6 +87,7 @@ function stddev(values: number[]): number {
  */
 export class PriceWindow {
   private readonly mids = new Map<string, number[]>()
+  private readonly direction = new Map<string, MomentumDirectionState>()
 
   push(sym: string, mid: number): void {
     const arr = this.mids.get(sym) ?? []
@@ -103,19 +145,49 @@ export class PriceWindow {
     return Math.abs(this.trailingReturn(sym))
   }
 
+  /**
+   * Debounced: the raw direction below (from a single tick's window-endpoint
+   * difference) only becomes the reported one after MOMENTUM_CONFIRM_TICKS
+   * consecutive ticks agree - see that constant's own comment for why.
+   * `strength` is reported off the raw magnitude regardless (it's a
+   * direction-agnostic |move|/noiseFloor ratio, only consumed for ranking
+   * entry candidates - not-yet-confirmed positions never reach that
+   * ranking, so there's nothing for a stale strength to mislead there).
+   */
   getMomentumSignal(sym: string): TradeSignal {
     if (!this.isReady(sym))
       return NO_SIGNAL
 
     const trailingReturn = this.trailingReturn(sym)
     const noiseFloor = this.noiseFloor(sym)
-    if (noiseFloor === 0 || Math.abs(trailingReturn) < noiseFloor)
-      return NO_SIGNAL
+    const rawDirection: 'long' | 'short' | null
+      = (noiseFloor === 0 || Math.abs(trailingReturn) < noiseFloor)
+        ? null
+        : (trailingReturn > 0 ? 'long' : 'short')
+    const strength = noiseFloor === 0 ? 0 : Math.abs(trailingReturn) / noiseFloor
 
-    return {
-      direction: trailingReturn > 0 ? 'long' : 'short',
-      strength: Math.abs(trailingReturn) / noiseFloor,
+    const state = this.direction.get(sym) ?? { confirmed: null, pending: undefined, pendingCount: 0 }
+
+    if (rawDirection === state.confirmed) {
+      state.pending = undefined
+      state.pendingCount = 0
     }
+    else if (rawDirection === state.pending) {
+      state.pendingCount++
+      if (state.pendingCount >= MOMENTUM_CONFIRM_TICKS) {
+        state.confirmed = rawDirection
+        state.pending = undefined
+        state.pendingCount = 0
+      }
+    }
+    else {
+      state.pending = rawDirection
+      state.pendingCount = 1
+    }
+
+    this.direction.set(sym, state)
+
+    return state.confirmed === null ? NO_SIGNAL : { direction: state.confirmed, strength }
   }
 }
 
