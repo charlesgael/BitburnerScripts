@@ -115,6 +115,14 @@ export function CloudServersContent() {
                       </div>
                     )
                   : null}
+
+                {cs.renameError
+                  ? (
+                      <div className="bb-text-error bb-wrap" style={{ fontSize: '11px', marginBottom: '8px' }}>
+                        {cs.renameError}
+                      </div>
+                    )
+                  : null}
               </div>
             )
           : (

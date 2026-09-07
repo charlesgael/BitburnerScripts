@@ -15,6 +15,7 @@ export function CloudServerCard({
   s: CloudServerRow
 }) {
   const usedPct = s.maxRam > 0 ? Math.min(100, (s.ramUsed / s.maxRam) * 100) : 0
+  const isRenaming = cs.renameHost === s.hostname
   return (
     <div className="bb-card">
       <div
@@ -25,14 +26,40 @@ export function CloudServerCard({
           gap: '8px',
         }}
       >
-        <span className="bb-wrap" style={{ flex: 1 }}>
-          {s.hostname}
-          {' ('}
-          {formatRam(s.ramUsed)}
-          /
-          {formatRam(s.maxRam)}
-          )
-        </span>
+        {isRenaming
+          ? (
+              <input
+                type="text"
+                autoFocus
+                value={cs.renameValue}
+                onChange={(ev: any) => cs.setRenameValue(ev.target.value)}
+                onBlur={() => void cs.commitRename()}
+                onKeyDown={(ev: any) => {
+                  if (ev.key === 'Enter')
+                    ev.target.blur()
+                  else if (ev.key === 'Escape')
+                    cs.cancelRename()
+                }}
+                className="bb-field bb-field--sm"
+                style={{ flex: 1, minWidth: 0 }}
+              />
+            )
+          : (
+              <span
+                className="bb-wrap"
+                style={{ flex: 1, cursor: 'text' }}
+                title="Double-click to rename"
+                onDoubleClick={() => cs.startRename(s.hostname)}
+              >
+                {s.hostname}
+                {' ('}
+                {formatRam(s.ramUsed)}
+                /
+                {formatRam(s.maxRam)}
+                )
+                {cs.renameBusyHost === s.hostname ? ' …' : ''}
+              </span>
+            )}
         <button
           onClick={() => cs.handleDeleteClick(s.hostname)}
           disabled={cs.busy || s.ramUsed > 0}

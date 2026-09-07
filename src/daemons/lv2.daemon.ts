@@ -1,6 +1,6 @@
 import type { NS } from '@ns'
 import type { CgdActionHandlers } from '../cgd/types'
-import { cloudBuyAction, cloudDeleteAction, cloudListAction } from '../cgd/actions/cloud'
+import { cloudBuyAction, cloudDeleteAction, cloudListAction, cloudRenameAction } from '../cgd/actions/cloud'
 import { hwgwStatusAction } from '../cgd/actions/hwgw'
 import { slaveNodeHostsAction } from '../cgd/actions/slave-nodes'
 import { runTieredDaemon } from '../cgd/daemon-core'
@@ -30,7 +30,7 @@ const TIER_2_METHODS = [
  * well past its ~8 GB starter-player budget).
  *
  * No new raw dispatch entries on top of tier 1's: `cloudList`/`cloudBuy`/
- * `cloudDelete`/`slaveNodeHosts`/`hwgwStatus` are all registered as compound
+ * `cloudDelete`/`cloudRename`/`slaveNodeHosts`/`hwgwStatus` are all registered as compound
  * actions instead (see `cgd/types.ts`'s `CgdActionHandler`) — genuine
  * multi-step operations (a cost-check-then-purchase sequence; a network
  * BFS; a `ns.ps`+`ns.getRunningScript` fleet scan) that don't need
@@ -50,6 +50,7 @@ const TIER_2_ACTIONS: CgdActionHandlers = {
   cloudList: cloudListAction,
   cloudBuy: cloudBuyAction,
   cloudDelete: cloudDeleteAction,
+  cloudRename: cloudRenameAction,
   slaveNodeHosts: slaveNodeHostsAction,
   hwgwStatus: hwgwStatusAction,
 }

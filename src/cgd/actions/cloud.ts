@@ -9,7 +9,7 @@ import type { NS, Server } from '@ns'
  * run inside the persistent tiered daemon instead, invoked via
  * `cgd.daemon.queue.enqueueAction`.
  *
- * All three are registered at **tier 2** (see `daemons/lv2.daemon.ts`).
+ * All four are registered at **tier 2** (see `daemons/lv2.daemon.ts`).
  * `cloudListAction` was briefly tried at tier 1 on the reasoning that
  * read-only enumeration is foundational plumbing several other apps depend
  * on (Share, XP Farm, File Explorer, Programs) — but measured live, it
@@ -135,6 +135,23 @@ export async function cloudBuyAction(
   return newHostname
     ? { ok: true, hostname: newHostname }
     : { ok: false, error: 'Purchase failed — invalid hostname, or server limit reached.' }
+}
+
+/** Renames one cloud server. Args: `[hostname: string, newName: string]`. */
+export async function cloudRenameAction(
+  ns: NS,
+  hostname: unknown,
+  newName: unknown,
+): Promise<{ ok: boolean, hostname?: string, error?: string }> {
+  const h = String(hostname ?? '')
+  const n = String(newName ?? '').trim()
+  if (!n) {
+    return { ok: false, error: 'Enter a valid hostname.' }
+  }
+  const ok = ns.cloud.renameServer(h, n)
+  return ok
+    ? { ok: true, hostname: n }
+    : { ok: false, error: 'Rename failed — hostname may already be taken, or invalid.' }
 }
 
 /** Deletes one cloud server. Args: `[hostname: string]`. */

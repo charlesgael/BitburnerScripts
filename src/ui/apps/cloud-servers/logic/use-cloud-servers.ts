@@ -37,6 +37,11 @@ export function useCloudServers() {
   const [deleteBusyHost, setDeleteBusyHost] = React.useState<string | null>(null)
   const [deleteError, setDeleteError] = React.useState<string | null>(null)
 
+  const [renameHost, setRenameHost] = React.useState<string | null>(null)
+  const [renameValue, setRenameValue] = React.useState('')
+  const [renameBusyHost, setRenameBusyHost] = React.useState<string | null>(null)
+  const [renameError, setRenameError] = React.useState<string | null>(null)
+
   // --- Slave nodes (see `ui/utils/slave-nodes.ts`) ---
   // `slaveHosts` is every rooted/non-purchased/non-home host on the
   // network — the full checklist, independent of which are currently
@@ -188,6 +193,48 @@ export function useCloudServers() {
     }
   }
 
+  // Double-click-to-rename: `startRename` swaps a card's hostname text for
+  // an editable field, `commitRename` fires on blur (or Enter, which just
+  // blurs the field) and is a no-op if the name wasn't actually changed —
+  // no confirm step needed since the field itself is the "are you sure"
+  // moment, unlike Delete. Escape (`cancelRename`) backs out without
+  // submitting.
+  function startRename(hostname: string) {
+    setRenameHost(hostname)
+    setRenameValue(hostname)
+    setRenameError(null)
+  }
+
+  function cancelRename() {
+    setRenameHost(null)
+  }
+
+  async function commitRename() {
+    const hostname = renameHost
+    if (!hostname)
+      return
+    setRenameHost(null)
+    const newName = renameValue.trim()
+    if (!newName || newName === hostname)
+      return
+    setRenameError(null)
+    setRenameBusyHost(hostname)
+    try {
+      const result = (await callAction('cloudRename', [hostname, newName])) as ActionResult
+      if (!result.ok) {
+        setRenameError(result.error ?? 'Rename failed.')
+        return
+      }
+      await refreshList()
+    }
+    catch (err) {
+      setRenameError(err instanceof Error ? err.message : String(err))
+    }
+    finally {
+      setRenameBusyHost(null)
+    }
+  }
+
   // Flips one host's checkbox in the Slave Nodes tab: designates it if it
   // wasn't already, releases it if it was. Unlike deleting a purchased
   // server, un-designating a slave node doesn't touch the server itself —
@@ -319,6 +366,15 @@ export function useCloudServers() {
     deleteBusyHost,
     deleteError,
     handleDeleteClick,
+
+    renameHost,
+    renameValue,
+    setRenameValue,
+    renameBusyHost,
+    renameError,
+    startRename,
+    commitRename,
+    cancelRename,
   }
 }
 
