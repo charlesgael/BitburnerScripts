@@ -1,4 +1,4 @@
-import type { NS } from '@ns'
+import type { NS, ProcessInfo } from '@ns'
 
 /**
  * Exits immediately (`ns.exit()`) if another instance of this exact script
@@ -7,10 +7,14 @@ import type { NS } from '@ns'
  * accidental double-launch.
  */
 export function noDupe(ns: NS) {
-  const scriptName = ns.getScriptName()
-  const dupe = ns.ps(ns.getHostname()).find(p => p.filename === ns.getScriptName() && p.pid !== ns.pid)
+  const dupe = hasDupe(ns)
   if (dupe) {
-    ns.tprint(`WARNING: ${scriptName} is already running (pid ${dupe.pid}) - exiting.`)
+    ns.tprint(`WARNING: ${dupe.filename} is already running (pid ${dupe.pid}) - exiting.`)
     ns.exit()
   }
+}
+
+export function hasDupe(ns: NS): ProcessInfo | undefined {
+  const dupe = ns.ps(ns.getHostname()).find(p => p.filename === ns.getScriptName() && p.pid !== ns.pid)
+  return dupe
 }

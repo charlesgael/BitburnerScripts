@@ -128,10 +128,18 @@ export async function main(ns: NS) {
       const host = await waitForHost(ramNeeds, snapshot)
 
       const time = ns.getWeakenTime(target)
+      const added = []
       if (growthThreads > 0)
-        pids.push(ns.exec(GROW_SCRIPT, host, Math.ceil(growthThreads * GW_THREAD_MULTI), target))
+        added.push(ns.exec(GROW_SCRIPT, host, Math.ceil(growthThreads * GW_THREAD_MULTI), target))
       if (weakenThreads > 0)
-        pids.push(ns.exec(WEAKEN_SCRIPT, host, Math.ceil(weakenThreads * GW_THREAD_MULTI), target))
+        added.push(ns.exec(WEAKEN_SCRIPT, host, Math.ceil(weakenThreads * GW_THREAD_MULTI), target))
+      if (added.includes(0)) {
+        ns.print(`Failed to launch prep for ${target}`)
+        ns.sleep(2_000)
+        added.filter(it => it).forEach(ns.kill)
+        continue
+      }
+      pids.push(...added)
 
       ns.print(`Waiting ${formatDuration(time / 1000)} for prep phase`)
       await ns.sleep(time)
@@ -156,12 +164,20 @@ export async function main(ns: NS) {
 
       ns.print(`Looptime: ${formatDuration(loopTime / 1000)}, ram: ${formatRam(ramNeeds)}, host: ${host}`)
 
+      const added = []
       for (let i = 0; i < loops; i++) {
-        pids.push(ns.exec(HACK_SCRIPT, host, hackThreads, target, loopTime, 0 + waveLength * i))
-        pids.push(ns.exec(WEAKEN_SCRIPT, host, weaken1Threads, target, loopTime, WAVE_LEG_GAP_MS + waveLength * i))
-        pids.push(ns.exec(GROW_SCRIPT, host, growthThreads, target, loopTime, WAVE_LEG_GAP_MS * 2 + waveLength * i))
-        pids.push(ns.exec(WEAKEN_SCRIPT, host, weaken2Threads, target, loopTime, WAVE_LEG_GAP_MS * 3 + waveLength * i))
+        added.push(ns.exec(HACK_SCRIPT, host, hackThreads, target, loopTime, 0 + waveLength * i))
+        added.push(ns.exec(WEAKEN_SCRIPT, host, weaken1Threads, target, loopTime, WAVE_LEG_GAP_MS + waveLength * i))
+        added.push(ns.exec(GROW_SCRIPT, host, growthThreads, target, loopTime, WAVE_LEG_GAP_MS * 2 + waveLength * i))
+        added.push(ns.exec(WEAKEN_SCRIPT, host, weaken2Threads, target, loopTime, WAVE_LEG_GAP_MS * 3 + waveLength * i))
       }
+      if (added.includes(0)) {
+        ns.print(`Failed to launch prep for ${target}`)
+        ns.sleep(2_000)
+        added.filter(it => it).forEach(ns.kill)
+        continue
+      }
+      pids.push(...added)
       setState('done', snapshot)
     }
     else {
@@ -178,7 +194,10 @@ export async function main(ns: NS) {
 
   async function waitForHost(ramNeeds: number, snapshot: { securityExcess: number, moneyDeficit: number }): Promise<string> {
     while (true) {
-      const host = hosts.find(it => ns.getServerMaxRam(it) - ns.getServerUsedRam(it) > ramNeeds)
+      const host = hosts
+        .map(it => [it, ns.getServerMaxRam(it) - ns.getServerUsedRam(it)] as const)
+        .filter(([, free]) => free > ramNeeds)
+        .sort(([,A], [,B]) => B - A)[0]?.[0]
       if (host === undefined) {
         ns.print(`Couldn't find available host with ${formatRam(ramNeeds)} available RAM.`)
         // Same reaffirm as the outer loop's own `setState` call — a target
