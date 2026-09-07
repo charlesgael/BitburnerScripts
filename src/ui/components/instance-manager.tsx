@@ -72,9 +72,9 @@ export function InstanceManager(props: {
     }
   }, [toggleFnRef])
 
-  // useEffect(() => { // call onRunning when running changes
-  //   onRunning?.(running)
-  // }, [running, onRunning])
+  useEffect(() => { // call onRunning when running changes
+    onRunning?.(running)
+  }, [running, onRunning])
 
   // async function openLog() {
   //   if (running) {
@@ -88,7 +88,7 @@ export function InstanceManager(props: {
     setBusy(true)
     try {
       if (running) {
-        await ns._kill(goal.filename, host)
+        await ns._kill(running.pid)
         setRunning(undefined)
       }
       else {

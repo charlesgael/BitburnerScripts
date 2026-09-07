@@ -38,6 +38,21 @@ export async function main(ns: NS) {
   let state: 'null' | 'done' | 'farm' | 'prep' = 'null'
   const pids: number[] = []
 
+  // Every transition also gets a structured log line, alongside the plain
+  // human-readable prints already scattered through the loop below —
+  // `lib/hwgw/workers.ts`'s `scanHwgwOrchestrators` reads this back via
+  // `ns.getRunningScript(pid).logs` to know this instance's current mode,
+  // at no extra RAM cost (that same call is already needed for money/XP).
+  // `snapshot` piggybacks the security-excess/money-deficit numbers this
+  // loop already computes off the very same `ns.getServer(target)` call —
+  // reading them back this way costs the dashboard nothing beyond the
+  // `getRunningScript` call it already makes, rather than a second
+  // `ns.getServer` from wherever renders them.
+  function setState(next: typeof state, snapshot: { securityExcess: number, moneyDeficit: number }) {
+    state = next
+    ns.print(JSON.stringify({ action: 'state-change', to: next, ...snapshot }))
+  }
+
   ns.atExit(() => {
     for (const p of pids) {
       ns.kill(p)
@@ -83,13 +98,27 @@ export async function main(ns: NS) {
 
   while (true) {
     const { hackDifficulty, minDifficulty, moneyAvailable, moneyMax } = ns.getServer(target)
+    const snapshot = {
+      securityExcess: Math.max(0, hackDifficulty! - minDifficulty!),
+      moneyDeficit: Math.max(0, moneyMax! - moneyAvailable!),
+    }
+    // Re-affirmed every tick, not just on an actual transition — Bitburner
+    // caps how many lines a script's own log retains (configurable in
+    // Options), so a target sitting in one state for a long time (`done`
+    // especially, once every other target has also stopped touching this
+    // one's own log) would otherwise eventually scroll its original
+    // `state-change` line out of the buffer entirely, and
+    // `lib/hwgw/workers.ts`'s `latestState` would silently fall back to
+    // reporting `'null'`. Re-printing the identical line every iteration
+    // keeps it within whatever window the backward scan actually needs.
+    setState(state, snapshot)
     if (state === 'null') {
       // Define if we go in farm or in prep
       if (hackDifficulty! > minDifficulty! || moneyAvailable! < moneyMax!) {
-        state = 'prep'
+        setState('prep', snapshot)
       }
       else {
-        state = 'farm'
+        setState('farm', snapshot)
       }
     }
     else if (state === 'prep') {
@@ -97,7 +126,7 @@ export async function main(ns: NS) {
       let incSecurity = 0
       let weakenThreads = 0
       if (moneyAvailable! < moneyMax!) {
-        ns.print(`Money deficit: ${formatMoney(moneyMax! - moneyAvailable!)}`)
+        ns.print(`Money deficit: ${formatMoney(snapshot.moneyDeficit)}`)
         const multiplier = moneyMax! / moneyAvailable!
         growthThreads += Math.ceil(ns.growthAnalyze(target, multiplier))
         incSecurity += Math.ceil(ns.growthAnalyzeSecurity(growthThreads))
@@ -108,7 +137,7 @@ export async function main(ns: NS) {
       }
 
       if (growthThreads === 0 && weakenThreads === 0) {
-        state = 'farm'
+        setState('farm', snapshot)
         continue
       }
 
@@ -150,15 +179,15 @@ export async function main(ns: NS) {
         pids.push(ns.exec(GROW_SCRIPT, host, growthThreads, target, loopTime, WAVE_LEG_GAP_MS * 2 + waveLength * i))
         pids.push(ns.exec(WEAKEN_SCRIPT, host, weaken2Threads, target, loopTime, WAVE_LEG_GAP_MS * 3 + waveLength * i))
       }
-      state = 'done'
+      setState('done', snapshot)
     }
     else {
       ns.print(`Farm ongoing`)
-      if (moneyAvailable! < moneyMax!) {
-        ns.print(`Money deficit: ${formatMoney(moneyMax! - moneyAvailable!)}`)
+      if (snapshot.moneyDeficit > 0) {
+        ns.print(`Money deficit: ${formatMoney(snapshot.moneyDeficit)}`)
       }
-      if (hackDifficulty! > minDifficulty!) {
-        ns.print(`Security excess: ${formatNumber(hackDifficulty! - minDifficulty!)}`)
+      if (snapshot.securityExcess > 0) {
+        ns.print(`Security excess: ${formatNumber(snapshot.securityExcess)}`)
       }
       await ns.sleep(60_000)
     }

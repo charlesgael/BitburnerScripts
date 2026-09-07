@@ -1,6 +1,6 @@
 import type { NS, Server } from '@ns'
 import type { XpFarmAssignment } from '../ui/utils/xp-farm-config'
-import { getCgdStore } from '../cgd/store'
+import { scanHwgwTargets } from '../lib/hwgw/workers'
 import {
   XP_FARM_CONFIG_FILE as CONFIG_FILE,
   XP_FARM_LOOP_DELAY as CONTINUOUS,
@@ -113,33 +113,21 @@ interface ManagedAssignment extends Assignment {
 }
 
 /**
- * The union of every target either `money-farm.daemon.ts` or
- * `steady-farm.daemon.ts` currently holds a session against, per
- * `cgd.store`'s `moneyFarm`/`steadyFarm` fields (each pushed independently
- * by its own daemon every few seconds — see those fields' own doc comments
- * in `cgd/types.ts`, and `steady-farm.daemon.ts`'s header comment for why
- * it's a separate field rather than sharing `moneyFarm`). Empty whenever
- * neither daemon is running, or neither's first push has landed yet — XP
- * Farm just behaves exactly as it always has in that case. Reading
- * `cgd.store` here costs no RAM (`getCgdStore` is pure window access, no
- * `ns.*` reference — see `window-cgd.ts`'s own header comment for why
- * that's safe from any script), and the try/catch matches both daemons'
- * own reasoning for guarding their store access: a transient failure here
- * shouldn't crash this daemon's main loop, just make it act as if neither
- * is running for this one check. Steady Farm's own batch math is exactly
- * as vulnerable to XP Farm's grow interference as money-farm's is (see
- * this file's own header comment), so it gets the identical protection for
- * free by being included here rather than needing its own separate check.
+ * Every target hwgw (`src/hwgw/`, which replaced `daemons/money-farm.daemon.ts`
+ * and `daemons/steady-farm.daemon.ts`, both since deleted) currently has an
+ * orchestrator or worker running against — scanned live off `ns.ps`
+ * (`lib/hwgw/workers.ts`'s `scanHwgwTargets`) rather than trusted from a
+ * `cgd.store` field the way the two now-deleted daemons pushed one: hwgw
+ * doesn't push anything there at all, since `ns.getRunningScript` already
+ * gives a live read with no daemon-side bookkeeping to trust (see that
+ * file's own header comment). Assumes hwgw's dedicated hosts are exactly
+ * `ns.cloud.getServerNames()` — true as of this writing; a one-line change
+ * here if hwgw ever manages a different host set. Empty whenever hwgw
+ * isn't running anything — this daemon just behaves exactly as it always
+ * has in that case.
  */
-function hwgFarmTargets(): Set<string> {
-  try {
-    const store = getCgdStore().getState()
-    const targets = [...store.moneyFarm?.perTarget ?? []]
-    return new Set(targets.map(t => t.target))
-  }
-  catch {
-    return new Set()
-  }
+function hwgFarmTargets(ns: NS): Set<string> {
+  return scanHwgwTargets(ns, ns.cloud.getServerNames())
 }
 
 /**
@@ -337,7 +325,7 @@ function claim(ns: NS, host: string, target: string, sharedTargets: Set<string>)
   enforceOwnership(ns, host, assignment)
   ns.print(
     `${host}: farming ${target} — ${growThreads} grow thread(s), ${weakenThreads} weaken thread(s)`
-    + `${sharedWithHwgFarm ? ' (weaken-only — shared with money-farm/steady-farm)' : ''}.`,
+    + `${sharedWithHwgFarm ? ' (weaken-only — shared with hwgw)' : ''}.`,
   )
   return assignment
 }
@@ -391,7 +379,7 @@ export async function main(ns: NS) {
     // shares it rather than each re-running the same network scan.
     // sharedTargets has to exist before pickTarget runs now: its score
     // needs to know which candidates would actually run weaken-only.
-    const sharedTargets = hwgFarmTargets()
+    const sharedTargets = hwgFarmTargets(ns)
     const bestTarget = pickTarget(ns, hostname => sharedTargets.has(hostname))
 
     if (bestTarget) {
@@ -430,9 +418,9 @@ export async function main(ns: NS) {
         continue
       }
 
-      // Same target, but its money-farm-shared status may have flipped
-      // since last cycle (money-farm just started or stopped a session
-      // against it) — re-split only on an actual transition, never just
+      // Same target, but its hwgw-shared status may have flipped since
+      // last cycle (hwgw just started or stopped a session against it) —
+      // re-split only on an actual transition, never just
       // because splitGrowWeakenThreads's own ratio drifted a thread from
       // the target's security shifting under this daemon's own activity.
       // See enforceOwnership's own comment for why the kill has to happen
@@ -441,7 +429,7 @@ export async function main(ns: NS) {
       if (nowShared !== assignment.sharedWithHwgFarm) {
         ns.print(
           `${host}: ${assignment.target} `
-          + `${nowShared ? 'now shared with money-farm — switching to weaken-only' : 'no longer shared with money-farm — resuming grow/weaken mix'}.`,
+          + `${nowShared ? 'now shared with hwgw — switching to weaken-only' : 'no longer shared with hwgw — resuming grow/weaken mix'}.`,
         )
         ns.killall(host)
         const { growThreads, weakenThreads } = desiredSplit(ns, host, assignment.target, sharedTargets)

@@ -1,6 +1,5 @@
 import type { NS, Server } from '@ns'
-import { drainStatusPort } from './daemons/money-farm.daemon'
-import { addMoneyFarmLog } from './lib/money-farm/state-farm'
+import { addMoneyFarmLog, drainStatusPort } from './lib/money-farm/state-farm'
 import { parseArgs } from './utils/args'
 import { noDupe } from './utils/ns/nodupe'
 import { MONEY_FARM_PORT } from './utils/ports.lib'

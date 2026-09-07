@@ -1,22 +1,25 @@
 import type { CloudServerRow } from '../../../utils/cloud-list'
 import type { MoneyFarmState } from '../logic/use-money-farm'
 import React from '@react'
+import { formatMoney } from '../../../../utils/format/game'
 import { ServerCard } from '../../../components/server-card'
 
 const MODE_LABEL: Record<string, string> = {
-  'weaken': 'weakening',
-  'grow-prep': 'prepping',
-  'farm': 'farming',
+  null: 'idling',
+  prep: 'prepping',
+  farm: 'farming',
+  done: 'farming',
 }
 
 /**
  * One dedicated (or dedicatable) server's card: hostname/RAM + Enable/
- * Disable, and — once enabled — its current target/mode status line. No
- * per-thread breakdown or tail-log link the way `../../xp-farm/`'s card
- * has: a farming host runs many short-lived one-shot batch legs (see
- * `daemons/money-farm.daemon.ts`'s header comment), so there's no single
- * stable process worth tailing and no thread count worth displaying as if
- * it were fixed.
+ * Disable, and — once enabled — a status line *per target* currently
+ * running a worker there. Plural on purpose: hwgw shares one host pool
+ * across every running instance rather than dedicating a whole host per
+ * target (see `lib/hwgw/workers.ts`'s header comment), so a card can list
+ * more than one target. No per-thread breakdown or tail-log link the way
+ * `../../xp-farm/`'s card has: a farming host runs many `h.js`/`g.js`/
+ * `w.js` loops at once, so there's no single stable process worth tailing.
  */
 export function MoneyFarmServerCard({
   mf,
@@ -27,7 +30,7 @@ export function MoneyFarmServerCard({
 }) {
   const isEnabled = mf.enabled.has(s.hostname)
   const isOccupied = mf.busyHost === s.hostname || mf.bulkBusy
-  const assignment = mf.status[s.hostname]
+  const assignments = mf.status[s.hostname] ?? []
   const hasProcess = !isEnabled && s.ramUsed > 0
 
   return (
@@ -63,19 +66,20 @@ export function MoneyFarmServerCard({
             )}
         {isEnabled
           ? (
-              <div className="bb-wrap" style={{ fontSize: '11px', opacity: 0.75 }}>
-                {assignment
-                  ? (
-                      <span>
+              <div className="bb-wrap" style={{ fontSize: '11px', opacity: 0.75, textAlign: 'right' }}>
+                {assignments.length > 0
+                  ? assignments.map(a => (
+                      <div key={a.target}>
                         →
                         {' '}
-                        {assignment.target}
+                        {a.target}
                         {' '}
                         (
-                        {MODE_LABEL[assignment.mode] ?? assignment.mode}
+                        {MODE_LABEL[a.mode] ?? a.mode}
+                        {a.moneyPerHour > 0 && `, ${formatMoney(a.moneyPerHour)}/h`}
                         )
-                      </span>
-                    )
+                      </div>
+                    ))
                   : (
                       '→ idling'
                     )}

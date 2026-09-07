@@ -5,7 +5,7 @@ import { useCgdActions } from '../../../context/cgd-actions-context'
 import { useQueuedNs } from '../../../context/ns-queue-context'
 import { isHome } from '../../../logic/is-home'
 import { fetchCloudList, sortByHostname } from '../../../utils/cloud-list'
-import { readMoneyFarmHosts } from '../../../utils/money-farm-config'
+import { readHwgwHosts } from '../../../utils/hwgw-config'
 import { readXpFarmHosts } from '../../../utils/xp-farm-config'
 
 /**
@@ -33,14 +33,14 @@ export function useShare() {
     setLoading(true)
     setError(null)
     try {
-      const [homeServer, cloudList, xpFarmHosts, moneyFarmHosts] = await Promise.all([
+      const [homeServer, cloudList, xpFarmHosts, hwgwHosts] = await Promise.all([
         ns._getServer('home'),
         fetchCloudList(callAction),
         readXpFarmHosts(ns),
-        readMoneyFarmHosts(ns),
+        readHwgwHosts(ns),
       ])
       setHomeServer(homeServer)
-      const dedicated = new Set([...xpFarmHosts, ...moneyFarmHosts])
+      const dedicated = new Set([...xpFarmHosts, ...hwgwHosts])
       setCloudServers(sortByHostname(cloudList.servers.filter((s: CloudServerRow) => !dedicated.has(s.hostname))))
     }
     catch (err) {

@@ -1,6 +1,7 @@
 import type { NS } from '@ns'
 import type { CgdActionHandlers } from '../cgd/types'
 import { cloudBuyAction, cloudDeleteAction, cloudListAction } from '../cgd/actions/cloud'
+import { hwgwStatusAction } from '../cgd/actions/hwgw'
 import { slaveNodeHostsAction } from '../cgd/actions/slave-nodes'
 import { runTieredDaemon } from '../cgd/daemon-core'
 import { makeStatPusher } from '../cgd/stat-push'
@@ -29,12 +30,18 @@ const TIER_2_METHODS = [
  * well past its ~8 GB starter-player budget).
  *
  * No new raw dispatch entries on top of tier 1's: `cloudList`/`cloudBuy`/
- * `cloudDelete`/`slaveNodeHosts` are all registered as compound actions
- * instead (see `cgd/types.ts`'s `CgdActionHandler`) — genuine multi-step
- * operations (a cost-check-then-purchase sequence; a network BFS) that
- * don't need decoy/allow-list sync the way `TIER_1_METHODS` does, since
- * their literal `ns.*` calls live directly in their own handler bodies and
- * get counted the ordinary way just by being defined.
+ * `cloudDelete`/`slaveNodeHosts`/`hwgwStatus` are all registered as compound
+ * actions instead (see `cgd/types.ts`'s `CgdActionHandler`) — genuine
+ * multi-step operations (a cost-check-then-purchase sequence; a network
+ * BFS; a `ns.ps`+`ns.getRunningScript` fleet scan) that don't need
+ * decoy/allow-list sync the way `TIER_1_METHODS` does, since their literal
+ * `ns.*` calls live directly in their own handler bodies and get counted
+ * the ordinary way just by being defined.
+ *
+ * `hwgwStatus` (`cgd/actions/hwgw.ts`) lives here rather than tier 1 for
+ * the same "its only consumer is already gated higher" reasoning as
+ * `cloudList` — `ui/apps/money-farm/` (hwgw's dashboard) is
+ * `minDaemonTier: 2`, so a tier-1 placement would buy nothing.
  *
  * Usage: `run daemons/lv2.daemon.js`
  */
@@ -44,6 +51,7 @@ const TIER_2_ACTIONS: CgdActionHandlers = {
   cloudBuy: cloudBuyAction,
   cloudDelete: cloudDeleteAction,
   slaveNodeHosts: slaveNodeHostsAction,
+  hwgwStatus: hwgwStatusAction,
 }
 
 function reserveTier2Ram(ns: NS) {

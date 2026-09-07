@@ -1,32 +1,56 @@
+import type { HwgwStatusResult, HwgwTargetStatus } from '../../../../lib/hwgw/workers'
 import type { CloudServerRow } from '../../../utils/cloud-list'
-import type { MoneyFarmStatus } from '../../../utils/money-farm-config'
 import React from '@react'
 import { useCgdActions } from '../../../context/cgd-actions-context'
 import { useQueuedNs } from '../../../context/ns-queue-context'
 import { fetchCloudList, sortByHostname } from '../../../utils/cloud-list'
-import {
-  MONEY_FARM_GROW_SCRIPT,
-  MONEY_FARM_HACK_SCRIPT,
-  MONEY_FARM_WEAKEN_SCRIPT,
-  readMoneyFarmHosts,
-  writeMoneyFarmHosts,
-} from '../../../utils/money-farm-config'
+import { readHwgwHosts, writeHwgwHosts } from '../../../utils/hwgw-config'
 import { readXpFarmHosts } from '../../../utils/xp-farm-config'
 
+/** host -> every hwgw target currently running a worker there (see `lib/hwgw/workers.ts`'s `HwgwStatusResult.byHost`). */
+export type HwgwHostStatus = Record<string, HwgwTargetStatus[]>
+
 /**
- * All Money Farm state and behavior — mirrors `use-xp-farm.ts`'s own shape
- * (see its header comment for the parts that are identical: why this app
- * never calls `ns.hack`/`ns.grow`/`ns.weaken`/`ns.getServer` itself, the
- * daemon's self-managing lifecycle, mutual exclusion with other dedicated
- * hosts via `../../../components/server-card.tsx`'s own "Occupied" state).
+ * target -> its status, straight from `HwgwStatusResult.byTarget` — kept
+ * separate from `status` (below) rather than derived from it. `status` is
+ * built by walking `byHost`, so a target whose orchestrator is alive but
+ * hasn't landed a single worker on a *scanned* host yet — still in
+ * `prep`/`null`, or its own `waitForHost` loop still waiting on free RAM,
+ * both common with many concurrent instances competing for the same host
+ * pool — has no entry there at all and would silently vanish from any view
+ * built only off `status`. `targets` is the full picture: every target
+ * `scanHwgwOrchestrators` found on `home`, regardless of worker state.
+ */
+export type HwgwTargetsStatus = Record<string, HwgwTargetStatus>
+
+/**
+ * All Money Farm state and behavior — kept at this path/id (see `../index.ts`'s
+ * header comment for why), now driving hwgw (`src/hwgw/`) instead of the
+ * deleted `daemons/money-farm.daemon.ts`. Mirrors `use-xp-farm.ts`'s own
+ * shape for the parts that are identical: why this app never calls
+ * `ns.hack`/`ns.grow`/`ns.weaken`/`ns.getServer` itself, mutual exclusion
+ * with other dedicated hosts via `../../../components/server-card.tsx`.
  *
- * Status derivation differs from XP Farm's: a farming host runs many
- * short-lived one-shot batch-leg processes (see
- * `daemons/money-farm.daemon.ts`'s header comment) rather than two stable
- * continuous loops, so there's no meaningful per-thread count to poll —
- * `fetchStatus` below only distinguishes *mode* (weaken / grow-prep /
- * farm) from whether any currently-running process carries the `--once`
- * flag (a batch leg) or not (a continuous prep loop), not thread counts.
+ * Status derivation differs from XP Farm's in one real way: a host here
+ * can carry *more than one* target's workers at once — hwgw shares one
+ * host pool across every running `hwgw/start.js` instance rather than
+ * dedicating a whole host per target (see `lib/hwgw/workers.ts`'s own
+ * header comment) — so `status` is host -> an *array* of target statuses,
+ * not a single assignment. The scan itself (`ns.ps` + `ns.getRunningScript`
+ * across every dedicated host, plus every `hwgw/start.js` on `home` for
+ * mode) can't be done from this app's own RAM-conscious code directly —
+ * it goes through the `hwgwStatus` compound action (`cgd/actions/hwgw.ts`,
+ * tier 2) instead, same as `fetchCloudList`.
+ *
+ * `enabled` (this file's host list) is *not* an exclusive claim the way
+ * money-farm's was: it just controls what `auto-hack.app.js` is told to
+ * treat as its worker pool on its *next* restart (see `hwgw-config.ts`'s
+ * own header comment) — an already-running target keeps whatever hosts it
+ * was launched with regardless of a later toggle here. So, unlike
+ * money-farm's version, toggling isn't gated on `ramUsed === 0`: a host
+ * already running some other target's hwgw workers is still a perfectly
+ * valid pool member, since hwgw was never exclusive about host use in the
+ * first place.
  */
 export function useMoneyFarm() {
   const ns = useQueuedNs()
@@ -34,42 +58,24 @@ export function useMoneyFarm() {
 
   const [servers, setServers] = React.useState<CloudServerRow[]>([])
   const [enabled, setEnabled] = React.useState<Set<string>>(() => new Set())
-  const [status, setStatus] = React.useState<MoneyFarmStatus>({})
+  const [status, setStatus] = React.useState<HwgwHostStatus>({})
+  const [targets, setTargets] = React.useState<HwgwTargetsStatus>({})
   const [loading, setLoading] = React.useState(true)
   const [busyHost, setBusyHost] = React.useState<string | null>(null)
   const [bulkBusy, setBulkBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
-  async function fetchStatus(hosts: string[]): Promise<MoneyFarmStatus> {
-    const lists = await Promise.all(hosts.map(host => ns._ps(host)))
-    const next: MoneyFarmStatus = {}
-    lists.forEach((processes, i) => {
-      const host = hosts[i]
-      const relevant = processes.filter(p =>
-        p.filename === MONEY_FARM_HACK_SCRIPT
-        || p.filename === MONEY_FARM_GROW_SCRIPT
-        || p.filename === MONEY_FARM_WEAKEN_SCRIPT)
-      if (relevant.length === 0)
-        return
-
-      // Batch legs are always dispatched as `['--once', target, delay]`
-      // (flag before positionals — see `utils/args.ts`'s own convention);
-      // continuous prep loops are `[target, delay]`, no flag.
-      const batchLegs = relevant.filter(p => p.args[0] === '--once')
-      if (batchLegs.length > 0) {
-        const target = batchLegs[0].args[1] as string
-        next[host] = { target, mode: 'farm' }
-        return
-      }
-
-      const continuous = relevant.filter(p => p.args[0] !== '--once')
-      const target = continuous[0]?.args[0] as string | undefined
-      if (target === undefined)
-        return
-      const hasGrow = continuous.some(p => p.filename === MONEY_FARM_GROW_SCRIPT)
-      next[host] = { target, mode: hasGrow ? 'grow-prep' : 'weaken' }
-    })
-    return next
+  async function fetchStatus(hosts: string[]): Promise<{ byHost: HwgwHostStatus, byTarget: HwgwTargetsStatus }> {
+    if (hosts.length === 0)
+      return { byHost: {}, byTarget: {} }
+    const result = await callAction('hwgwStatus', [hosts]) as HwgwStatusResult
+    const byHost: HwgwHostStatus = {}
+    for (const [host, hostTargets] of Object.entries(result.byHost)) {
+      byHost[host] = hostTargets
+        .map(t => result.byTarget[t])
+        .filter((t): t is HwgwTargetStatus => t !== undefined)
+    }
+    return { byHost, byTarget: result.byTarget }
   }
 
   async function refresh() {
@@ -78,24 +84,33 @@ export function useMoneyFarm() {
     try {
       const [cloudList, hosts, xpFarmHosts] = await Promise.all([
         fetchCloudList(callAction),
-        readMoneyFarmHosts(ns),
+        readHwgwHosts(ns),
         readXpFarmHosts(ns),
       ])
-      setServers(sortByHostname(
+      const eligible = sortByHostname(
         cloudList.servers
           .filter(serv => !xpFarmHosts.includes(serv.hostname)),
-      ))
+      )
+      setServers(eligible)
 
       // Self-heal: an augmentation install wipes every purchased server,
-      // but money-farm-config.txt survives untouched — same reasoning as
+      // but hwgw-hosts.json survives untouched — same reasoning as
       // `use-xp-farm.ts`'s identical block.
       const existing = new Set(cloudList.servers.map(s => s.hostname))
       const validHosts = hosts.filter(h => existing.has(h))
       if (validHosts.length !== hosts.length)
-        await writeMoneyFarmHosts(ns, validHosts)
+        await writeHwgwHosts(ns, validHosts)
 
       setEnabled(new Set(validHosts))
-      setStatus(await fetchStatus(validHosts))
+      // Nothing toggled on yet doesn't mean nothing to scan — hwgw can be
+      // (and by default is — see `money-farm-dashboard.tsx`'s InstanceManager
+      // args) launched against the whole eligible fleet without ever
+      // writing a single host into hwgw-hosts.json. Fall back to scanning
+      // every eligible host rather than showing nothing just because the
+      // toggles were never touched.
+      const result = await fetchStatus(validHosts.length > 0 ? validHosts : eligible.map(s => s.hostname))
+      setStatus(result.byHost)
+      setTargets(result.byTarget)
     }
     catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -118,13 +133,18 @@ export function useMoneyFarm() {
 
   const STATUS_POLL_MS = 3000
   React.useEffect(() => {
-    const hosts = [...enabled] as string[]
+    // Same fallback as `refresh()` above — see its own comment.
+    const hosts = enabled.size > 0 ? [...enabled] : servers.map(s => s.hostname)
     const iFetchStatus = setInterval(() => {
-      if (hosts.length > 0)
-        fetchStatus(hosts).then(setStatus).catch(() => {})
+      if (hosts.length > 0) {
+        fetchStatus(hosts).then((result) => {
+          setStatus(result.byHost)
+          setTargets(result.byTarget)
+        }).catch(() => {})
+      }
     }, STATUS_POLL_MS)
     return () => clearInterval(iFetchStatus)
-  }, [enabled])
+  }, [enabled, servers])
 
   async function toggle(hostname: string) {
     setError(null)
@@ -140,7 +160,7 @@ export function useMoneyFarm() {
       else {
         next.add(hostname)
       }
-      await writeMoneyFarmHosts(ns, [...next])
+      await writeHwgwHosts(ns, [...next])
       setEnabled(next)
     }
     catch (err) {
@@ -151,20 +171,13 @@ export function useMoneyFarm() {
     }
   }
 
-  // A host with `ramUsed > 0` that this app hasn't itself enabled is
-  // claimed by something else (XP Farm, Share, a manual process) — the
-  // same "Occupied" gate `server-card.tsx`'s `hasProcess` disables the
-  // per-host Start button on. `selectAll` must respect it too: it's the
-  // set of hosts already selectable one at a time, not "every purchased
-  // server regardless of who's using it."
-  const selectableServers = servers.filter(s => enabled.has(s.hostname) || s.ramUsed === 0)
+  // No `ramUsed === 0` gate here — see this file's own header comment for
+  // why hwgw's shared host pool makes that check meaningless (a host
+  // already running another target's workers is still a valid pool
+  // member). `selectAll`/`selectNone` operate on every server offered at
+  // all (already excludes XP-Farm-dedicated hosts via `refresh()` above).
+  const selectableServers = servers
 
-  // Bulk versions of `toggle` above — see `use-xp-farm.ts`'s identical
-  // `selectAll`/`selectNone` for why this is a single `writeMoneyFarmHosts`
-  // call rather than looping `toggle()` per host. No `ensureDaemonRunning`
-  // equivalent here either, same as `toggle` above — this hook never
-  // launches `money-farm.daemon.js` itself, `InstanceManager` in
-  // `money-farm-dashboard.tsx` owns that.
   async function selectAll() {
     if (selectableServers.length === 0)
       return
@@ -172,7 +185,7 @@ export function useMoneyFarm() {
     setBulkBusy(true)
     try {
       const next = new Set(selectableServers.map(s => s.hostname))
-      await writeMoneyFarmHosts(ns, [...next])
+      await writeHwgwHosts(ns, [...next])
       setEnabled(next)
     }
     catch (err) {
@@ -189,7 +202,7 @@ export function useMoneyFarm() {
     setError(null)
     setBulkBusy(true)
     try {
-      await writeMoneyFarmHosts(ns, [])
+      await writeHwgwHosts(ns, [])
       setEnabled(new Set())
       setStatus({})
     }
@@ -202,11 +215,10 @@ export function useMoneyFarm() {
   }
 
   // Distinct from a plain "every selectable host is enabled" check: this
-  // is also true when there's nothing selectable at all (every host
-  // occupied elsewhere) — either way, clicking "Select All" would be a
-  // no-op, so the button should read disabled rather than silently doing
-  // nothing. See `use-xp-farm.ts`'s identical `allSelected` for the same
-  // reasoning.
+  // is also true when there's nothing selectable at all — either way,
+  // clicking "Select All" would be a no-op, so the button should read
+  // disabled rather than silently doing nothing. See `use-xp-farm.ts`'s
+  // identical `allSelected` for the same reasoning.
   const allSelected = selectableServers.length === 0 || selectableServers.every(s => enabled.has(s.hostname))
   const noneSelected = enabled.size === 0
 
@@ -214,6 +226,7 @@ export function useMoneyFarm() {
     servers,
     enabled,
     status,
+    targets,
     loading,
     busyHost,
     bulkBusy,

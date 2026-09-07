@@ -1,6 +1,7 @@
 import type { NS } from '@ns'
-import type { AddLogInput, MoneyFarmLogEntry } from './types'
+import type { AddLogInput, MoneyFarmLogEntry, WorkerStatus } from './types'
 import { parseLog } from '../../../utils/log-helper'
+import { MONEY_FARM_PORT } from '../../../utils/ports.lib'
 import { buildMoneyFarmRollup } from './mk-stats'
 import { moneyFarmLogEntrySchema } from './types'
 
@@ -118,4 +119,42 @@ function rollupIfNeeded(ns: NS): void {
     : toKeep.map(e => JSON.stringify(e))
 
   ns.write(MONEY_FARM_LOG_FILE, `${outLines.join('\n')}\n`, 'w')
+}
+
+function isWorkerStatus(value: unknown): value is WorkerStatus {
+  return typeof value === 'object' && value !== null && 'action' in value && 'target' in value
+}
+
+/**
+ * Drains every currently-queued message off `MONEY_FARM_PORT` and appends
+ * one line per message via `addMoneyFarmLog` — moved here from
+ * `daemons/money-farm.daemon.ts` (since deleted) so `early-hack.app.ts`,
+ * its other caller, keeps working; the two are otherwise independent,
+ * money-farm.daemon.ts never having been a dependency of early-hack.app.ts
+ * beyond this one function. Only `grow` status needs filling in here: its
+ * worker can't cheaply compute `ns.growthAnalyzeSecurity` itself (1GB,
+ * multiplied by however many threads that *worker* runs with) the way a
+ * caller of this function can (1GB total, referenced once regardless of
+ * how many times it's actually called at runtime) — see
+ * `grow.daemon.ts`'s header comment.
+ */
+export function drainStatusPort(ns: NS) {
+  const port = ns.getPortHandle(MONEY_FARM_PORT)
+  while (!port.empty()) {
+    const raw = port.read()
+    if (!isWorkerStatus(raw))
+      continue
+    const deltaSecurity = raw.action === 'grow' && raw.deltaSecurity === undefined
+      ? ns.growthAnalyzeSecurity(raw.threads)
+      : raw.deltaSecurity
+    addMoneyFarmLog(ns, {
+      action: raw.action,
+      target: raw.target,
+      threads: raw.threads,
+      duration: raw.duration,
+      money: raw.money,
+      deltaSecurity,
+      growth: raw.growth,
+    })
+  }
 }

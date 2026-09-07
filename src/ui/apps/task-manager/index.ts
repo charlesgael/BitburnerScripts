@@ -18,12 +18,14 @@ export type { ManagedAppDefinition }
  * (currently just the Programs app — see `../programs/index.ts`).
  *
  * "Non-reserved" cloud server means: not one of the hosts `../xp-farm/` or
- * `../money-farm/` has dedicated (tracked in `xp-farm-config.txt`/
- * `money-farm-config.txt` via `readXpFarmHosts`/`readMoneyFarmHosts`) —
- * `daemons/xp-farm.daemon.ts`/`daemons/money-farm.daemon.ts` have exclusive
- * control of those and `ns.killall` them the moment either claims one, so
- * offering them here would just mean whatever got spawned is killed out
- * from under it moments later. This app never references `ns.cloud.*` itself to find
+ * `../money-farm/` (hwgw's dashboard, kept at that path/id — see that
+ * app's own header comment) has dedicated (tracked in `xp-farm-config.txt`/
+ * `hwgw-hosts.json` via `readXpFarmHosts`/`readHwgwHosts`) —
+ * `daemons/xp-farm.daemon.ts` has exclusive control of its own hosts and
+ * `ns.killall`s them the moment it claims one; hwgw's own hosts are a
+ * shared pool rather than an exclusive claim (see `lib/hwgw/workers.ts`'s
+ * header comment), so this app still excludes them here purely to avoid
+ * spawning something onto RAM hwgw might already be using. This app never references `ns.cloud.*` itself to find
  * cloud servers — see `../cloud-servers/index.ts`'s header comment for why
  * — instead reading the same `cgd/actions/cloud.ts` `cloudList` snapshot
  * the Cloud Servers app uses (via `fetchCloudList`), which conveniently already

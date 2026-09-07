@@ -33,6 +33,17 @@ export function MoneyFarmContent(props: {
         >
           ⚠ This program is not meant to be used with flooder.app.js
         </div>
+        <div
+          style={{
+            fontSize: 11,
+            opacity: 0.75,
+            marginBottom: 8,
+          }}
+        >
+          Host list changes apply the next time auto-hack.app.js is
+          (re)started — a target already running keeps its current hosts
+          until it's individually relaunched.
+        </div>
         {mf.error
           ? (
               <div

@@ -7,7 +7,7 @@ import { useQueuedNs } from '../../../context/ns-queue-context'
 import { useHomeRam } from '../../../effects/home-ram.effect'
 import { checkIsAvailable } from '../../../utils/app-availability'
 import { fetchCloudList } from '../../../utils/cloud-list'
-import { readMoneyFarmHosts } from '../../../utils/money-farm-config'
+import { readHwgwHosts } from '../../../utils/hwgw-config'
 import { spawnRemote } from '../../../utils/spawn-remote'
 import { readXpFarmHosts } from '../../../utils/xp-farm-config'
 import { resolveDependencyChain } from './dependency-chain'
@@ -61,12 +61,12 @@ export function useTaskManager(apps: ManagedAppDefinition[], runnableApps: Manag
   // any task running on a cloud server until a tier-1+ daemon is up.
   async function refreshCloudServers(): Promise<CloudServerRow[]> {
     try {
-      const [result, xpFarmHosts, moneyFarmHosts] = await Promise.all([
+      const [result, xpFarmHosts, hwgwHosts] = await Promise.all([
         fetchCloudList(callAction),
         readXpFarmHosts(ns),
-        readMoneyFarmHosts(ns),
+        readHwgwHosts(ns),
       ])
-      const dedicated = new Set([...xpFarmHosts, ...moneyFarmHosts])
+      const dedicated = new Set([...xpFarmHosts, ...hwgwHosts])
       const available = result.servers.filter(s => !dedicated.has(s.hostname))
       setCloudServers(available)
       return available
