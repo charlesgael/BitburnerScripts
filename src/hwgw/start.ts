@@ -25,7 +25,6 @@ function argTarget(args: ScriptArg[]): string | null {
 
 export async function main(ns: NS) {
   ns.disableLog('ALL')
-  ns.ui.openTail()
 
   const args = parseArgs(ns, [
     { long: 'target', defaultValue: 'n00dles', description: 'Target to HWGW', short: 't' },
@@ -57,7 +56,6 @@ export async function main(ns: NS) {
     for (const p of pids) {
       ns.kill(p)
     }
-    ns.ui.closeTail()
   })
 
   const dupe = ns.ps('home').find(p =>

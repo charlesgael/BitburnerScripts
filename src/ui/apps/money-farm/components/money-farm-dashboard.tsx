@@ -173,8 +173,13 @@ export function MoneyFarmDashboard() {
                           </td>
                           <td className="smallest">{formatMoney(t.moneyPerHour)}</td>
                           <td className="smallest">{formatNumber(t.expPerHour, 1)}</td>
-                          <td className="smallest">{formatNumber(t.securityExcess, 2)}</td>
-                          <td className="smallest">{formatMoney(t.moneyDeficit)}</td>
+                          {/* `?? 0` guards a daemon still running pre-upgrade code (these two
+                              fields are newer than the rest of HwgwTargetStatus) rather than
+                              a real value — a stale object just lacks the key entirely, so
+                              this renders "0" instead of formatNumber/formatMoney's own
+                              undefined-handling ("NaN"/"undefined" text). */}
+                          <td className="smallest">{formatNumber(t.securityExcess ?? 0, 2)}</td>
+                          <td className="smallest">{formatMoney(t.moneyDeficit ?? 0)}</td>
                         </tr>
                       ))}
                     </tbody>
