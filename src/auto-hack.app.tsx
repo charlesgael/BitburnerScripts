@@ -1,9 +1,10 @@
 import type { NS, Server } from '@ns'
+import { HWGW_HOSTS_FILE } from './ui/utils/hwgw-config'
 import { parseArgs } from './utils/args'
 import { formatMediumHour } from './utils/format/dates'
-import { noDupe } from './utils/ns/nodupe'
 
 const SERVER_FILE = `known-servers.json`
+const START_SCRIPT = 'hwgw/start.js'
 
 function computeDedicated(ns: NS, positional: string[]): string[] {
   if (positional.length === 1 && positional[0] === 'cloud') {
@@ -11,6 +12,27 @@ function computeDedicated(ns: NS, positional: string[]): string[] {
   }
   else {
     return positional
+  }
+}
+
+/**
+ * Falls back to `hwgw-hosts.json` (`ui/apps/money-farm/`'s host picker,
+ * `HWGW_HOSTS_FILE`) when no hosts were passed as arguments — see that
+ * file's own header comment, which already documents this as the intended
+ * "read once at startup" contract. Plain `ns.read`, not the `QueuedNS`
+ * version that file also exports (`readHwgwHosts`) — this script talks to
+ * `ns` directly like the rest of it, no daemon/proxy involved.
+ */
+function readConfiguredHosts(ns: NS): string[] {
+  const raw = ns.read(HWGW_HOSTS_FILE)
+  if (!raw)
+    return []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.filter((h): h is string => typeof h === 'string') : []
+  }
+  catch {
+    return []
   }
 }
 
@@ -26,7 +48,6 @@ function scoreServer(ns: NS, server: Server): number | null {
 
 export async function main(ns: NS) {
   ns.disableLog(`ALL`)
-  noDupe(ns)
 
   const args = parseArgs(ns, [
     { long: 'count', defaultValue: -1, description: 'Only launch the N best-scoring targets (money/sec potential). -1 = unlimited.', short: 'n' },
@@ -35,16 +56,20 @@ export async function main(ns: NS) {
   const positional = args._.map(String)
   const deployed: string[] = []
 
-  const dedicated = computeDedicated(ns, positional)
+  const dedicated = positional.length ? computeDedicated(ns, positional) : readConfiguredHosts(ns)
   if (!dedicated.length) {
-    ns.tprint('Server list must be given as arguments')
+    ns.tprint(`WARNING: No hosts given as arguments and ${HWGW_HOSTS_FILE} has none configured — exiting.`)
+    return
   }
 
   const delay = 60_000
-  const ignored: string[] = positional
+  const ignored: string[] = positional.length ? positional : dedicated
   const pids: number[] = []
 
   ns.atExit(() => {
+    const pids = ns.ps('home')
+      .filter(it => it.filename === START_SCRIPT)
+      .map(it => it.pid)
     for (const s of pids) {
       ns.kill(s)
     }
@@ -76,12 +101,14 @@ export async function main(ns: NS) {
       for (const { server } of candidates) {
         ns.print(`INFO: Acquired server ${server.hostname}`)
 
-        const pid = ns.run('hwgw/start.js', {
+        const pid = ns.run(START_SCRIPT, {
           threads: 1,
           preventDuplicates: true,
         }, '--target', server.hostname, ...dedicated)
+
+        await ns.sleep(500)
         if (pid === 0) {
-          ns.print(`ERROR: failed to launch 'hwgw/start.js' on ${server.hostname}`)
+          ns.print(`ERROR: failed to launch ${START_SCRIPT} on ${server.hostname}`)
         }
         else {
           deployed.push(server.hostname)
