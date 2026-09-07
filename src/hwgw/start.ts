@@ -1,7 +1,7 @@
 import type { NS, ScriptArg } from '@ns'
 import { parseArgs } from '../utils/args'
 import { formatDuration } from '../utils/format/dates'
-import { formatMoney, formatNumber, formatRam } from '../utils/format/game'
+import { formatMoney, formatNumber, formatPercent, formatRam } from '../utils/format/game'
 
 const HACK_SCRIPT = 'hwgw/h.js'
 const GROW_SCRIPT = 'hwgw/g.js'
@@ -84,6 +84,7 @@ export async function main(ns: NS) {
     const snapshot = {
       securityExcess: Math.max(0, hackDifficulty! - minDifficulty!),
       moneyDeficit: Math.max(0, moneyMax! - moneyAvailable!),
+      deficitPercent: Math.max(0, moneyMax! - moneyAvailable!) / moneyMax!,
     }
     // Re-affirmed every tick, not just on an actual transition — Bitburner
     // caps how many lines a script's own log retains (configurable in
@@ -183,13 +184,25 @@ export async function main(ns: NS) {
     else {
       ns.print(`Farm ongoing`)
       if (snapshot.moneyDeficit > 0) {
-        ns.print(`Money deficit: ${formatMoney(snapshot.moneyDeficit)}`)
+        ns.print(`Money deficit: ${formatMoney(snapshot.moneyDeficit)} (${formatPercent(snapshot.deficitPercent)})`)
       }
       if (snapshot.securityExcess > 0) {
         ns.print(`Security excess: ${formatNumber(snapshot.securityExcess)}`)
       }
+      if (snapshot.deficitPercent > 0.25 || snapshot.securityExcess > 5) {
+        ns.print(`Too much drift, back to 'prep'`)
+        killall()
+        setState('prep', snapshot)
+        continue
+      }
+      setState('done', snapshot)
       await ns.sleep(60_000)
     }
+  }
+
+  function killall() {
+    pids.filter(it => it).forEach(ns.kill)
+    pids.length = 0
   }
 
   async function waitForHost(ramNeeds: number, snapshot: { securityExcess: number, moneyDeficit: number }): Promise<string> {

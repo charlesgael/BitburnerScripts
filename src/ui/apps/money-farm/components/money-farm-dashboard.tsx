@@ -1,6 +1,6 @@
 import type { ProcessInfo } from '@ns'
 import React from '@react'
-import { formatMoney, formatNumber } from '../../../../utils/format/game'
+import { formatMoney, formatNumber, formatPercent } from '../../../../utils/format/game'
 import { HeroStat } from '../../../components/hero-stat'
 import { InstanceManager } from '../../../components/instance-manager'
 import { TitlebarPulldown } from '../../../components/window/titlebar-pulldown'
@@ -167,15 +167,19 @@ export function MoneyFarmDashboard() {
                         <th className="smallest">XP / Hour</th>
                         <th className="smallest">Sec. Excess</th>
                         <th className="smallest">$ Deficit</th>
+                        <th className="smallest">% Deficit</th>
                       </tr>
                       {targetRows.map(t => (
-                        <tr
-                          key={t.target}
-                          onClick={() => openTargetTail(t.pid)}
-                          title={t.pid !== null ? 'Open tail' : 'Orchestrator not running — nothing to tail'}
-                          style={{ cursor: t.pid !== null ? 'pointer' : 'default' }}
-                        >
-                          <td className="bb-wrap">{t.target}</td>
+                        <tr key={t.target}>
+                          <td className="bb-wrap">
+                            <span
+                              onClick={() => openTargetTail(t.pid)}
+                              title={t.pid !== null ? 'Open tail' : 'Orchestrator not running — nothing to tail'}
+                              style={{ cursor: t.pid !== null ? 'pointer' : 'default' }}
+                            >
+                              {t.target}
+                            </span>
+                          </td>
                           <td className="smallest">
                             <span
                               className="bb-pill"
@@ -196,6 +200,7 @@ export function MoneyFarmDashboard() {
                               undefined-handling ("NaN"/"undefined" text). */}
                           <td className="smallest">{formatNumber(t.securityExcess ?? 0, 2)}</td>
                           <td className="smallest">{formatMoney(t.moneyDeficit ?? 0)}</td>
+                          <td className="smallest">{formatPercent(t.deficitPercent ?? 0)}</td>
                         </tr>
                       ))}
                     </tbody>

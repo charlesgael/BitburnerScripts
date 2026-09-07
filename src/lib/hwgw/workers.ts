@@ -36,6 +36,8 @@ export interface HwgwTargetStatus {
   securityExcess: number
   /** `moneyMax - moneyAvailable` at the orchestrator's last tick — 0 once grow has caught up. */
   moneyDeficit: number
+  /** `moneyMax - moneyAvailable / moneyMax` at the orchestrator's last tick — 0 once grow has caught up. */
+  deficitPercent: number
   /**
    * This target's `hwgw/start.js` pid, for `ns.ui.openTail(pid)` — `null`
    * when no live orchestrator was found for it (only its workers turned up
@@ -64,6 +66,7 @@ export interface OrchestratorSnapshot {
   mode: HwgwMode
   securityExcess: number
   moneyDeficit: number
+  deficitPercent: number
 }
 
 /** `OrchestratorSnapshot` plus the pid it was read off — `scanHwgwOrchestrators`'s own return shape, `pid` added there (not by `latestSnapshot`, which only ever sees the log lines, never the process info). */
@@ -71,7 +74,7 @@ export interface OrchestratorStatus extends OrchestratorSnapshot {
   pid: number
 }
 
-const NULL_SNAPSHOT: OrchestratorSnapshot = { mode: 'null', securityExcess: 0, moneyDeficit: 0 }
+const NULL_SNAPSHOT: OrchestratorSnapshot = { mode: 'null', securityExcess: 0, moneyDeficit: 0, deficitPercent: 0 }
 
 /**
  * The most recent `{action:'state-change', to, securityExcess, moneyDeficit}`
@@ -92,11 +95,12 @@ function latestSnapshot(logs: string[]): OrchestratorSnapshot {
         && (parsed as { action?: unknown }).action === 'state-change'
         && typeof (parsed as { to?: unknown }).to === 'string'
       ) {
-        const p = parsed as { to: HwgwMode, securityExcess?: unknown, moneyDeficit?: unknown }
+        const p = parsed as { to: HwgwMode, securityExcess?: unknown, moneyDeficit?: unknown, deficitPercent?: unknown }
         return {
           mode: p.to,
           securityExcess: typeof p.securityExcess === 'number' ? p.securityExcess : 0,
           moneyDeficit: typeof p.moneyDeficit === 'number' ? p.moneyDeficit : 0,
+          deficitPercent: typeof p.deficitPercent === 'number' ? p.deficitPercent : 0,
         }
       }
     }
@@ -205,6 +209,7 @@ export function gatherHwgwStatus(ns: NS, dedicatedHosts: string[], home = 'home'
       expPerHour: t.hours > 0 ? t.expGained / t.hours : 0,
       securityExcess: s?.securityExcess ?? NULL_SNAPSHOT.securityExcess,
       moneyDeficit: s?.moneyDeficit ?? NULL_SNAPSHOT.moneyDeficit,
+      deficitPercent: s?.deficitPercent ?? NULL_SNAPSHOT.deficitPercent,
       pid: s?.pid ?? null,
     }
   }

@@ -5,6 +5,7 @@ import { parseArgs } from './utils/args'
 
 const SERVER_FILE = `known-servers.json`
 const START_SCRIPT = 'hwgw/start.js'
+const SLEEP_BETWEEN_LAUNCHES = 1_000
 
 /** Same `positional` -> dedicated-host-list expansion `auto-hack.app.ts`'s `computeDedicated` uses, so a `cloud` keyword works identically here. */
 function computeDedicated(ns: NS, positional: string[]): string[] {
@@ -112,7 +113,7 @@ export async function main(ns: NS) {
       preventDuplicates: true,
     }, '--target', server.hostname, ...dedicated)
 
-    await ns.sleep(500)
+    await ns.sleep(SLEEP_BETWEEN_LAUNCHES)
     if (pid === 0) {
       ns.tprint(`ERROR: failed to launch ${START_SCRIPT} on ${server.hostname}`)
     }

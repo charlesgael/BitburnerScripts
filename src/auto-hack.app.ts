@@ -5,6 +5,7 @@ import { formatMediumHour } from './utils/format/dates'
 
 const SERVER_FILE = `known-servers.json`
 const START_SCRIPT = 'hwgw/start.js'
+const SLEEP_BETWEEN_LAUNCHES = 1_000
 
 function computeDedicated(ns: NS, positional: string[]): string[] {
   if (positional.length === 1 && positional[0] === 'cloud') {
@@ -106,7 +107,7 @@ export async function main(ns: NS) {
           preventDuplicates: true,
         }, '--target', server.hostname, ...dedicated)
 
-        await ns.sleep(500)
+        await ns.sleep(SLEEP_BETWEEN_LAUNCHES)
         if (pid === 0) {
           ns.print(`ERROR: failed to launch ${START_SCRIPT} on ${server.hostname}`)
         }
