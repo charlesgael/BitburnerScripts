@@ -134,7 +134,7 @@ interface ManagedAssignment extends Assignment {
 function hwgFarmTargets(): Set<string> {
   try {
     const store = getCgdStore().getState()
-    const targets = [...store.moneyFarm?.perTarget ?? [], ...store.steadyFarm?.perTarget ?? []]
+    const targets = [...store.moneyFarm?.perTarget ?? []]
     return new Set(targets.map(t => t.target))
   }
   catch {

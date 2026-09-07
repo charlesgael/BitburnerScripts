@@ -1,41 +1,47 @@
 import type { NS, Server } from '@ns'
-import React from '@react'
-import { getCgdStore } from './cgd/store'
-import { STEADY_FARM_DAEMON_SCRIPT } from './lib/steady-farm/config'
+import { parseArgs } from './utils/args'
 import { formatMediumHour } from './utils/format/dates'
 import { noDupe } from './utils/ns/nodupe'
 
 const SERVER_FILE = `known-servers.json`
 
-function DisplayWait() {
-  const store = getCgdStore().use(s => s.steadyFarm)
+function computeDedicated(ns: NS, positional: string[]): string[] {
+  if (positional.length === 1 && positional[0] === 'cloud') {
+    return ns.cloud.getServerNames()
+  }
+  else {
+    return positional
+  }
+}
 
-  const hosts = store?.perTarget ?? []
-  const ready = hosts.filter(it => it.mode === 'farm').sort(({ target: A }, { target: B }) => A.localeCompare(B))
-  const notReady = hosts.filter(it => it.mode !== 'farm').sort(({ target: A }, { target: B }) => A.localeCompare(B))
-
-  return (
-    <div style={{ display: 'flex' }}>
-      <div style={{ width: 220 }}>
-        <div>Ready</div>
-        {ready.map(it => <div key={it.target}>{it.target}</div>)}
-      </div>
-      <div style={{ width: 220 }}>
-        <div>Not Ready</div>
-        {notReady.map(it => <div key={it.target}>{it.target}</div>)}
-      </div>
-    </div>
-  )
+/**
+ * `moneyMax * hackChance / weakenTime` — the same money/sec scoring
+ * `steady-farm.daemon.ts`'s `pickTarget`/`scoreServer` uses, reused here so
+ * `--count` picks the same "best" a steady-farm instance would auto-pick.
+ */
+function scoreServer(ns: NS, server: Server): number | null {
+  const weakenTime = ns.getWeakenTime(server.hostname)
+  return weakenTime > 0 ? (server.moneyMax ?? 0) * ns.hackAnalyzeChance(server.hostname) / weakenTime : null
 }
 
 export async function main(ns: NS) {
   ns.disableLog(`ALL`)
-  ns.tprintRaw(<DisplayWait />)
   noDupe(ns)
 
+  const args = parseArgs(ns, [
+    { long: 'count', defaultValue: -1, description: 'Only launch the N best-scoring targets (money/sec potential). -1 = unlimited.', short: 'n' },
+  ] as const, [])
+  const count = args.count
+  const positional = args._.map(String)
   const deployed: string[] = []
+
+  const dedicated = computeDedicated(ns, positional)
+  if (!dedicated.length) {
+    ns.tprint('Server list must be given as arguments')
+  }
+
   const delay = 60_000
-  const ignored: string[] = ns.args.map(String)
+  const ignored: string[] = positional
   const pids: number[] = []
 
   ns.atExit(() => {
@@ -48,38 +54,47 @@ export async function main(ns: NS) {
     const servers: Server[] = JSON.parse(ns.read(SERVER_FILE))
     ns.print(`\nReloaded ${SERVER_FILE}`)
 
-    for (const server of servers) {
-      if (!ns.serverExists(server.hostname))
-        continue
-      if (ignored.includes(server.hostname))
-        continue
-      if (server.purchasedByPlayer)
-        continue
-      if (!server.hasAdminRights)
-        continue
-      if (deployed.includes(server.hostname))
-        continue
+    const hackingLevel = ns.getHackingLevel()
+    const slotsRemaining = count < 0 ? Infinity : count - deployed.length
 
-      ns.print(`INFO: Acquired server ${server.hostname}`)
+    if (slotsRemaining > 0) {
+      const candidates = servers
+        .filter(server =>
+          ns.serverExists(server.hostname)
+          && !ignored.includes(server.hostname)
+          && !server.purchasedByPlayer
+          && server.hasAdminRights
+          && !deployed.includes(server.hostname)
+          && (server.moneyMax ?? 0) > 0
+          && (server.requiredHackingSkill ?? 0) <= hackingLevel,
+        )
+        .map(server => ({ server, score: scoreServer(ns, server) }))
+        .filter((it): it is { server: Server, score: number } => it.score !== null)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, slotsRemaining)
 
-      const pid = ns.run(STEADY_FARM_DAEMON_SCRIPT, {
-        threads: 1,
-        preventDuplicates: true,
-      }, '--target', server.hostname, 'mony')
-      if (pid === 0) {
-        ns.print(`ERROR: failed to launch ${STEADY_FARM_DAEMON_SCRIPT} on ${server.hostname}`)
-      }
-      else {
-        deployed.push(server.hostname)
-        pids.push(pid)
+      for (const { server } of candidates) {
+        ns.print(`INFO: Acquired server ${server.hostname}`)
+
+        const pid = ns.run('hwgw/start.js', {
+          threads: 1,
+          preventDuplicates: true,
+        }, '--target', server.hostname, ...dedicated)
+        if (pid === 0) {
+          ns.print(`ERROR: failed to launch 'hwgw/start.js' on ${server.hostname}`)
+        }
+        else {
+          deployed.push(server.hostname)
+          pids.push(pid)
+        }
       }
     }
 
     ns.print(
-      `Running ${deployed.length}, search again at ${formatMediumHour(Date.now() + delay)}.`,
+      `Running ${deployed.length}${count < 0 ? '' : `/${count}`}, search again at ${formatMediumHour(Date.now() + delay)}.`,
     )
-    await ns.sleep(delay)
-    // repeat is a const set once from `ns.args` above (run-once vs.
+    await ns.asleep(delay)
+    // repeat is a const set once from `args` above (run-once vs.
     // persistent-loop mode) — intentionally never reassigned.
   } while (true)
 }
