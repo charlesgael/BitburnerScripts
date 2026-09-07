@@ -79,6 +79,7 @@ export async function main(ns: NS) {
           symbol: sym,
           shares: sharesLong,
           price,
+          amount: saleGain,
           reason: 'liquidation',
           dryRun: false,
           // Both read post-sale player cash rather than an exact running
@@ -108,6 +109,7 @@ export async function main(ns: NS) {
           symbol: sym,
           shares: sharesShort,
           price,
+          amount: saleGain,
           reason: 'liquidation',
           dryRun: false,
           cash: ns.getPlayer().money,

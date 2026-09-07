@@ -193,6 +193,7 @@ function logTrade(
   action: 'buy' | 'sell' | 'buyShort' | 'sellShort',
   shares: number,
   price: number,
+  amount: number,
   signal: TradeSignal,
   dryRun: boolean,
   reason: 'entry' | 'signal-reversed' | 'stop-loss',
@@ -205,6 +206,7 @@ function logTrade(
     action,
     shares,
     price,
+    amount,
     // An exit can fire on a neutral signal (direction === null just means
     // "no longer matches the held position's side either") - the schema's
     // direction field is a plain string, so normalize null to a label here
@@ -230,7 +232,7 @@ function tryExit(ns: NS, symbols: string[], book: PositionBook, pos: Position, s
     if (reversed || stopped) {
       const price = dryRun ? ns.stock.getBidPrice(pos.sym) : ns.stock.sellStock(pos.sym, pos.sharesLong)
       book.recordSell(pos.sym, 'L', saleGain)
-      logTrade(ns, symbols, book, pos.sym, 'sell', pos.sharesLong, price, signal, dryRun, stopped ? 'stop-loss' : 'signal-reversed')
+      logTrade(ns, symbols, book, pos.sym, 'sell', pos.sharesLong, price, saleGain, signal, dryRun, stopped ? 'stop-loss' : 'signal-reversed')
       return true
     }
   }
@@ -244,7 +246,7 @@ function tryExit(ns: NS, symbols: string[], book: PositionBook, pos: Position, s
     if (reversed || stopped) {
       const price = dryRun ? ns.stock.getAskPrice(pos.sym) : ns.stock.sellShort(pos.sym, pos.sharesShort)
       book.recordSell(pos.sym, 'S', saleGain)
-      logTrade(ns, symbols, book, pos.sym, 'sellShort', pos.sharesShort, price, signal, dryRun, stopped ? 'stop-loss' : 'signal-reversed')
+      logTrade(ns, symbols, book, pos.sym, 'sellShort', pos.sharesShort, price, saleGain, signal, dryRun, stopped ? 'stop-loss' : 'signal-reversed')
       return true
     }
   }
@@ -339,7 +341,7 @@ function tryEnter(ns: NS, symbols: string[], book: PositionBook, sym: string, si
     return false
 
   book.recordBuy(sym, position, shares, price, cost)
-  logTrade(ns, symbols, book, sym, action, shares, price, signal, dryRun, 'entry')
+  logTrade(ns, symbols, book, sym, action, shares, price, cost, signal, dryRun, 'entry')
   return true
 }
 

@@ -13,6 +13,10 @@ export interface ClosedRoundTrip {
   returnPct: number
   holdMin: number
   reason: string
+  /** Real dollar cost paid to open this leg (getPurchaseCost, or price*shares for a pre-`amount`-field log entry). */
+  entryAmount: number
+  /** Real dollar proceeds from closing this leg (getSaleGain, or price*shares for a pre-`amount`-field log entry). */
+  exitAmount: number
 }
 
 export interface OpenPosition {
@@ -22,6 +26,8 @@ export interface OpenPosition {
   shares: number
   heldMin: number
   strength: number
+  /** Real dollar cost paid to open this leg - see ClosedRoundTrip.entryAmount. */
+  costBasis: number
 }
 
 export interface WindowSummary {
@@ -74,6 +80,20 @@ export interface TraderLogSummary {
   topGainers: ClosedRoundTrip[]
   topLosers: ClosedRoundTrip[]
   openPositions: OpenPosition[]
+  /**
+   * Trading-only P&L, isolated from portfolioValue/cash (which is the
+   * player's whole net worth - see stock-trader.app.ts's PositionBook.getCash,
+   * a plain ns.getPlayer().money passthrough in live mode - and so also
+   * reflects hacking/hacknet/every other income source running concurrently,
+   * not just this strategy). totalInvested/totalSold cover only CLOSED round
+   * trips; still-open positions' cost is in openPositions[].costBasis
+   * instead, since their current market value isn't known without live `ns`
+   * access (see stock-trader-summary.app.ts for the live version that adds
+   * it in for a true realized+unrealized score).
+   */
+  totalInvested: number
+  totalSold: number
+  netRealizedPnl: number
 }
 
 /// HELPERS
@@ -167,6 +187,9 @@ export function summarizeTraderLog(entries: TraderLogEntry[]): TraderLogSummary 
       topGainers: [],
       topLosers: [],
       openPositions: [],
+      totalInvested: 0,
+      totalSold: 0,
+      netRealizedPnl: 0,
     }
   }
 
@@ -184,6 +207,7 @@ export function summarizeTraderLog(entries: TraderLogEntry[]): TraderLogSummary 
     side: 'L' | 'S'
     entryTs: number
     strength: number
+    entryAmount: number
   }
   const open = new Map<string, OpenLeg>()
   const closedRoundTrips: ClosedRoundTrip[] = []
@@ -198,6 +222,7 @@ export function summarizeTraderLog(entries: TraderLogEntry[]): TraderLogSummary 
         side: t.action === 'buy' ? 'L' : 'S',
         entryTs: t.ts,
         strength: t.signal?.strength ?? 0,
+        entryAmount: t.amount ?? t.price * (t.shares ?? 0),
       })
     }
     else {
@@ -205,6 +230,7 @@ export function summarizeTraderLog(entries: TraderLogEntry[]): TraderLogSummary 
       if (!leg)
         continue
       const returnPct = (leg.side === 'L' ? t.price / leg.entryPrice - 1 : leg.entryPrice / t.price - 1) * 100
+      const exitAmount = t.amount ?? t.price * (t.shares ?? 0)
       closedRoundTrips.push({
         symbol: t.symbol,
         side: leg.side,
@@ -215,6 +241,8 @@ export function summarizeTraderLog(entries: TraderLogEntry[]): TraderLogSummary 
         returnPct,
         holdMin: (t.ts - leg.entryTs) / 60000,
         reason: t.reason ?? 'unknown',
+        entryAmount: leg.entryAmount,
+        exitAmount,
       })
       open.delete(t.symbol)
     }
@@ -227,7 +255,11 @@ export function summarizeTraderLog(entries: TraderLogEntry[]): TraderLogSummary 
     shares: leg.shares,
     heldMin: (last.ts - leg.entryTs) / 60000,
     strength: leg.strength,
+    costBasis: leg.entryAmount,
   }))
+
+  const totalInvested = closedRoundTrips.reduce((sum, t) => sum + t.entryAmount, 0)
+  const totalSold = closedRoundTrips.reduce((sum, t) => sum + t.exitAmount, 0)
 
   return {
     entryCount: entries.length,
@@ -255,6 +287,9 @@ export function summarizeTraderLog(entries: TraderLogEntry[]): TraderLogSummary 
     topGainers: topRoundTrips(closedRoundTrips, TOP_N_ROUND_TRIPS, 'desc'),
     topLosers: topRoundTrips(closedRoundTrips, TOP_N_ROUND_TRIPS, 'asc'),
     openPositions,
+    totalInvested,
+    totalSold,
+    netRealizedPnl: totalSold - totalInvested,
   }
 }
 
@@ -396,6 +431,14 @@ export function formatTraderLogSummary(summary: TraderLogSummary): string[] {
     `Portfolio: ${formatMoney(summary.startPortfolioValue!)} -> ${formatMoney(summary.endPortfolioValue!)} `
     + `(${summary.returnPct!.toFixed(2)}%)`,
   )
+  lines.push(
+    `Trading P&L (closed positions only, isolated from other income): `
+    + `invested ${formatMoney(summary.totalInvested)}, sold ${formatMoney(summary.totalSold)}, `
+    + `net ${summary.netRealizedPnl >= 0 ? '+' : ''}${formatMoney(summary.netRealizedPnl)} `
+    + `- unlike Portfolio above, this excludes every other income source, so it's the number that `
+    + `actually reflects this strategy's own performance. Still-open positions' cost is listed below `
+    + `but not counted here - current market value isn't known without live game access.`,
+  )
   lines.push(`By type: ${JSON.stringify(summary.byType)}`)
   lines.push(`By action: ${JSON.stringify(summary.byAction)}`)
   lines.push(`By reason: ${JSON.stringify(summary.byReason)}`)
@@ -439,7 +482,7 @@ export function formatTraderLogSummary(summary: TraderLogSummary): string[] {
     for (const p of summary.openPositions) {
       lines.push(
         `  ${p.symbol} (${p.side}): entered @${p.entryPrice.toFixed(2)}, ${p.shares} shares, `
-        + `held ${p.heldMin.toFixed(1)} min, entry strength ${p.strength.toFixed(3)}`,
+        + `cost ${formatMoney(p.costBasis)}, held ${p.heldMin.toFixed(1)} min, entry strength ${p.strength.toFixed(3)}`,
       )
     }
   }
