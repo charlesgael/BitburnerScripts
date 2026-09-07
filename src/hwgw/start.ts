@@ -10,7 +10,7 @@ const WEAKEN_SCRIPT = 'hwgw/w.js'
 const WEAKEN_REDUCTION = 0.05
 const HACK_AUGMENTATION = 0.002
 const GROW_AUGMENTATION = 0.004
-const GW_THREAD_MULTI = 1.1
+const GW_THREAD_MULTI = 1.2
 
 const HACK_STEAL = 0.1
 
@@ -36,21 +36,6 @@ export async function main(ns: NS) {
   // let signalsReceived = 0
   let state: 'null' | 'done' | 'farm' | 'prep' = 'null'
   const pids: number[] = []
-
-  // Every transition also gets a structured log line, alongside the plain
-  // human-readable prints already scattered through the loop below —
-  // `lib/hwgw/workers.ts`'s `scanHwgwOrchestrators` reads this back via
-  // `ns.getRunningScript(pid).logs` to know this instance's current mode,
-  // at no extra RAM cost (that same call is already needed for money/XP).
-  // `snapshot` piggybacks the security-excess/money-deficit numbers this
-  // loop already computes off the very same `ns.getServer(target)` call —
-  // reading them back this way costs the dashboard nothing beyond the
-  // `getRunningScript` call it already makes, rather than a second
-  // `ns.getServer` from wherever renders them.
-  function setState(next: typeof state, snapshot: { securityExcess: number, moneyDeficit: number }) {
-    state = next
-    ns.print(JSON.stringify({ action: 'state-change', to: next, ...snapshot }))
-  }
 
   ns.atExit(() => {
     for (const p of pids) {
@@ -140,7 +125,7 @@ export async function main(ns: NS) {
       }
 
       const ramNeeds = growthThreads * rams.grow + weakenThreads * rams.weaken
-      const host = await waitForHost(ramNeeds)
+      const host = await waitForHost(ramNeeds, snapshot)
 
       const time = ns.getWeakenTime(target)
       if (growthThreads > 0)
@@ -167,7 +152,7 @@ export async function main(ns: NS) {
         + rams.grow * growthThreads
         + rams.weaken * weaken2Threads
       )
-      const host = await waitForHost(ramNeeds)
+      const host = await waitForHost(ramNeeds, snapshot)
 
       ns.print(`Looptime: ${formatDuration(loopTime / 1000)}, ram: ${formatRam(ramNeeds)}, host: ${host}`)
 
@@ -191,16 +176,41 @@ export async function main(ns: NS) {
     }
   }
 
-  async function waitForHost(ramNeeds: number): Promise<string> {
+  async function waitForHost(ramNeeds: number, snapshot: { securityExcess: number, moneyDeficit: number }): Promise<string> {
     while (true) {
       const host = hosts.find(it => ns.getServerMaxRam(it) - ns.getServerUsedRam(it) > ramNeeds)
       if (host === undefined) {
         ns.print(`Couldn't find available host with ${formatRam(ramNeeds)} available RAM.`)
+        // Same reaffirm as the outer loop's own `setState` call — a target
+        // stuck here a long time (many concurrent instances competing for
+        // one host pool) would otherwise go just as long without touching
+        // its own log, risking the same state-change decay `setState`'s
+        // own comment describes.
+        notifyState(`${state}-ram`, snapshot)
         await ns.sleep(2000)
       }
       else {
         return host
       }
     }
+  }
+
+  // Every transition also gets a structured log line, alongside the plain
+  // human-readable prints already scattered through the loop below —
+  // `lib/hwgw/workers.ts`'s `scanHwgwOrchestrators` reads this back via
+  // `ns.getRunningScript(pid).logs` to know this instance's current mode,
+  // at no extra RAM cost (that same call is already needed for money/XP).
+  // `snapshot` piggybacks the security-excess/money-deficit numbers this
+  // loop already computes off the very same `ns.getServer(target)` call —
+  // reading them back this way costs the dashboard nothing beyond the
+  // `getRunningScript` call it already makes, rather than a second
+  // `ns.getServer` from wherever renders them.
+  function setState(next: typeof state, snapshot: { securityExcess: number, moneyDeficit: number }) {
+    state = next
+    notifyState(next, snapshot)
+  }
+
+  function notifyState(state: string, snapshot: { securityExcess: number, moneyDeficit: number }) {
+    ns.print(JSON.stringify({ action: 'state-change', to: state, ...snapshot }))
   }
 }

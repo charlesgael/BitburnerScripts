@@ -5,6 +5,7 @@ import { HeroStat } from '../../../components/hero-stat'
 import { InstanceManager } from '../../../components/instance-manager'
 import { TitlebarPulldown } from '../../../components/window/titlebar-pulldown'
 import { TitlebarToolbar } from '../../../components/window/titlebar-toolbar'
+import { useQueuedNs } from '../../../context/ns-queue-context'
 import { AUTO_HACK_HOST, AUTO_HACK_SCRIPT } from '../../../utils/hwgw-config'
 import { useMoneyFarm } from '../logic/use-money-farm'
 import { MoneyFarmContent } from './money-farm-content'
@@ -48,9 +49,19 @@ const MODE_COLORS: Record<string, string> = {
  * to know which hosts `auto-hack.app.js` was actually told to use.
  */
 export function MoneyFarmDashboard() {
+  const ns = useQueuedNs()
   const mf = useMoneyFarm()
   const [running, setRunning] = React.useState(false)
   const [count, setCount] = React.useState(5)
+
+  // `pid` comes from `lib/hwgw/workers.ts`'s own orchestrator scan (the
+  // same `ns.ps('home')` pass mode already comes from) — null for a target
+  // whose orchestrator has died but whose workers are still looping (hwgw
+  // has no self-healing), which is the one case there's nothing to tail.
+  function openTargetTail(pid: number | null) {
+    if (pid !== null)
+      void ns._ui._openTail(pid)
+  }
 
   // `mf.targets`, not a flatten of `mf.status` — the latter is host-keyed
   // (built by walking `byHost`, see `use-money-farm.ts`'s own header
@@ -158,7 +169,12 @@ export function MoneyFarmDashboard() {
                         <th className="smallest">$ Deficit</th>
                       </tr>
                       {targetRows.map(t => (
-                        <tr key={t.target}>
+                        <tr
+                          key={t.target}
+                          onClick={() => openTargetTail(t.pid)}
+                          title={t.pid !== null ? 'Open tail' : 'Orchestrator not running — nothing to tail'}
+                          style={{ cursor: t.pid !== null ? 'pointer' : 'default' }}
+                        >
                           <td className="bb-wrap">{t.target}</td>
                           <td className="smallest">
                             <span

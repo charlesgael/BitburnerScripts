@@ -36,6 +36,13 @@ export interface HwgwTargetStatus {
   securityExcess: number
   /** `moneyMax - moneyAvailable` at the orchestrator's last tick — 0 once grow has caught up. */
   moneyDeficit: number
+  /**
+   * This target's `hwgw/start.js` pid, for `ns.ui.openTail(pid)` — `null`
+   * when no live orchestrator was found for it (only its workers turned up
+   * in the scan; hwgw has no self-healing, see `hwgw/start.ts`'s `'done'`
+   * branch, so an orchestrator can die while its workers keep looping).
+   */
+  pid: number | null
 }
 
 /** Every hwgw target currently known, plus which purchased-server host(s) are running its workers. */
@@ -57,6 +64,11 @@ export interface OrchestratorSnapshot {
   mode: HwgwMode
   securityExcess: number
   moneyDeficit: number
+}
+
+/** `OrchestratorSnapshot` plus the pid it was read off — `scanHwgwOrchestrators`'s own return shape, `pid` added there (not by `latestSnapshot`, which only ever sees the log lines, never the process info). */
+export interface OrchestratorStatus extends OrchestratorSnapshot {
+  pid: number
 }
 
 const NULL_SNAPSHOT: OrchestratorSnapshot = { mode: 'null', securityExcess: 0, moneyDeficit: 0 }
@@ -95,9 +107,9 @@ function latestSnapshot(logs: string[]): OrchestratorSnapshot {
   return NULL_SNAPSHOT
 }
 
-/** Every currently-running `hwgw/start.js` instance's own target -> snapshot, from `home`. */
-export function scanHwgwOrchestrators(ns: NS, home = 'home'): Map<string, OrchestratorSnapshot> {
-  const snapshots = new Map<string, OrchestratorSnapshot>()
+/** Every currently-running `hwgw/start.js` instance's own target -> snapshot (+ pid), from `home`. */
+export function scanHwgwOrchestrators(ns: NS, home = 'home'): Map<string, OrchestratorStatus> {
+  const snapshots = new Map<string, OrchestratorStatus>()
   for (const proc of ns.ps(home)) {
     if (proc.filename !== HWGW_ORCHESTRATOR_SCRIPT)
       continue
@@ -107,7 +119,7 @@ export function scanHwgwOrchestrators(ns: NS, home = 'home'): Map<string, Orches
     const rs = ns.getRunningScript(proc.pid)
     if (!rs)
       continue
-    snapshots.set(target, latestSnapshot(rs.logs))
+    snapshots.set(target, { ...latestSnapshot(rs.logs), pid: proc.pid })
   }
   return snapshots
 }
@@ -183,16 +195,17 @@ export function gatherHwgwStatus(ns: NS, dedicatedHosts: string[], home = 'home'
   const byTarget: Record<string, HwgwTargetStatus> = {}
   for (const target of targetNames) {
     const t = totals.get(target) ?? { moneyMade: 0, expGained: 0, hours: 0 }
-    const s = snapshots.get(target) ?? NULL_SNAPSHOT
+    const s = snapshots.get(target)
     byTarget[target] = {
       target,
-      mode: s.mode,
+      mode: s?.mode ?? NULL_SNAPSHOT.mode,
       moneyMade: t.moneyMade,
       expGained: t.expGained,
       moneyPerHour: t.hours > 0 ? t.moneyMade / t.hours : 0,
       expPerHour: t.hours > 0 ? t.expGained / t.hours : 0,
-      securityExcess: s.securityExcess,
-      moneyDeficit: s.moneyDeficit,
+      securityExcess: s?.securityExcess ?? NULL_SNAPSHOT.securityExcess,
+      moneyDeficit: s?.moneyDeficit ?? NULL_SNAPSHOT.moneyDeficit,
+      pid: s?.pid ?? null,
     }
   }
 
