@@ -17,7 +17,11 @@ import { noDupe } from './utils/ns/nodupe'
  * what would be sold, for how much, without touching anything real.
  */
 
-const TRADER_SCRIPT = 'stock-trader.app.js'
+// Both the primary trader and its frozen momentum-fallback twin (see
+// stock-trader.momentum.app.ts) manage real positions the same way - either
+// one left running would defeat the point of liquidating, so both get
+// stopped regardless of which one is actually running.
+const TRADER_SCRIPTS = ['stock-trader.app.js', 'stock-trader.momentum.app.js']
 
 export async function main(ns: NS) {
   ns.disableLog('ALL')
@@ -41,16 +45,16 @@ export async function main(ns: NS) {
   // a symbol this script is in the middle of selling out from under it.
   // Not flag-gated beyond --dry-run itself - leaving it running would
   // defeat the entire point of "get the cash out".
-  const traderProcs = ns.ps(ns.getHostname()).filter(p => p.filename === TRADER_SCRIPT)
+  const traderProcs = ns.ps(ns.getHostname()).filter(p => TRADER_SCRIPTS.includes(p.filename))
   if (traderProcs.length > 0) {
-    const pids = traderProcs.map(p => p.pid).join(', ')
+    const names = traderProcs.map(p => `${p.filename} (pid ${p.pid})`).join(', ')
     if (dryRun) {
-      ns.tprint(`DRY-RUN: would stop ${TRADER_SCRIPT} (pid ${pids}) before liquidating.`)
+      ns.tprint(`DRY-RUN: would stop ${names} before liquidating.`)
     }
     else {
       for (const proc of traderProcs)
         ns.kill(proc.pid)
-      ns.tprint(`Stopped ${TRADER_SCRIPT} (pid ${pids}) before liquidating.`)
+      ns.tprint(`Stopped ${names} before liquidating.`)
     }
   }
 

@@ -1,6 +1,19 @@
 import type { NS } from '@ns'
 
 /**
+ * FROZEN FALLBACK - a byte-for-byte snapshot of signal.ts's momentum
+ * fallback as it stood right before it was rewritten to use an up-tick-
+ * frequency (binomial MLE) estimator instead of the window-endpoint-
+ * difference-vs-noise-floor approach implemented here. Not imported by
+ * anything except stock-trader.momentum.app.ts, and deliberately NOT kept
+ * in sync with future edits to signal.ts - it exists purely so that daemon
+ * has an unconditional way back to this exact, already-tested behavior
+ * without needing to reconstruct it from git history. If this file is ever
+ * updated to track signal.ts's future changes, it stops serving that
+ * purpose - leave it alone.
+ */
+
+/**
  * How many past ticks feed the momentum fallback (no 4S access) - matches
  * the lookback that peaked at ~55% directional accuracy against the
  * collected stock-stats.txt sample this project analyzed (mean bias-regime
@@ -19,48 +32,24 @@ export const FORECAST_MARGIN = 0.05
 /**
  * Consecutive ticks a new momentum direction must be raw-computed before
  * getMomentumSignal actually reports it, instead of flipping the moment a
- * single new tick shifts the window's up-tick fraction across
- * MOMENTUM_Z_THRESHOLD. Originally added (and proven live) against the
- * older window-endpoint-difference estimator, where one noisy tick entering
- * or leaving the window could flip trailingReturn's sign outright: one
- * session logged 596 of 602 exits as signal-reversed (not stop-loss) at a
+ * single tick's window-endpoint difference crosses zero. trailingReturn is
+ * `arr[last]/arr[0] - 1` recomputed fresh every tick - one noisy tick
+ * entering or leaving the window can flip its sign with nothing about the
+ * underlying trend actually changing, and live trading confirmed this: 596
+ * of 602 exits in one session were signal-reversed (not stop-loss) at a
  * 2.5-minute average hold, and the resulting net trading P&L (isolated from
  * every other income source that session, ~0.2% return on capital
  * deployed) was far thinner than the ~1.62% mean raw per-trade return -
  * spread/commission/impact paid on that much churn ate most of the edge.
- * The up-tick-fraction estimator that replaced it is a full-window
- * statistic (one tick's contribution to the fraction is only 1/n, not the
- * whole signal), so it should already be less prone to single-tick
- * whipsaws on its own - but this debounce is kept on top regardless, since
- * a fraction sitting right at the z-threshold boundary can still flip on
- * one new tick. Only the momentum path needs this: has4SData's
- * ns.stock.getForecast is a real day-to-day probability, not a windowed
- * statistic, and never touches PriceWindow at all (see getSignal below) -
- * this constant and the state it drives has no effect whenever 4S access
- * is owned. Not yet re-tuned against a live before/after comparison for
- * the new estimator specifically.
+ * Only the momentum path needs this: has4SData's ns.stock.getForecast is a
+ * real day-to-day probability, not a two-point window difference, and never
+ * touches PriceWindow at all (see getSignal below) - this constant and the
+ * state it drives has no effect whenever 4S access is owned. Picked as a
+ * reasonable starting value to filter single-tick noise without adding much
+ * lag on top of the already-throttled per-tick sampling; not yet tuned
+ * against a live before/after comparison the way WINDOW_TICKS was.
  */
 const MOMENTUM_CONFIRM_TICKS = 3
-
-/**
- * Minimum |z-score| for the fraction of up-ticks in a window to be treated
- * as a real directional bias rather than sampling noise from a coin that's
- * actually fair (or only weakly biased). Grounded in bitburner-src's own
- * source (src/StockMarket/StockMarket.ts, src/StockMarket/Stock.ts): each
- * tick's price move really is a biased coin flip with probability
- * `getAbsoluteForecast()/100` (exactly what has4SData's branch below reads
- * as ns.stock.getForecast()) - which makes the fraction of up-ticks over a
- * window the maximum-likelihood estimator of that same probability for the
- * no-4S case, replacing the previous window-endpoint-difference-vs-noise-
- * floor heuristic with something the confirmed generating process actually
- * justifies. Its standard error under the null hypothesis of a fair coin is
- * 0.5/sqrt(n), so (upFraction - 0.5) / (0.5/sqrt(n)) is a proper z-score.
- * 1.0 is roughly a 1-sigma filter - a starting value, not yet tuned against
- * a live before/after comparison the way WINDOW_TICKS was. The previous
- * approach is preserved untouched in signal.momentum.ts/
- * stock-trader.momentum.app.ts as a fallback if this one performs worse.
- */
-const MOMENTUM_Z_THRESHOLD = 1.0
 
 export interface TradeSignal {
   direction: 'long' | 'short' | null
@@ -79,19 +68,28 @@ const NO_SIGNAL: TradeSignal = { direction: null, strength: 0 }
  * Debounce state for one symbol's momentum direction - `confirmed` is what
  * getMomentumSignal actually reports; `pending`/`pendingCount` track a
  * not-yet-confirmed raw direction working towards MOMENTUM_CONFIRM_TICKS.
- * `null` is a real value for both `confirmed` and `pending` (no signal -
- * |z| below MOMENTUM_Z_THRESHOLD), not just "unset" - dropping out of a
- * confirmed direction needs the same persistence as flipping to the
- * opposite one, so a momentary dip below the threshold doesn't instantly
- * exit a held position either. `pending` is `undefined` specifically for
- * "no candidate currently accumulating" - collapsing that into `null`
- * instead would make a reset-then-immediately-null tick collide with a
- * genuine second consecutive null reading and undercount by one tick.
+ * `null` is a real value for both `confirmed` and `pending` (no signal /
+ * below noise floor), not just "unset" - dropping out of a confirmed
+ * direction needs the same persistence as flipping to the opposite one, so
+ * a momentary dip below the noise floor doesn't instantly exit a held
+ * position either. `pending` is `undefined` specifically for "no candidate
+ * currently accumulating" - collapsing that into `null` instead would make
+ * a reset-then-immediately-null tick collide with a genuine second
+ * consecutive null reading and undercount by one tick.
  */
 interface MomentumDirectionState {
   confirmed: 'long' | 'short' | null
   pending: 'long' | 'short' | null | undefined
   pendingCount: number
+}
+
+function mean(values: number[]): number {
+  return values.reduce((a, b) => a + b, 0) / values.length
+}
+
+function stddev(values: number[]): number {
+  const m = mean(values)
+  return Math.sqrt(mean(values.map(v => (v - m) ** 2)))
 }
 
 /**
@@ -140,47 +138,46 @@ export class PriceWindow {
   }
 
   /**
+   * Stddev of tick-over-tick returns - the "is this move real" noise floor
+   * used by getMomentumSignal to decide whether a trailing move is signal
+   * or noise.
+   */
+  noiseFloor(sym: string): number {
+    return stddev(this.tickReturns(sym))
+  }
+
+  /**
    * |trailing WINDOW_TICKS return| - the actual measured move already in
    * motion. Used by trader.app.ts's entry edge check as the expected-move
-   * estimate for a momentum-sourced signal - a separate question from
-   * getMomentumSignal's direction/confidence (how big a move to expect,
-   * not which way or how sure), so it isn't part of the up-tick-frequency
-   * rework below.
+   * estimate for a momentum-sourced signal, instead of noiseFloor's
+   * single-tick magnitude - see that function's own comment for why a
+   * single tick's volatility was the wrong horizon to compare a
+   * paid-once round-trip cost against.
    */
   trailingMoveMagnitude(sym: string): number {
     return Math.abs(this.trailingReturn(sym))
   }
 
   /**
-   * Raw direction/strength come from a binomial z-test on the window's own
-   * up-tick fraction - see MOMENTUM_Z_THRESHOLD's comment for why that's
-   * the maximum-likelihood estimator of the tick's true up-probability,
-   * given the confirmed game mechanic. Debounced on top: the raw direction
-   * only becomes the reported one after MOMENTUM_CONFIRM_TICKS consecutive
-   * ticks agree - see that constant's own comment for why. `strength` is
-   * reported off the raw |z| regardless of confirmation state (only
-   * consumed for ranking entry candidates - not-yet-confirmed positions
-   * never reach that ranking, so there's nothing for a stale strength to
-   * mislead there).
+   * Debounced: the raw direction below (from a single tick's window-endpoint
+   * difference) only becomes the reported one after MOMENTUM_CONFIRM_TICKS
+   * consecutive ticks agree - see that constant's own comment for why.
+   * `strength` is reported off the raw magnitude regardless (it's a
+   * direction-agnostic |move|/noiseFloor ratio, only consumed for ranking
+   * entry candidates - not-yet-confirmed positions never reach that
+   * ranking, so there's nothing for a stale strength to mislead there).
    */
   getMomentumSignal(sym: string): TradeSignal {
     if (!this.isReady(sym))
       return NO_SIGNAL
 
-    const returns = this.tickReturns(sym)
-    const upCount = returns.filter(r => r > 0).length
-    const downCount = returns.filter(r => r < 0).length
-    const n = upCount + downCount
-
-    let rawDirection: 'long' | 'short' | null = null
-    let strength = 0
-    if (n > 0) {
-      const upFraction = upCount / n
-      const standardError = 0.5 / Math.sqrt(n)
-      const z = (upFraction - 0.5) / standardError
-      rawDirection = Math.abs(z) < MOMENTUM_Z_THRESHOLD ? null : (z > 0 ? 'long' : 'short')
-      strength = Math.abs(z)
-    }
+    const trailingReturn = this.trailingReturn(sym)
+    const noiseFloor = this.noiseFloor(sym)
+    const rawDirection: 'long' | 'short' | null
+      = (noiseFloor === 0 || Math.abs(trailingReturn) < noiseFloor)
+        ? null
+        : (trailingReturn > 0 ? 'long' : 'short')
+    const strength = noiseFloor === 0 ? 0 : Math.abs(trailingReturn) / noiseFloor
 
     const state = this.direction.get(sym) ?? { confirmed: null, pending: undefined, pendingCount: 0 }
 
