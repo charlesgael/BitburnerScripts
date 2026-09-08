@@ -6,7 +6,7 @@ const FACTION_HOSTS: Record<string, string> = {
   'avmnite-02h': 'NiteSec',
   'b-and-a': 'Bachman & Associates',
   'CSEC': 'CyberSec',
-  'fulcrumassets': 'Fulcrum Technologies',
+  'fulcrumassets': 'Fulcrum Secret Technologies',
   'I.I.I.I': 'The Black Hand',
   'run4theh111z': 'BitBurners',
 }
@@ -20,6 +20,7 @@ const CORPS_HOSTS: string[] = [
   'omnitek',
   '4sigma',
   'clarkinc',
+  'fulcrumtech',
 ]
 
 const QOL_HOSTS: Record<string, string> = {
