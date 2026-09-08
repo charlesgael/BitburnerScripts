@@ -111,7 +111,7 @@ export async function main(ns: NS) {
     const pid = ns.run(START_SCRIPT, {
       threads: 1,
       preventDuplicates: true,
-    }, '--target', server.hostname, ...dedicated)
+    }, '--target', server.hostname)
 
     await ns.sleep(SLEEP_BETWEEN_LAUNCHES)
     if (pid === 0) {

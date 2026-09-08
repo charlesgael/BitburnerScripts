@@ -1,4 +1,3 @@
-import type { ProcessInfo } from '@ns'
 import React from '@react'
 import { formatMoney, formatNumber, formatPercent } from '../../../../utils/format/game'
 import { HeroStat } from '../../../components/hero-stat'
@@ -6,7 +5,7 @@ import { InstanceManager } from '../../../components/instance-manager'
 import { TitlebarPulldown } from '../../../components/window/titlebar-pulldown'
 import { TitlebarToolbar } from '../../../components/window/titlebar-toolbar'
 import { useQueuedNs } from '../../../context/ns-queue-context'
-import { AUTO_HACK_HOST, AUTO_HACK_SCRIPT } from '../../../utils/hwgw-config'
+import { ADD_HACK_SCRIPT, AUTO_HACK_HOST, AUTO_HACK_SCRIPT } from '../../../utils/hwgw-config'
 import { useMoneyFarm } from '../logic/use-money-farm'
 import { MoneyFarmContent } from './money-farm-content'
 
@@ -51,8 +50,7 @@ const MODE_COLORS: Record<string, string> = {
 export function MoneyFarmDashboard() {
   const ns = useQueuedNs()
   const mf = useMoneyFarm()
-  const [running, setRunning] = React.useState(false)
-  const [count, setCount] = React.useState(5)
+  const [count, setCount] = React.useState(1)
 
   // `pid` comes from `lib/hwgw/workers.ts`'s own orchestrator scan (the
   // same `ns.ps('home')` pass mode already comes from) — null for a target
@@ -76,19 +74,12 @@ export function MoneyFarmDashboard() {
     [mf.targets],
   )
 
-  function updateProcessInfo(running: ProcessInfo | undefined) {
-    if (running) {
-      const countIdx = running.args.indexOf('--count')
-      setCount(running.args[countIdx + 1] as number)
-      setRunning(true)
-    }
-    else {
-      setRunning(false)
-    }
-  }
-
   const totalMoneyPerHour = targetRows.reduce((sum, t) => sum + t.moneyPerHour, 0)
   const activeTargets = targetRows.filter(t => t.mode === 'farm' || t.mode === 'done').length
+
+  function addTargets() {
+    ns._exec(ADD_HACK_SCRIPT, AUTO_HACK_HOST, 1, '--number', count, ...(mf.enabled.size > 0 ? [...mf.enabled] : ['cloud']))
+  }
 
   return (
     <>
@@ -101,18 +92,16 @@ export function MoneyFarmDashboard() {
           <input
             className="bb-field"
             type="number"
-            min={0}
+            min={1}
             value={count}
-            disabled={running}
-            onChange={e => setCount(Math.max(0, Number(e.target.value) ?? 1))}
+            onChange={e => setCount(Math.max(1, Number(e.target.value) ?? 1))}
             style={{ width: '3.5em' }}
           />
         </span>
+        <button className="bb-icon-link" title="Add targets" onClick={addTargets}>➕</button>
         <InstanceManager
           filename={AUTO_HACK_SCRIPT}
           host={AUTO_HACK_HOST}
-          args={[...(count > 0 ? ['--count', count] : []), ...(mf.enabled.size > 0 ? [...mf.enabled] : ['cloud'])]}
-          onRunning={updateProcessInfo}
         />
         <button
           onClick={() => void mf.refresh()}

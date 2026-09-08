@@ -17,6 +17,7 @@ import type { QueuedNS } from './ns-proxy'
  */
 export const HWGW_HOSTS_FILE = 'hwgw-hosts.json'
 export const AUTO_HACK_SCRIPT = 'auto-hack.app.js'
+export const ADD_HACK_SCRIPT = 'auto-hack.add.js'
 export const AUTO_HACK_HOST = 'home'
 
 /**

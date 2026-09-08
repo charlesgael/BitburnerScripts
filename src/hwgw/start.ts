@@ -1,4 +1,5 @@
 import type { NS, RunOptions, ScriptArg } from '@ns'
+import { HWGW_HOSTS_FILE } from '../ui/utils/hwgw-config'
 import { parseArgs } from '../utils/args'
 import { formatDuration } from '../utils/format/dates'
 import { formatMoney, formatNumber, formatPercent, formatRam } from '../utils/format/game'
@@ -17,10 +18,79 @@ const HACK_STEAL = 0.1
 const WAVE_LEG_GAP_MS = 500
 const WAVE_SERIES_GAP_MS = 2_000
 
+export function readHwgwHosts(ns: NS): string[] {
+  const raw = ns.read(HWGW_HOSTS_FILE)
+  if (!raw)
+    return []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  }
+  catch {
+    return []
+  }
+}
+
 function argTarget(args: ScriptArg[]): string | null {
   const idx = args.indexOf('--target')
   const value = idx === -1 ? undefined : args[idx + 1]
   return typeof value === 'string' && value ? value : null
+}
+
+class Program {
+  public args: ScriptArg[]
+
+  constructor(
+    public script: string,
+    public threadOrOptions?: number | RunOptions,
+    ...args: ScriptArg[]
+  ) {
+    this.args = args
+  }
+}
+
+function smallerBatches(program: Program, size = 1000): Program[] {
+  let threadCount = typeof program.threadOrOptions === 'number' ? program.threadOrOptions : program.threadOrOptions?.threads ?? 1
+  if (threadCount < size)
+    return [program]
+
+  const slice: Program[] = []
+  const sliceCount = Math.ceil(threadCount / size)
+  for (let i = 0; i < sliceCount; i++) {
+    const thisSlice = threadCount > size ? size : threadCount
+    threadCount -= thisSlice
+    if (typeof program.threadOrOptions === 'object') {
+      slice.push(new Program(program.script, { ...program.threadOrOptions, threads: thisSlice }, ...program.args))
+    }
+    else {
+      slice.push(new Program(program.script, thisSlice, ...program.args))
+    }
+  }
+  return slice
+}
+
+function launchFleet(ns: NS, hosts: string[], programs: Program[]): readonly [false, undefined] | readonly [true, number[]] {
+  const pids: number[] = []
+  for (const program of programs) {
+    pids.push(exec(ns, program.script, hosts, program.threadOrOptions, ...program.args))
+  }
+
+  if (pids.includes(0)) {
+    pids.filter(it => it).forEach(pid => ns.kill(pid))
+    return [false, undefined]
+  }
+  return [true, pids]
+}
+
+function exec(ns: NS, script: string, hosts: string[], threadOrOptions?: number | RunOptions, ...args: ScriptArg[]): number {
+  let pid = 0
+  for (const host of hosts) {
+    pid = ns.exec(script, host, threadOrOptions, ...args)
+    if (pid > 0)
+      return pid
+  }
+  ns.print(`ERROR: Could not launch ${script} x${JSON.stringify(threadOrOptions)}`)
+  return 0
 }
 
 export async function main(ns: NS) {
@@ -29,7 +99,7 @@ export async function main(ns: NS) {
   const args = parseArgs(ns, [
     { long: 'target', defaultValue: 'n00dles', description: 'Target to HWGW', short: 't' },
   ])
-  const requestedHosts = args._.map(String)
+  const requestedHosts = args._.length ? args._.map(String) : undefined
   const target = args.target
 
   // let lastStateCheck = 0
@@ -43,6 +113,7 @@ export async function main(ns: NS) {
     }
   })
 
+  let hosts: string[] = []
   const dupe = ns.ps('home').find(p =>
     p.filename === ns.getScriptName()
     && p.pid !== ns.pid
@@ -53,11 +124,6 @@ export async function main(ns: NS) {
     return
   }
 
-  const hosts = requestedHosts.filter(h => ns.serverExists(h))
-  if (hosts.length === 0) {
-    ns.tprint('WARNING: daemons/steady-farm.daemon.js needs at least one dedicated hostname as a positional argument — exiting.')
-    return
-  }
   if (target && !ns.serverExists(target)) {
     ns.tprint(`WARNING: target ${target} doesn't exist — exiting.`)
     return
@@ -70,8 +136,6 @@ export async function main(ns: NS) {
     ns.tprint(`WARNING: target ${target} — no root access — exiting.`)
     return
   }
-  for (const host of hosts)
-    ns.scp([HACK_SCRIPT, GROW_SCRIPT, WEAKEN_SCRIPT], host, 'home')
 
   const rams = {
     hack: ns.getScriptRam(HACK_SCRIPT, 'home'),
@@ -80,22 +144,23 @@ export async function main(ns: NS) {
   }
 
   while (true) {
+    // No length check here on purpose: an empty list (a bad edit to
+    // hwgw-hosts.json, or every listed host getting sold/deleted at once)
+    // falls straight through to hostCandidates()/free-RAM math below —
+    // free comes out 0, which the existing `free < ramNeeds` retry path
+    // already handles by sleeping and re-reading next tick, rather than
+    // this hard-exiting a target that may have been earning for hours.
+    hosts = requestedHosts?.filter(h => ns.serverExists(h)) || readHwgwHosts(ns)
+    for (const host of hosts)
+      ns.scp([HACK_SCRIPT, GROW_SCRIPT, WEAKEN_SCRIPT], host, 'home')
+
     const { hackDifficulty, minDifficulty, moneyAvailable, moneyMax } = ns.getServer(target)
     const snapshot = {
       securityExcess: Math.max(0, hackDifficulty! - minDifficulty!),
       moneyDeficit: Math.max(0, moneyMax! - moneyAvailable!),
       deficitPercent: Math.max(0, moneyMax! - moneyAvailable!) / moneyMax!,
     }
-    // Re-affirmed every tick, not just on an actual transition — Bitburner
-    // caps how many lines a script's own log retains (configurable in
-    // Options), so a target sitting in one state for a long time (`done`
-    // especially, once every other target has also stopped touching this
-    // one's own log) would otherwise eventually scroll its original
-    // `state-change` line out of the buffer entirely, and
-    // `lib/hwgw/workers.ts`'s `latestState` would silently fall back to
-    // reporting `'null'`. Re-printing the identical line every iteration
-    // keeps it within whatever window the backward scan actually needs.
-    setState(state, snapshot)
+
     if (state === 'null') {
       // Define if we go in farm or in prep
       if (hackDifficulty! > minDifficulty! || moneyAvailable! < moneyMax!) {
@@ -112,12 +177,12 @@ export async function main(ns: NS) {
       if (moneyAvailable! < moneyMax!) {
         ns.print(`Money deficit: ${formatMoney(snapshot.moneyDeficit)}`)
         const multiplier = moneyMax! / moneyAvailable!
-        growthThreads += Math.ceil(ns.growthAnalyze(target, multiplier))
+        growthThreads += Math.ceil(ns.growthAnalyze(target, multiplier) * GW_THREAD_MULTI)
         incSecurity += Math.ceil(ns.growthAnalyzeSecurity(growthThreads))
       }
       if (hackDifficulty! + incSecurity > minDifficulty!) {
         ns.print(`Security excess: ${formatNumber(hackDifficulty! + incSecurity - minDifficulty!)}`)
-        weakenThreads += Math.ceil((hackDifficulty! + incSecurity - minDifficulty!) / WEAKEN_REDUCTION)
+        weakenThreads += Math.ceil((hackDifficulty! + incSecurity - minDifficulty!) / WEAKEN_REDUCTION * GW_THREAD_MULTI)
       }
 
       if (growthThreads === 0 && weakenThreads === 0) {
@@ -125,20 +190,31 @@ export async function main(ns: NS) {
         continue
       }
 
-      // const ramNeeds = growthThreads * rams.grow + weakenThreads * rams.weaken
+      const ramNeeds = growthThreads * rams.grow + weakenThreads * rams.weaken
       // const host = await waitForHost(ramNeeds, snapshot)
-      const slaves = hostCandidates()
+      const [slaves, free] = hostCandidates()
+      ns.print(`[prep] Grows: ${growthThreads}, Weakens: ${weakenThreads}, ram: ${formatRam(ramNeeds)} vs ${formatRam(free)} free`)
+
+      if (free < ramNeeds) {
+        ns.print(`Not trying to launch prep for ${target}`)
+        notifyState(`${state}-ram`, snapshot)
+        await ns.sleep(10_000)
+        continue
+      }
 
       const time = ns.getWeakenTime(target)
-      const added = []
+
+      const programs: Program[] = []
       if (growthThreads > 0)
-        added.push(exec(ns, GROW_SCRIPT, slaves, Math.ceil(growthThreads * GW_THREAD_MULTI), target))
+        programs.push(...smallerBatches(new Program(GROW_SCRIPT, growthThreads, target), 200))
       if (weakenThreads > 0)
-        added.push(exec(ns, WEAKEN_SCRIPT, slaves, Math.ceil(weakenThreads * GW_THREAD_MULTI), target))
-      if (added.includes(0)) {
+        programs.push(...smallerBatches(new Program(WEAKEN_SCRIPT, weakenThreads, target), 200))
+
+      const [success, added] = launchFleet(ns, slaves, programs)
+      if (!success) {
         ns.print(`Failed to launch prep for ${target}`)
-        await ns.sleep(2_000)
-        added.filter(it => it).forEach(ns.kill)
+        notifyState(`${state}-ram`, snapshot)
+        await ns.sleep(10_000)
         continue
       }
       pids.push(...added)
@@ -163,21 +239,30 @@ export async function main(ns: NS) {
         + rams.weaken * weaken2Threads
       )
       // const host = await waitForHost(ramNeeds, snapshot)
-      const slaves = hostCandidates()
+      const [slaves, free] = hostCandidates()
 
-      ns.print(`Looptime: ${formatDuration(loopTime / 1000)}, ram: ${formatRam(ramNeeds)}`)
-
-      const added = []
-      for (let i = 0; i < loops; i++) {
-        added.push(exec(ns, HACK_SCRIPT, slaves, { preventDuplicates: true, threads: hackThreads }, target, loopTime, 0 + waveLength * i))
-        added.push(exec(ns, WEAKEN_SCRIPT, slaves, { preventDuplicates: true, threads: weaken1Threads }, target, loopTime, WAVE_LEG_GAP_MS + waveLength * i))
-        added.push(exec(ns, GROW_SCRIPT, slaves, { preventDuplicates: true, threads: growthThreads }, target, loopTime, WAVE_LEG_GAP_MS * 2 + waveLength * i))
-        added.push(exec(ns, WEAKEN_SCRIPT, slaves, { preventDuplicates: true, threads: weaken2Threads }, target, loopTime, WAVE_LEG_GAP_MS * 3 + waveLength * i))
+      if (free < ramNeeds) {
+        ns.print(`Not trying to launch prep for ${target}`)
+        notifyState(`${state}-ram`, snapshot)
+        await ns.sleep(10_000)
+        continue
       }
-      if (added.includes(0)) {
+
+      ns.print(`[farm] Looptime: ${formatDuration(loopTime / 1000)}, ram: ${formatRam(ramNeeds)} vs ${formatRam(free)} free`)
+
+      const programs: Program[] = []
+      for (let i = 0; i < loops; i++) {
+        programs.push(new Program(HACK_SCRIPT, { preventDuplicates: true, threads: hackThreads }, target, loopTime, 0 + waveLength * i))
+        programs.push(new Program(WEAKEN_SCRIPT, { preventDuplicates: true, threads: weaken1Threads }, target, loopTime, WAVE_LEG_GAP_MS + waveLength * i))
+        programs.push(new Program(GROW_SCRIPT, { preventDuplicates: true, threads: growthThreads }, target, loopTime, WAVE_LEG_GAP_MS * 2 + waveLength * i))
+        programs.push(new Program(WEAKEN_SCRIPT, { preventDuplicates: true, threads: weaken2Threads }, target, loopTime, WAVE_LEG_GAP_MS * 3 + waveLength * i))
+      }
+
+      const [success, added] = launchFleet(ns, slaves, programs)
+      if (!success) {
         ns.print(`Failed to launch farm for ${target}`)
-        await ns.sleep(2_000)
-        added.filter(it => it).forEach(ns.kill)
+        notifyState(`${state}-ram`, snapshot)
+        await ns.sleep(10_000)
         continue
       }
       pids.push(...added)
@@ -204,7 +289,7 @@ export async function main(ns: NS) {
   }
 
   function killall() {
-    pids.filter(it => it).forEach(ns.kill)
+    pids.filter(it => it).forEach(pid => ns.kill(pid))
     pids.length = 0
   }
 
@@ -232,20 +317,14 @@ export async function main(ns: NS) {
   }
 
   function hostCandidates() {
-    return hosts
+    const candidates = hosts
       .map(it => [it, ns.getServerMaxRam(it) - ns.getServerUsedRam(it)] as const)
       .sort(([,A], [,B]) => B - A)
-      .map(([it]) => it)
-  }
 
-  function exec(ns: NS, script: string, hosts: string[], threadOrOptions?: number | RunOptions, ...args: ScriptArg[]): number {
-    let pid = 0
-    for (const host of hosts) {
-      pid = ns.exec(script, host, threadOrOptions, ...args)
-      if (pid > 0)
-        return pid
-    }
-    return 0
+    return [
+      candidates.map(([it]) => it),
+      candidates.map(([,free]) => free).reduce((a, b) => a + b, 0),
+    ] as const
   }
   // Every transition also gets a structured log line, alongside the plain
   // human-readable prints already scattered through the loop below —
