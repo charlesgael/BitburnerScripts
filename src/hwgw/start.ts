@@ -3,6 +3,7 @@ import { HWGW_HOSTS_FILE } from '../ui/utils/hwgw-config'
 import { parseArgs } from '../utils/args'
 import { formatDuration } from '../utils/format/dates'
 import { formatMoney, formatNumber, formatPercent, formatRam } from '../utils/format/game'
+import { exitIfOffline } from '../utils/ns/offline'
 
 const HACK_SCRIPT = 'hwgw/h.js'
 const GROW_SCRIPT = 'hwgw/g.js'
@@ -95,6 +96,7 @@ function exec(ns: NS, script: string, hosts: string[], threadOrOptions?: number 
 
 export async function main(ns: NS) {
   ns.disableLog('ALL')
+  await exitIfOffline(ns)
 
   const args = parseArgs(ns, [
     { long: 'target', defaultValue: 'n00dles', description: 'Target to HWGW', short: 't' },
