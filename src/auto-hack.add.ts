@@ -60,6 +60,7 @@ export async function main(ns: NS) {
 
   const args = parseArgs(ns, [
     { long: 'number', defaultValue: 1, description: 'Number of additional hwgw targets to start.', short: 'n' },
+    { long: 'target', defaultValue: '', description: 'Start for a specific target.', short: 't' },
   ] as const, [])
   const number = args.number
   const positional = args._.map(String)
@@ -76,10 +77,10 @@ export async function main(ns: NS) {
   }
 
   const dedicated = positional.length ? computeDedicated(ns, positional) : readConfiguredHosts(ns)
-  if (!dedicated.length) {
-    ns.tprint(`WARNING: No hosts given as arguments (or "cloud") and ${HWGW_HOSTS_FILE} has none configured — exiting.`)
-    return
-  }
+  // if (!dedicated.length) {
+  //   ns.tprint(`WARNING: No hosts given as arguments (or "cloud") and ${HWGW_HOSTS_FILE} has none configured — exiting.`)
+  //   return
+  // }
 
   const ignored: string[] = positional.length ? positional : dedicated
   const servers: Server[] = JSON.parse(ns.read(SERVER_FILE))
@@ -100,7 +101,7 @@ export async function main(ns: NS) {
     .filter((it): it is { server: Server, score: number } => it.score !== null)
     .sort((a, b) => b.score - a.score)
 
-  const candidates = possible.slice(0, number)
+  const candidates = ns.serverExists(args.target) ? [{ server: { hostname: args.target } }] : possible.slice(0, number)
   if (!candidates.length) {
     ns.tprint('WARNING: No untargeted, eligible servers found — exiting.')
     return

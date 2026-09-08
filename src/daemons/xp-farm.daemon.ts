@@ -127,7 +127,7 @@ interface ManagedAssignment extends Assignment {
  * has in that case.
  */
 function hwgFarmTargets(ns: NS): Set<string> {
-  return scanHwgwTargets(ns, ns.cloud.getServerNames())
+  return scanHwgwTargets(ns, [])
 }
 
 /**

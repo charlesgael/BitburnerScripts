@@ -9,9 +9,20 @@ export async function main(ns: NS) {
     ns.tprint('ERROR: At least one server is required')
   }
 
-  for (const srv of srvs) {
-    if (!ns.serverExists(srv))
-      continue
-    ns.killall(srv)
+  for (let i = 0; i < srvs.length; i++) {
+    const srv = srvs[i]
+
+    if (ns.fileExists(srv)) {
+      try {
+        const servers = JSON.parse(ns.read(srv))
+        if (Array.isArray(servers)) {
+          srvs.push(...servers.map(String))
+        }
+      }
+      catch {}
+    }
+    if (ns.serverExists(srv)) {
+      ns.killall(srv)
+    }
   }
 }

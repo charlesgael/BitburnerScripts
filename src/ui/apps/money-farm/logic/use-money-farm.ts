@@ -66,8 +66,8 @@ export function useMoneyFarm() {
   const [error, setError] = React.useState<string | null>(null)
 
   async function fetchStatus(hosts: string[]): Promise<{ byHost: HwgwHostStatus, byTarget: HwgwTargetsStatus }> {
-    if (hosts.length === 0)
-      return { byHost: {}, byTarget: {} }
+    // if (hosts.length === 0)
+    //   return { byHost: {}, byTarget: {} }
     const result = await callAction('hwgwStatus', [hosts]) as HwgwStatusResult
     const byHost: HwgwHostStatus = {}
     for (const [host, hostTargets] of Object.entries(result.byHost)) {

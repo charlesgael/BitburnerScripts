@@ -222,6 +222,7 @@ export async function main(ns: NS) {
       pids.push(...added)
 
       ns.print(`Waiting ${formatDuration(time / 1000)} for prep phase`)
+      notifyState(`${state}`, snapshot)
       await ns.sleep(time)
     }
     else if (state === 'farm') {
@@ -268,6 +269,7 @@ export async function main(ns: NS) {
         continue
       }
       pids.push(...added)
+      notifyState(`${state}`, snapshot)
       await ns.sleep(Math.ceil(WAVE_LEG_GAP_MS * 3 + WAVE_SERIES_GAP_MS / 2))
       setState('done', snapshot)
     }
