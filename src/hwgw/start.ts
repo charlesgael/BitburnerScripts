@@ -1,4 +1,4 @@
-import type { NS, ScriptArg } from '@ns'
+import type { NS, RunOptions, ScriptArg } from '@ns'
 import { parseArgs } from '../utils/args'
 import { formatDuration } from '../utils/format/dates'
 import { formatMoney, formatNumber, formatPercent, formatRam } from '../utils/format/game'
@@ -125,18 +125,19 @@ export async function main(ns: NS) {
         continue
       }
 
-      const ramNeeds = growthThreads * rams.grow + weakenThreads * rams.weaken
-      const host = await waitForHost(ramNeeds, snapshot)
+      // const ramNeeds = growthThreads * rams.grow + weakenThreads * rams.weaken
+      // const host = await waitForHost(ramNeeds, snapshot)
+      const slaves = hostCandidates()
 
       const time = ns.getWeakenTime(target)
       const added = []
       if (growthThreads > 0)
-        added.push(ns.exec(GROW_SCRIPT, host, Math.ceil(growthThreads * GW_THREAD_MULTI), target))
+        added.push(exec(ns, GROW_SCRIPT, slaves, Math.ceil(growthThreads * GW_THREAD_MULTI), target))
       if (weakenThreads > 0)
-        added.push(ns.exec(WEAKEN_SCRIPT, host, Math.ceil(weakenThreads * GW_THREAD_MULTI), target))
+        added.push(exec(ns, WEAKEN_SCRIPT, slaves, Math.ceil(weakenThreads * GW_THREAD_MULTI), target))
       if (added.includes(0)) {
         ns.print(`Failed to launch prep for ${target}`)
-        ns.sleep(2_000)
+        await ns.sleep(2_000)
         added.filter(it => it).forEach(ns.kill)
         continue
       }
@@ -161,20 +162,21 @@ export async function main(ns: NS) {
         + rams.grow * growthThreads
         + rams.weaken * weaken2Threads
       )
-      const host = await waitForHost(ramNeeds, snapshot)
+      // const host = await waitForHost(ramNeeds, snapshot)
+      const slaves = hostCandidates()
 
-      ns.print(`Looptime: ${formatDuration(loopTime / 1000)}, ram: ${formatRam(ramNeeds)}, host: ${host}`)
+      ns.print(`Looptime: ${formatDuration(loopTime / 1000)}, ram: ${formatRam(ramNeeds)}`)
 
       const added = []
       for (let i = 0; i < loops; i++) {
-        added.push(ns.exec(HACK_SCRIPT, host, hackThreads, target, loopTime, 0 + waveLength * i))
-        added.push(ns.exec(WEAKEN_SCRIPT, host, weaken1Threads, target, loopTime, WAVE_LEG_GAP_MS + waveLength * i))
-        added.push(ns.exec(GROW_SCRIPT, host, growthThreads, target, loopTime, WAVE_LEG_GAP_MS * 2 + waveLength * i))
-        added.push(ns.exec(WEAKEN_SCRIPT, host, weaken2Threads, target, loopTime, WAVE_LEG_GAP_MS * 3 + waveLength * i))
+        added.push(exec(ns, HACK_SCRIPT, slaves, { preventDuplicates: true, threads: hackThreads }, target, loopTime, 0 + waveLength * i))
+        added.push(exec(ns, WEAKEN_SCRIPT, slaves, { preventDuplicates: true, threads: weaken1Threads }, target, loopTime, WAVE_LEG_GAP_MS + waveLength * i))
+        added.push(exec(ns, GROW_SCRIPT, slaves, { preventDuplicates: true, threads: growthThreads }, target, loopTime, WAVE_LEG_GAP_MS * 2 + waveLength * i))
+        added.push(exec(ns, WEAKEN_SCRIPT, slaves, { preventDuplicates: true, threads: weaken2Threads }, target, loopTime, WAVE_LEG_GAP_MS * 3 + waveLength * i))
       }
       if (added.includes(0)) {
-        ns.print(`Failed to launch prep for ${target}`)
-        ns.sleep(2_000)
+        ns.print(`Failed to launch farm for ${target}`)
+        await ns.sleep(2_000)
         added.filter(it => it).forEach(ns.kill)
         continue
       }
@@ -206,6 +208,7 @@ export async function main(ns: NS) {
     pids.length = 0
   }
 
+  // eslint-disable-next-line unused-imports/no-unused-vars
   async function waitForHost(ramNeeds: number, snapshot: { securityExcess: number, moneyDeficit: number }): Promise<string> {
     while (true) {
       const host = hosts
@@ -228,6 +231,22 @@ export async function main(ns: NS) {
     }
   }
 
+  function hostCandidates() {
+    return hosts
+      .map(it => [it, ns.getServerMaxRam(it) - ns.getServerUsedRam(it)] as const)
+      .sort(([,A], [,B]) => B - A)
+      .map(([it]) => it)
+  }
+
+  function exec(ns: NS, script: string, hosts: string[], threadOrOptions?: number | RunOptions, ...args: ScriptArg[]): number {
+    let pid = 0
+    for (const host of hosts) {
+      pid = ns.exec(script, host, threadOrOptions, ...args)
+      if (pid > 0)
+        return pid
+    }
+    return 0
+  }
   // Every transition also gets a structured log line, alongside the plain
   // human-readable prints already scattered through the loop below —
   // `lib/hwgw/workers.ts`'s `scanHwgwOrchestrators` reads this back via
