@@ -243,15 +243,14 @@ export async function main(ns: NS) {
       )
       // const host = await waitForHost(ramNeeds, snapshot)
       const [slaves, free] = hostCandidates()
+      ns.print(`[farm] Looptime: ${formatDuration(loopTime / 1000)}, ram: ${formatRam(ramNeeds)} vs ${formatRam(free)} free`)
 
       if (free < ramNeeds) {
-        ns.print(`Not trying to launch prep for ${target}`)
+        ns.print(`Not trying to launch farm for ${target}`)
         notifyState(`${state}-ram`, snapshot)
         await ns.sleep(10_000)
         continue
       }
-
-      ns.print(`[farm] Looptime: ${formatDuration(loopTime / 1000)}, ram: ${formatRam(ramNeeds)} vs ${formatRam(free)} free`)
 
       const programs: Program[] = []
       for (let i = 0; i < loops; i++) {

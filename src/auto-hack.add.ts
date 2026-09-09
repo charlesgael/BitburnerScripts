@@ -76,7 +76,7 @@ export async function main(ns: NS) {
     return
   }
 
-  const dedicated = positional.length ? computeDedicated(ns, positional) : readConfiguredHosts(ns)
+  const dedicated = [...positional.length ? computeDedicated(ns, positional) : [], ...readConfiguredHosts(ns)]
   // if (!dedicated.length) {
   //   ns.tprint(`WARNING: No hosts given as arguments (or "cloud") and ${HWGW_HOSTS_FILE} has none configured — exiting.`)
   //   return
@@ -112,7 +112,7 @@ export async function main(ns: NS) {
     const pid = ns.run(START_SCRIPT, {
       threads: 1,
       preventDuplicates: true,
-    }, '--target', server.hostname)
+    }, '--target', server.hostname, ...positional)
 
     await ns.sleep(SLEEP_BETWEEN_LAUNCHES)
     if (pid === 0) {

@@ -348,7 +348,7 @@ function TreeRow({
           alignItems: `center`,
           gap: `6px`,
           fontWeight: isRoot ? 700 : 400,
-          marginTop: -6,
+          marginTop: -1,
         }}
       >
         {connector

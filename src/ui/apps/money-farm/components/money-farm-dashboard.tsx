@@ -78,7 +78,7 @@ export function MoneyFarmDashboard() {
   const activeTargets = targetRows.filter(t => t.mode === 'farm' || t.mode === 'done').length
 
   function addTargets() {
-    ns._exec(ADD_HACK_SCRIPT, AUTO_HACK_HOST, 1, '--number', count, ...(mf.enabled.size > 0 ? [...mf.enabled] : ['cloud']))
+    ns._exec(ADD_HACK_SCRIPT, AUTO_HACK_HOST, 1, '--number', count)
   }
 
   return (

@@ -19,6 +19,6 @@ import { gatherHwgwStatus } from '../../lib/hwgw/workers'
  * `readHwgwHosts`, so there's nothing this action needs to look up itself.
  */
 export async function hwgwStatusAction(ns: NS, hosts: unknown): Promise<HwgwStatusResult> {
-  const dedicatedHosts = Array.isArray(hosts) ? hosts.map(String) : []
+  const dedicatedHosts = Array.isArray(hosts) ? ['home', ...hosts.map(String)] : ['home']
   return gatherHwgwStatus(ns, dedicatedHosts)
 }

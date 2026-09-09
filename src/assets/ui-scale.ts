@@ -16,7 +16,7 @@
  */
 export const uiScaleStyle = `
 html {
-    zoom: 0.8;
+    zoom: 1;
 }
 
 #root {
@@ -38,6 +38,6 @@ html {
 
 div[role="tooltip"],
 .un-scale {
-    zoom: 1.2;
+    zoom: 1;
 }
 `.trim()
